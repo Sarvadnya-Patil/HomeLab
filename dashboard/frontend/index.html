@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HomeLab OS Console</title>
+  <!-- Typography Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- App Shell -->
+  <div class="app-shell">
+    
+    <!-- Left Navigation Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header" style="cursor: pointer;" title="Toggle Collapse">
+        <div class="logo">HOMELAB OS</div>
+        <span class="host-badge" id="host-ip">...</span>
+      </div>
+      
+      <nav class="sidebar-nav" id="sidebar-nav-menu">
+        <!-- Dynamically populated workspaces load here -->
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="os-version" id="host-kernel">Kernel: Detecting...</div>
+      </div>
+    </aside>
+
+    <!-- Main Viewport Dashboard Area -->
+    <main class="main-content">
+      
+      <!-- Command Bar Search (VS Code Style) -->
+      <div class="command-bar" title="Press Ctrl+K to search globally">
+        <span class="prompt-symbol">&gt;</span>
+        <input type="text" placeholder="Type command here or press Ctrl+K to search globally..." id="cmd-palette" autocomplete="off">
+      </div>
+
+      <div class="dashboard-grid">
+        
+        <!-- HEADER STATUS BAR -->
+        <header class="grid-header">
+          <div class="header-main-info">
+            <span class="os-title" id="host-name">HOMELAB OS</span>
+            <span class="os-divider">|</span>
+            <span class="os-meta" id="host-os">Detecting OS...</span>
+            <span class="os-bullet">•</span>
+            <span class="os-meta">Uptime: <span id="live-uptime">Detecting...</span></span>
+          </div>
+
+          <div class="header-status-pills" id="header-status-pills">
+            <!-- Dynamically populated status pills -->
+          </div>
+          <div class="header-time-block" style="cursor: pointer;" onclick="window.storeTriggerNotificationCenter()" title="View Notification History">
+            <div class="clock-date" id="clock-date">-- --- ----</div>
+            <div class="clock-time" id="clock-time">--:--:--</div>
+          </div>
+        </header>
+
+        <!-- WIDGET GRID VIEWPORT -->
+        <section class="widget-viewport" id="widget-grid-viewport">
+          <!-- Widgets load dynamically here (Phase 1 Grid Engine) -->
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- JavaScript App Bootstrapper Module -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
