@@ -1,0 +1,51 @@
+# Backups and logs (exclude contents, keep folder)
+backups/*
+!backups/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# Environment secrets
+.env
+*.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.vscode/
+.idea/
+
+# Dynamic Node/Python modules (for dashboard and tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+venv/
+__pycache__/
+
+# Runtime container data & config volumes (CRITICAL: Never commit database or app data!)
+services/*/data/*
+!services/*/data/.gitkeep
+services/*/data/
+
+services/*/backup/*
+!services/*/backup/.gitkeep
+services/*/backup/
+
+# Exclude sensitive credentials and keys
+services/cloudflared/config/credentials.json
+
+# TypeScript compiled outputs
+dashboard/backend/dist/
+
+# SQLite database files
+dashboard/backend/data/homelab.db
+dashboard/backend/data/homelab.db-shm
+dashboard/backend/data/homelab.db-wal
+
+
