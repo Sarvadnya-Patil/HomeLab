@@ -1,0 +1,27 @@
+{
+  "name": "homelab-core-backend",
+  "version": "3.0.0",
+  "description": "HomeLab OS Central Control Plane Engine (TypeScript)",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@fastify/static": "^7.0.4",
+    "@fastify/websocket": "^8.3.1",
+    "better-sqlite3": "^12.11.1",
+    "fastify": "^4.28.0",
+    "yaml": "^2.4.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20.12.12",
+    "tsx": "^4.16.2",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
