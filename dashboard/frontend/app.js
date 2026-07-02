@@ -15,6 +15,7 @@ import { AppTerminal } from './components/app-terminal.js';
 import { AppDesigner } from './components/app-designer.js';
 import { AppHealth } from './components/app-health.js';
 import { AppJobs } from './components/app-jobs.js';
+import { AppWorkflows } from './components/app-workflows.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Booting HomeLab OS Control Plane...');
@@ -49,6 +50,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (value === 'designer') {
       viewport.className = 'app-viewport';
       AppDesigner.init(viewport);
+    } else if (value === 'workflows') {
+      viewport.className = 'app-viewport';
+      AppWorkflows.init(viewport);
     } else if (value === 'health') {
       viewport.className = 'app-viewport';
       AppHealth.init(viewport);

@@ -10,6 +10,9 @@ import { WorkspaceService } from './services/workspace.service';
 import { CategoryService } from './services/category.service';
 import { PluginService } from './services/plugin.service';
 import { JobsService } from './services/jobs.service';
+import { AuthService } from './services/auth.service';
+import { BackupService } from './services/backup.service';
+import { WorkflowService } from './services/workflow.service';
 import { DockerClient } from '../docker/client';
 import { Logger } from '../utils/logger';
 
@@ -27,6 +30,9 @@ export class ServiceRegistry {
   public category!: CategoryService;
   public plugin!: PluginService;
   public jobs!: JobsService;
+  public auth!: AuthService;
+  public backup!: BackupService;
+  public workflow!: WorkflowService;
 
   private constructor() {}
 
@@ -59,6 +65,16 @@ export class ServiceRegistry {
     this.category = new CategoryService(adapter);
     this.plugin = new PluginService(adapter, this.category);
     this.jobs = new JobsService(adapter, this.eventBus);
+    this.auth = new AuthService(adapter);
+    this.backup = new BackupService(adapter, this.jobs);
+    this.workflow = new WorkflowService(adapter, this.eventBus, this.jobs);
+
+    // Bind automated backup signals from workflow actions
+    this.eventBus.on('trigger.backup', () => {
+      this.backup.backupDatabase().catch(err => {
+        Logger.error('ServiceRegistry', `Automated backup failed: ${err.message}`);
+      });
+    });
 
     Logger.info('ServiceRegistry', 'All runtime container services initialized successfully.');
   }

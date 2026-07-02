@@ -11,10 +11,14 @@ export class UsersRepository extends BaseRepository<User> {
     return this.db.get<User>('SELECT * FROM users WHERE id = ?', id);
   }
 
+  findByUsername(username: string): User | undefined {
+    return this.db.get<User>('SELECT * FROM users WHERE username = ?', username);
+  }
+
   create(user: Omit<User, 'createdAt' | 'updatedAt'>): User {
     this.db.run(
-      'INSERT INTO users (id, username, display_name, role, avatar) VALUES (?, ?, ?, ?, ?)',
-      user.id, user.username, user.displayName, user.role, user.avatar
+      'INSERT INTO users (id, username, password, display_name, role, avatar) VALUES (?, ?, ?, ?, ?, ?)',
+      user.id, user.username, user.password || '', user.displayName, user.role, user.avatar
     );
     return this.findById(user.id)!;
   }

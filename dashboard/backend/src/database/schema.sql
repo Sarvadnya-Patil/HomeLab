@@ -10,6 +10,7 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS users (
   id          TEXT PRIMARY KEY,
   username    TEXT NOT NULL UNIQUE,
+  password    TEXT NOT NULL DEFAULT '',
   display_name TEXT NOT NULL,
   role        TEXT NOT NULL DEFAULT 'admin',   -- admin | editor | viewer
   avatar      TEXT DEFAULT '',
@@ -169,6 +170,18 @@ CREATE TABLE IF NOT EXISTS jobs (
   error         TEXT,
   server_id     TEXT DEFAULT 'local' REFERENCES servers(id) ON DELETE SET DEFAULT,
   target_id     TEXT,
+  created_at    TEXT DEFAULT (datetime('now')),
+  updated_at    TEXT DEFAULT (datetime('now'))
+);
+
+-- 14. Workflows (Workflow automation engine definitions)
+CREATE TABLE IF NOT EXISTS workflows (
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  trigger_type  TEXT NOT NULL,
+  trigger_config TEXT NOT NULL, -- JSON config
+  actions       TEXT NOT NULL, -- JSON array of actions
+  enabled       INTEGER DEFAULT 1,
   created_at    TEXT DEFAULT (datetime('now')),
   updated_at    TEXT DEFAULT (datetime('now'))
 );

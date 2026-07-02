@@ -12,6 +12,9 @@ import healthRoutes from './v1/health';
 import pluginsRoutes from './v1/plugins';
 import searchRoutes from './v1/search';
 import designerRoutes from './v1/designer';
+import authRoutes from './v1/auth';
+import workflowsRoutes from './v1/workflows';
+import backupsRoutes from './v1/backups';
 
 export default function (fastify: any, engine: CoreEngine): void {
   // Load modular v1 routes
@@ -25,6 +28,9 @@ export default function (fastify: any, engine: CoreEngine): void {
   pluginsRoutes(fastify, engine);
   searchRoutes(fastify, engine);
   designerRoutes(fastify, engine);
+  authRoutes(fastify, engine);
+  workflowsRoutes(fastify, engine);
+  backupsRoutes(fastify, engine);
 
   // 1. GET: /api/v1/apps (Dynamic Application Registry)
   fastify.get('/api/v1/apps', async () => {
@@ -32,9 +38,10 @@ export default function (fastify: any, engine: CoreEngine): void {
       { id: 'dashboard', name: 'Dashboard', icon: 'layout', displayOrder: 0, permissions: ['admin', 'editor', 'viewer'] },
       { id: 'containers', name: 'Containers', icon: 'server', displayOrder: 1, permissions: ['admin', 'editor'] },
       { id: 'designer', name: 'Designer', icon: 'map', displayOrder: 2, permissions: ['admin', 'editor'] },
-      { id: 'health', name: 'System Health', icon: 'activity', displayOrder: 3, permissions: ['admin', 'editor', 'viewer'] },
-      { id: 'jobs', name: 'Job Center', icon: 'terminal', displayOrder: 4, permissions: ['admin', 'editor'] },
-      { id: 'settings', name: 'Settings', icon: 'settings', displayOrder: 5, permissions: ['admin'] }
+      { id: 'workflows', name: 'Automation', icon: 'activity', displayOrder: 3, permissions: ['admin', 'editor'] },
+      { id: 'health', name: 'System Health', icon: 'activity', displayOrder: 4, permissions: ['admin', 'editor', 'viewer'] },
+      { id: 'jobs', name: 'Job Center', icon: 'terminal', displayOrder: 5, permissions: ['admin', 'editor'] },
+      { id: 'settings', name: 'Settings', icon: 'settings', displayOrder: 6, permissions: ['admin'] }
     ];
   });
 

@@ -55,6 +55,9 @@ export class CoreEngine {
   public get scheduler() { return this.registry.scheduler; }
   public get db() { return this.registry.db; }
   public get jobs() { return this.registry.jobs; }
+  public get auth() { return this.registry.auth; }
+  public get backup() { return this.registry.backup; }
+  public get workflow() { return this.registry.workflow; }
 
   // Engine Lifecycle Initializer
   async init(): Promise<void> {

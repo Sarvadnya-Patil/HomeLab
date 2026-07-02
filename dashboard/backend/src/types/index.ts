@@ -13,6 +13,7 @@ export * from './enums';
 export interface User {
   id: string;
   username: string;
+  password?: string;
   displayName: string;
   role: UserRole;
   avatar: string;

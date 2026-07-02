@@ -1,6 +1,7 @@
 // Database Seeder Subsystem
 import { DatabaseAdapter } from './adapter';
 import { Logger } from '../utils/logger';
+import crypto from 'crypto';
 
 export function seedDatabase(db: DatabaseAdapter): void {
   // Check if seeder was already run
@@ -14,9 +15,10 @@ export function seedDatabase(db: DatabaseAdapter): void {
 
   db.transaction(() => {
     // 1. Insert default admin user
+    const adminPass = crypto.scryptSync('admin', 'salt123', 64).toString('hex');
     db.run(
-      `INSERT INTO users (id, username, display_name, role) VALUES (?, ?, ?, ?)`,
-      'admin', 'admin', 'Administrator', 'admin'
+      `INSERT INTO users (id, username, password, display_name, role) VALUES (?, ?, ?, ?, ?)`,
+      'admin', 'admin', adminPass, 'Administrator', 'admin'
     );
 
     // 2. Insert default local server
