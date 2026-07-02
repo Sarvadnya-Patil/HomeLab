@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+    networks:
+      - homelab-network
+    ports:
+      - "9090:9090"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      # Homepage Configuration
+      - "homepage.group=Monitoring"
+      - "homepage.name=Prometheus"
+      - "homepage.icon=prometheus.svg"
+      - "homepage.href=http://prometheus:9090"
+      - "homepage.description=Time-series telemetry database"
+
+networks:
+  homelab-network:
+    external: true

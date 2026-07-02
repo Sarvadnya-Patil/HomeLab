@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    ports:
+      - "${HOMEPAGE_PORT:-3000}:3000"
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Mount read-only to allow dashboard service discovery
+    environment:
+      - TZ=${TZ:-UTC}
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - homelab-network
+    labels:
+      - "homepage.group=Infrastructure"
+      - "homepage.name=Homepage"
+      - "homepage.icon=homepage.png"
+      - "homepage.href=http://homepage.local"
+      - "homepage.description=Central navigation landing dashboard"
+
+networks:
+  homelab-network:
+    external: true
+

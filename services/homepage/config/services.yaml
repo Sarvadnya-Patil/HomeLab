@@ -1,0 +1,13 @@
+# Static services list
+# Note: Containers discovered via Docker labels will dynamically populate or merge into these groups.
+- Infrastructure:
+    - Ubuntu Host:
+        - href: "ssh://192.168.1.100" # Replace with actual Ubuntu Server IP
+        - icon: ubuntu
+        - description: "Base OS Ubuntu Server"
+
+- Networking:
+    - Local Gateway:
+        - href: "http://192.168.1.1" # Replace with actual router IP
+        - icon: opnsense
+        - description: "OPNsense / PFSense Firewall Router"

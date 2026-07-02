@@ -1,0 +1,37 @@
+id: dozzle
+name: Dozzle
+category: Monitoring
+description: Real-time container log viewer
+version: latest
+icon: dozzle.png
+enabled: true
+autostart: true
+status: managed
+compose: docker-compose.yml
+domain:
+  public: dozzle.example.com
+  local: dozzle.local
+ports:
+  http: 9999
+volumes: []
+depends_on: []
+backup:
+  enabled: false # Dozzle is stateless
+homepage:
+  enabled: true
+portainer:
+  enabled: true
+monitoring:
+  uptime_kuma: true
+  prometheus: false
+labels:
+  docker: true
+tags:
+  - monitoring
+  - logs
+actions:
+  start: docker compose up -d
+  stop: docker compose down
+  restart: docker compose restart
+  update: docker compose pull && docker compose up -d
+  logs: docker compose logs -f

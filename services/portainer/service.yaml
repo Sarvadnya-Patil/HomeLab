@@ -1,0 +1,40 @@
+id: portainer
+name: Portainer
+category: Management
+description: Docker management interface
+version: latest
+icon: portainer.png
+enabled: true
+autostart: true
+status: managed
+compose: docker-compose.yml
+domain:
+  public: portainer.example.com
+  local: portainer.local
+ports:
+  https: 9443
+  http: 9000
+volumes:
+  - data
+  - backup
+depends_on: []
+backup:
+  enabled: true
+homepage:
+  enabled: true
+portainer:
+  enabled: true
+monitoring:
+  uptime_kuma: true
+  prometheus: false
+labels:
+  docker: true
+tags:
+  - management
+  - docker
+actions:
+  start: docker compose up -d
+  stop: docker compose down
+  restart: docker compose restart
+  update: docker compose pull && docker compose up -d
+  logs: docker compose logs -f

@@ -1,0 +1,38 @@
+# Cloudflare Tunnel Configuration
+# ==========================================
+# Replace TUNNEL_UUID with your actual tunnel UUID.
+# The credentials.json file must be placed in this folder.
+
+tunnel: YOUR_TUNNEL_UUID_HERE
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  # 1. Homepage Dashboard
+  - hostname: homepage.example.com
+    service: http://homepage:3000
+
+  # 2. Portainer CE (uses HTTPS inside container, disable local SSL verify)
+  - hostname: portainer.example.com
+    service: https://portainer:9443
+    originRequest:
+      noTLSVerify: true
+
+  # 3. Uptime Kuma
+  - hostname: uptime.example.com
+    service: http://uptime-kuma:3001
+
+  # 4. Dozzle log viewer
+  - hostname: dozzle.example.com
+    service: http://dozzle:8080
+
+  # 5. Prometheus Metrics DB (Scrape Database Engine)
+  - hostname: prometheus.example.com
+    service: http://prometheus:9090
+
+  # 6. Grafana Visualizer (Exposed Authentication Web UI)
+  - hostname: grafana.example.com
+    service: http://grafana:3000
+
+  # 7. Catch-all rule (Essential: must be the final rule)
+  - service: http_status:404
+

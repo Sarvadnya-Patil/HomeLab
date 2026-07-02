@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    volumes:
+      - ./config:/etc/cloudflared              # Mount config folder containing config.yml and credentials.json
+    environment:
+      - TZ=${TZ:-UTC}
+    command: tunnel --config /etc/cloudflared/config.yml run
+    networks:
+      - homelab-network                        # Connect to the shared Docker network to reach other containers
+    labels:
+      - "homepage.group=Networking"
+      - "homepage.name=Cloudflare Tunnel"
+      - "homepage.icon=cloudflare.png"
+      - "homepage.href=https://dash.cloudflare.com"
+      - "homepage.description=Secure reverse proxy tunnel client"
+
+networks:
+  homelab-network:
+    external: true                             # Shared network must be created manually: docker network create homelab-network

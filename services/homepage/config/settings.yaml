@@ -1,0 +1,53 @@
+# Homepage Dashboard settings
+title: HomeLab Control Center
+language: en
+theme: dark
+
+# Global Header layout settings
+headerStyle: clean
+showCpu: false # Handled by the resource widget instead
+showMemory: false
+showDisk: false
+
+# Define default layouts and columns for categories
+# If dynamic docker containers define a matching 'homepage.group', they will fall into these groups
+layout:
+  Infrastructure:
+    style: grid
+    columns: 4
+  Management:
+    style: grid
+    columns: 4
+  Automation:
+    style: grid
+    columns: 4
+  AI:
+    style: grid
+    columns: 4
+  Databases:
+    style: grid
+    columns: 4
+  Monitoring:
+    style: grid
+    columns: 4
+  Storage:
+    style: grid
+    columns: 4
+  Development:
+    style: grid
+    columns: 4
+  Networking:
+    style: grid
+    columns: 4
+  Security:
+    style: grid
+    columns: 4
+  Utilities:
+    style: grid
+    columns: 4
+
+# Central Search Bar
+search:
+  provider: duckduckgo
+  target: _blank
+  placeholder: Search services or web...

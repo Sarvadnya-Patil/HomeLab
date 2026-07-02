@@ -1,0 +1,40 @@
+id: grafana
+name: Grafana
+category: Monitoring
+description: Systems telemetry visualization and dashboards renderer.
+version: 10.4.1
+icon: grafana.png
+enabled: true
+autostart: true
+status: Online
+compose: docker-compose.yml
+domain:
+  public: grafana.example.com
+  local: http://grafana:3000
+ports:
+  http: 3003
+volumes:
+  - ./data:/var/lib/grafana
+depends_on:
+  - prometheus
+backup:
+  enabled: true
+  path: services/grafana/data
+homepage:
+  enabled: true
+portainer:
+  enabled: true
+monitoring:
+  uptime_kuma: true
+  prometheus: false
+labels:
+  docker: true
+tags:
+  - metrics
+  - visualizer
+actions:
+  start: docker compose up -d
+  stop: docker compose down
+  restart: docker compose restart
+  update: docker compose pull && docker compose up -d
+  logs: docker compose logs -f
