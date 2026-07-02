@@ -165,6 +165,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   type          TEXT NOT NULL,
   status        TEXT NOT NULL DEFAULT 'pending', -- pending | running | success | failed
   progress      INTEGER DEFAULT 0,
+  logs          TEXT DEFAULT '',
   error         TEXT,
   server_id     TEXT DEFAULT 'local' REFERENCES servers(id) ON DELETE SET DEFAULT,
   target_id     TEXT,

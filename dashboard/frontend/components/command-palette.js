@@ -167,7 +167,7 @@ export const CommandPalette = {
     });
   },
 
-  triggerAction(action) {
+  async triggerAction(action) {
     if (!action) return;
     store.set('commandPaletteOpen', false);
 
@@ -176,12 +176,38 @@ export const CommandPalette = {
     if (action.startsWith('navigate-workspace:')) {
       const wsId = action.split(':')[1];
       store.set('activeWorkspace', wsId);
+      store.set('activeApp', 'dashboard');
     } else if (action.startsWith('open-service:')) {
       const serviceId = action.split(':')[1];
-      store.emit('ui_focus_service', serviceId);
+      store.set('activeApp', 'dashboard');
+      setTimeout(() => store.emit('ui_focus_service', serviceId), 100);
     } else if (action.startsWith('focus-category:')) {
       const catId = action.split(':')[1];
-      store.emit('ui_focus_category', catId);
+      store.set('activeApp', 'dashboard');
+      setTimeout(() => store.emit('ui_focus_category', catId), 100);
+    } else if (action === 'open-settings') {
+      store.set('activeApp', 'settings');
+    } else if (action === 'open-terminal') {
+      store.set('activeApp', 'terminal');
+    } else if (action === 'open-health') {
+      store.set('activeApp', 'health');
+    } else if (action === 'open-jobs') {
+      store.set('activeApp', 'jobs');
+    } else if (action === 'open-designer') {
+      store.set('activeApp', 'designer');
+    } else if (action.startsWith('execute-command:')) {
+      const cmdPath = action.replace('execute-command:', '');
+      if (cmdPath.startsWith('run-command:service:')) {
+        const parts = cmdPath.split(':');
+        const serviceId = parts[2];
+        const actionType = parts[3];
+        try {
+          const res = await api.post(`/api/v1/services/${serviceId}/action`, { action: actionType });
+          alert(`Command executed. Background Job ID: ${res.jobId}. Monitor status in the Job Center.`);
+        } catch (err) {
+          alert(`Command execution failed: ${err.message}`);
+        }
+      }
     }
   }
 };

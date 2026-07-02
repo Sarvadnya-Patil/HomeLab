@@ -1127,3 +1127,10 @@ body {
   }
 }
 
+/* Visual Topology Designer Node Highlights */
+.designer-node.selected {
+  outline: 2px solid var(--term-green);
+  outline-offset: 2px;
+}
+
+

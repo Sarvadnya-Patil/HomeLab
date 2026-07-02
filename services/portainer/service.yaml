@@ -1,7 +1,7 @@
 id: portainer
 name: Portainer
 category: Management
-description: Docker management interface
+description: Docker container management panel
 version: latest
 icon: portainer.png
 enabled: true
@@ -12,26 +12,62 @@ domain:
   public: portainer.example.com
   local: portainer.local
 ports:
-  https: 9443
   http: 9000
+  https: 9443
 volumes:
   - data
   - backup
-depends_on: []
+
+capabilities:
+  - start
+  - stop
+  - restart
+  - logs
+  - terminal
+  - backup
+
+permissions:
+  - docker.control
+  - logs.view
+
+settings:
+  - key: host_domain
+    label: Host Public Domain
+    type: text
+    required: true
+    default: portainer.local
+    description: Public DNS or local IP domain pointing to the container instance.
+  - key: enable_ssl
+    label: Enable SSL TLS HTTPS
+    type: toggle
+    required: false
+    default: false
+    description: Force SSL termination for incoming proxy requests.
+  - key: restart_policy
+    label: Container Restart Policy
+    type: select
+    required: true
+    default: always
+    options:
+      - always
+      - unless-stopped
+      - on-failure
+    description: Docker daemon daemon recovery restart policy.
+
+commands:
+  - id: portainer.restart
+    title: Restart Portainer Panel
+    action: run-command:service:portainer:restart
+  - id: portainer.logs
+    title: View Portainer Output Logs
+    action: run-command:service:portainer:logs
+
 backup:
   enabled: true
-homepage:
-  enabled: true
-portainer:
-  enabled: true
-monitoring:
-  uptime_kuma: true
-  prometheus: false
-labels:
-  docker: true
-tags:
-  - management
-  - docker
+  command: tar -czf backups/portainer.tar.gz -C services/portainer/data .
+  exportPath: backups/portainer.tar.gz
+  retentionDays: 7
+
 actions:
   start: docker compose up -d
   stop: docker compose down

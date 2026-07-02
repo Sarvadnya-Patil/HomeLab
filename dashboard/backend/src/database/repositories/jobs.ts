@@ -20,9 +20,9 @@ export class JobsRepository extends BaseRepository<Job> {
   // 3. Create a new job record
   create(job: Omit<Job, 'createdAt' | 'updatedAt'>): Job {
     this.db.run(
-      `INSERT INTO jobs (id, type, status, progress, error, server_id, target_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      job.id, job.type, job.status, job.progress, job.error || null,
+      `INSERT INTO jobs (id, type, status, progress, logs, error, server_id, target_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      job.id, job.type, job.status, job.progress, job.logs || '', job.error || null,
       job.serverId || 'local', job.targetId || null
     );
     return this.findById(job.id)!;
@@ -65,6 +65,7 @@ export class JobsRepository extends BaseRepository<Job> {
       type: row.type,
       status: row.status as any,
       progress: row.progress,
+      logs: row.logs || '',
       error: row.error || undefined,
       serverId: row.server_id,
       targetId: row.target_id || undefined,

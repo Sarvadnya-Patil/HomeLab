@@ -20,6 +20,7 @@ export class JobsService {
       type,
       status: 'pending',
       progress: 0,
+      logs: 'Job queued.',
       serverId,
       targetId
     };
@@ -34,7 +35,6 @@ export class JobsService {
     const updated = this.repo.update(id, partial);
     if (updated) {
       this.eventBus.emit('job.updated', updated);
-      Logger.debug('JobEngine', `Job [${id}] updated: status=${updated.status}, progress=${updated.progress}%`);
     }
     return updated;
   }
@@ -49,26 +49,35 @@ export class JobsService {
     return this.repo.findById(id);
   }
 
-  // 5. Run a background promise-based job task asynchronously without blocking HTTP cycles
+  // 5. Run a background promise-based job task asynchronously with live progress logging
   async executeAsyncTask(
     type: string,
     targetId: string | undefined,
-    taskFn: (updateProgress: (prog: number) => void) => Promise<void>,
+    taskFn: (updateProgress: (prog: number, logMsg?: string) => void) => Promise<void>,
     serverId: string = 'local'
   ): Promise<Job> {
     const job = this.createJob(type, targetId, serverId);
-    this.updateJob(job.id, { status: 'running', progress: 5 });
+    this.updateJob(job.id, { status: 'running', progress: 5, logs: '[SYSTEM] Job execution started.' });
 
-    // Execute task in background thread promise
+    // Execute task in background thread
     (async () => {
       try {
-        await taskFn((prog: number) => {
-          this.updateJob(job.id, { progress: Math.min(Math.max(prog, 5), 95) });
+        await taskFn((prog: number, logMsg?: string) => {
+          const current = this.getJob(job.id);
+          let logs = current?.logs || '';
+          if (logMsg) {
+            logs = logs ? `${logs}\n[INFO] ${logMsg}` : `[INFO] ${logMsg}`;
+          }
+          this.updateJob(job.id, { progress: Math.min(Math.max(prog, 5), 95), logs });
         });
-        this.updateJob(job.id, { status: 'success', progress: 100 });
+        const finalJob = this.getJob(job.id);
+        const finalLogs = `${finalJob?.logs || ''}\n[SUCCESS] Job execution finished.`;
+        this.updateJob(job.id, { status: 'success', progress: 100, logs: finalLogs });
       } catch (err: any) {
         Logger.error('JobEngine', `Job [${job.id}] execution failed: ${err.message}`);
-        this.updateJob(job.id, { status: 'failed', error: err.message });
+        const finalJob = this.getJob(job.id);
+        const finalLogs = `${finalJob?.logs || ''}\n[ERROR] ${err.message}`;
+        this.updateJob(job.id, { status: 'failed', error: err.message, logs: finalLogs });
       }
     })();
 

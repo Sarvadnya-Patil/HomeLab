@@ -81,4 +81,40 @@ export default function (fastify: any, engine: CoreEngine): void {
     engine.broadcast({ type: 'services', data: updated });
     return { success: true };
   });
+
+  // 6. GET: /api/v1/plugins/:id/settings (Fetch dynamic schema and saved values)
+  fastify.get('/api/v1/plugins/:id/settings', async (request: any) => {
+    const { id } = request.params;
+    const cached = engine.registry.db.getAdapter().get<{ manifest: string }>(
+      'SELECT manifest FROM plugin_meta WHERE service_id = ?',
+      id
+    );
+    if (!cached) return { schema: [], values: {} };
+
+    const manifest = JSON.parse(cached.manifest);
+    const schema = manifest.settings || [];
+    
+    const values: any = {};
+    for (const field of schema) {
+      const dbKey = `plugin.${id}.${field.key}`;
+      const val = engine.settingsRepo.get(dbKey);
+      values[field.key] = val !== undefined ? val : (field.default !== undefined ? field.default : '');
+    }
+
+    return { schema, values };
+  });
+
+  // 7. PUT: /api/v1/plugins/:id/settings (Persist custom settings parameters)
+  fastify.put('/api/v1/plugins/:id/settings', async (request: any) => {
+    const { id } = request.params;
+    const body = request.body || {};
+
+    for (const key of Object.keys(body)) {
+      const dbKey = `plugin.${id}.${key}`;
+      engine.settingsRepo.set(dbKey, String(body[key]), 'plugin-settings');
+    }
+
+    engine.auditRepo.log('admin', 'update_plugin_settings', 'plugin', id, body);
+    return { success: true };
+  });
 }

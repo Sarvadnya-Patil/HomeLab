@@ -226,6 +226,7 @@ export interface Job {
   type: string;
   status: 'pending' | 'running' | 'success' | 'failed';
   progress: number;
+  logs?: string;
   error?: string;
   serverId?: string;
   targetId?: string;

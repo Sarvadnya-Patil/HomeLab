@@ -12,6 +12,9 @@ import { NotificationCenter } from './components/notification-center.js';
 import { AppContainers } from './components/app-containers.js';
 import { AppSettings } from './components/app-settings.js';
 import { AppTerminal } from './components/app-terminal.js';
+import { AppDesigner } from './components/app-designer.js';
+import { AppHealth } from './components/app-health.js';
+import { AppJobs } from './components/app-jobs.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Booting HomeLab OS Control Plane...');
@@ -27,6 +30,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 2. Register dynamic view router
   store.on('activeApp', ({ value }) => {
     console.log(`Routing active viewport application: [${value}]`);
+    
+    // Clear active polling intervals on switch
+    if (window.activeAppDestroy && typeof window.activeAppDestroy === 'function') {
+      window.activeAppDestroy();
+      window.activeAppDestroy = null;
+    }
+
     viewport.innerHTML = '';
     
     if (value === 'dashboard') {
@@ -36,6 +46,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (value === 'containers') {
       viewport.className = 'app-viewport';
       AppContainers.init(viewport);
+    } else if (value === 'designer') {
+      viewport.className = 'app-viewport';
+      AppDesigner.init(viewport);
+    } else if (value === 'health') {
+      viewport.className = 'app-viewport';
+      AppHealth.init(viewport);
+    } else if (value === 'jobs') {
+      viewport.className = 'app-viewport';
+      AppJobs.init(viewport);
+      window.activeAppDestroy = () => AppJobs.destroy();
     } else if (value === 'settings') {
       viewport.className = 'app-viewport';
       AppSettings.init(viewport);
