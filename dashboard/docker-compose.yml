@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: homelab-docker-proxy
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - CONTAINERS=1      # Allow container listing/actions
+      - IMAGES=1          # Allow image pulling/checking
+      - POST=1            # Allow start/stop/restart operations
+      - INFO=1            # Allow Docker daemon info
+    networks:
+      - homelab-network
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: homelab-dashboard
+    restart: unless-stopped
+    depends_on:
+      - docker-proxy
+    ports:
+      - "${DASHBOARD_PORT:-8081}:8081"
+    volumes:
+      - ../services:/app/services:ro
+    environment:
+      - DOCKER_PROXY_URL=http://docker-proxy:2375
+      - NODE_EXPORTER_URL=http://node-exporter:9100
+    networks:
+      - homelab-network
+    labels:
+      - "homepage.group=Management"
+      - "homepage.name=HomeLab Dashboard"
+      - "homepage.icon=dashboard.png"
+      - "homepage.href=http://dashboard.local"
+      - "homepage.description=Custom web-based HomeLab control plane dashboard"
+
+networks:
+  homelab-network:
+    external: true
+

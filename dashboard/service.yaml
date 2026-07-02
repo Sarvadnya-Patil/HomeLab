@@ -1,0 +1,38 @@
+id: dashboard
+name: HomeLab Dashboard
+category: Management
+description: Custom HomeLab orchestration control panel
+version: 0.1.0
+icon: dashboard.png
+enabled: true
+autostart: true
+status: managed
+compose: docker-compose.yml
+domain:
+  public: dashboard.example.com
+  local: dashboard.local
+ports:
+  http: 80
+volumes:
+  - frontend
+depends_on: []
+backup:
+  enabled: true
+homepage:
+  enabled: true
+portainer:
+  enabled: true
+monitoring:
+  uptime_kuma: true
+  prometheus: false
+labels:
+  docker: true
+tags:
+  - management
+  - dashboard
+actions:
+  start: docker compose up -d
+  stop: docker compose down
+  restart: docker compose restart
+  update: docker compose pull && docker compose up -d
+  logs: docker compose logs -f
