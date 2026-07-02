@@ -54,6 +54,7 @@ export class CoreEngine {
   public get notifier() { return this.registry.notification; }
   public get scheduler() { return this.registry.scheduler; }
   public get db() { return this.registry.db; }
+  public get jobs() { return this.registry.jobs; }
 
   // Engine Lifecycle Initializer
   async init(): Promise<void> {
@@ -79,6 +80,11 @@ export class CoreEngine {
     // Initial metrics compilation tick
     await this.metrics.collect();
     this.notifier.notify('System', 'Modular control plane active.', 'info');
+
+    // Route background job events to websocket streams
+    this.registry.eventBus.on('job.updated', (job) => {
+      this.broadcast({ type: 'job.updated', data: job });
+    });
 
     // Scrape hardware metrics every 3 seconds, push socket broadcasts, and record history logs
     this.scheduler.schedule('metrics-collector', 3000, async () => {

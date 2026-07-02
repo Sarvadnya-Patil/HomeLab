@@ -9,6 +9,8 @@ import { NotificationService } from './services/notification.service';
 import { WorkspaceService } from './services/workspace.service';
 import { CategoryService } from './services/category.service';
 import { PluginService } from './services/plugin.service';
+import { JobsService } from './services/jobs.service';
+import { DockerClient } from '../docker/client';
 import { Logger } from '../utils/logger';
 
 export class ServiceRegistry {
@@ -24,6 +26,7 @@ export class ServiceRegistry {
   public workspace!: WorkspaceService;
   public category!: CategoryService;
   public plugin!: PluginService;
+  public jobs!: JobsService;
 
   private constructor() {}
 
@@ -45,13 +48,17 @@ export class ServiceRegistry {
 
     const adapter = this.db.getAdapter();
 
+    const proxyUrl = process.env.DOCKER_PROXY_URL || 'http://docker-proxy:2375';
+    const containerProvider = new DockerClient(proxyUrl);
+
     this.config = new ConfigService(adapter);
-    this.docker = new DockerService(adapter);
+    this.docker = new DockerService(containerProvider, adapter);
     this.metrics = new MetricsService(adapter, this.docker);
     this.notification = new NotificationService(adapter, this.eventBus);
     this.workspace = new WorkspaceService(adapter);
     this.category = new CategoryService(adapter);
     this.plugin = new PluginService(adapter, this.category);
+    this.jobs = new JobsService(adapter, this.eventBus);
 
     Logger.info('ServiceRegistry', 'All runtime container services initialized successfully.');
   }

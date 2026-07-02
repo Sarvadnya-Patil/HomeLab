@@ -1,5 +1,5 @@
 -- ============================================
--- HomeLab OS Database Schema v4.0 (SQLite DDL)
+-- HomeLab OS Database Schema v5.0 (SQLite DDL)
 -- ============================================
 
 -- Enable write-ahead logging and foreign keys
@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS servers (
 -- 3. Workspaces (Top level dashboard views)
 CREATE TABLE IF NOT EXISTS workspaces (
   id            TEXT PRIMARY KEY,
+  server_id     TEXT DEFAULT 'local' REFERENCES servers(id) ON DELETE SET DEFAULT,
   name          TEXT NOT NULL,
   icon          TEXT DEFAULT 'grid',
   description   TEXT DEFAULT '',
@@ -49,6 +50,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
 CREATE TABLE IF NOT EXISTS categories (
   id            TEXT PRIMARY KEY,
   workspace_id  TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  server_id     TEXT DEFAULT 'local' REFERENCES servers(id) ON DELETE SET DEFAULT,
   name          TEXT NOT NULL,
   icon          TEXT DEFAULT 'folder',
   description   TEXT DEFAULT '',
@@ -64,6 +66,7 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE TABLE IF NOT EXISTS widgets (
   id            TEXT NOT NULL,
   workspace_id  TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  server_id     TEXT DEFAULT 'local' REFERENCES servers(id) ON DELETE SET DEFAULT,
   type          TEXT NOT NULL,
   title         TEXT DEFAULT '',
   size          TEXT DEFAULT '1x1',
@@ -105,6 +108,7 @@ CREATE TABLE IF NOT EXISTS service_cache (
 -- 8. Notifications (Centralized system logs & notifications center)
 CREATE TABLE IF NOT EXISTS notifications (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  server_id   TEXT DEFAULT 'local' REFERENCES servers(id) ON DELETE SET DEFAULT,
   origin      TEXT NOT NULL,
   message     TEXT NOT NULL,
   level       TEXT DEFAULT 'info',
@@ -117,12 +121,14 @@ CREATE TABLE IF NOT EXISTS settings (
   key         TEXT PRIMARY KEY,
   value       TEXT NOT NULL,
   group_name  TEXT DEFAULT 'general',
+  server_id   TEXT DEFAULT 'local' REFERENCES servers(id) ON DELETE SET DEFAULT,
   updated_at  TEXT DEFAULT (datetime('now'))
 );
 
 -- 10. Audit Log (Auditing logs for CRUD actions)
 CREATE TABLE IF NOT EXISTS audit_log (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  server_id   TEXT DEFAULT 'local' REFERENCES servers(id) ON DELETE SET DEFAULT,
   user_id     TEXT DEFAULT 'system' REFERENCES users(id) ON DELETE SET DEFAULT,
   action      TEXT NOT NULL,
   entity_type TEXT NOT NULL,
@@ -134,11 +140,36 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 -- 11. Plugin Metadata (Auto-discovered service.yaml YAML manifests cache)
 CREATE TABLE IF NOT EXISTS plugin_meta (
-  service_id  TEXT PRIMARY KEY,
-  manifest    TEXT NOT NULL,             -- JSON string of normalized manifest spec
-  checksum    TEXT DEFAULT '',
+  service_id    TEXT PRIMARY KEY,
+  server_id     TEXT DEFAULT 'local' REFERENCES servers(id) ON DELETE SET DEFAULT,
+  manifest      TEXT NOT NULL,             -- JSON string of normalized manifest spec
+  checksum      TEXT DEFAULT '',
   discovered_at TEXT DEFAULT (datetime('now')),
-  updated_at  TEXT DEFAULT (datetime('now'))
+  updated_at    TEXT DEFAULT (datetime('now'))
+);
+
+-- 12. Metrics History (historical telemetry logs)
+CREATE TABLE IF NOT EXISTS metrics_history (
+  timestamp           TEXT PRIMARY KEY,
+  server_id           TEXT DEFAULT 'local' REFERENCES servers(id) ON DELETE SET DEFAULT,
+  cpu_percent         REAL,
+  ram_percent         REAL,
+  disk_percent        REAL,
+  gpu_percent         REAL DEFAULT 0.0,
+  created_at          TEXT DEFAULT (datetime('now'))
+);
+
+-- 13. Jobs (Asynchronous operational logs)
+CREATE TABLE IF NOT EXISTS jobs (
+  id            TEXT PRIMARY KEY,
+  type          TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'pending', -- pending | running | success | failed
+  progress      INTEGER DEFAULT 0,
+  error         TEXT,
+  server_id     TEXT DEFAULT 'local' REFERENCES servers(id) ON DELETE SET DEFAULT,
+  target_id     TEXT,
+  created_at    TEXT DEFAULT (datetime('now')),
+  updated_at    TEXT DEFAULT (datetime('now'))
 );
 
 -- ============================================
@@ -150,15 +181,6 @@ CREATE INDEX IF NOT EXISTS idx_notifications_level ON notifications(level);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_service_cache_server ON service_cache(server_id);
-
--- 12. Metrics History (historical telemetry logs)
-CREATE TABLE IF NOT EXISTS metrics_history (
-  timestamp           TEXT PRIMARY KEY,
-  cpu_percent         REAL,
-  ram_percent         REAL,
-  disk_percent        REAL,
-  gpu_percent         REAL DEFAULT 0.0,
-  created_at          TEXT DEFAULT (datetime('now'))
-);
-
 CREATE INDEX IF NOT EXISTS idx_metrics_history_time ON metrics_history(created_at);
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+CREATE INDEX IF NOT EXISTS idx_jobs_server ON jobs(server_id);

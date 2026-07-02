@@ -20,7 +20,17 @@ export const widgetRegistry = {
 };
 
 export function getWidget(type) {
-  return widgetRegistry[type];
+  const widget = widgetRegistry[type];
+  if (!widget) return null;
+
+  return {
+    initialize: () => {},
+    subscribe: () => {},
+    unsubscribe: () => {},
+    resize: () => {},
+    destroy: () => {},
+    ...widget
+  };
 }
 
 export default widgetRegistry;

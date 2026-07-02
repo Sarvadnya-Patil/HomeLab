@@ -220,3 +220,15 @@ export interface ServiceTemplate {
 }
 
 export type SystemStats = SystemMetrics;
+
+export interface Job {
+  id: string;
+  type: string;
+  status: 'pending' | 'running' | 'success' | 'failed';
+  progress: number;
+  error?: string;
+  serverId?: string;
+  targetId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}

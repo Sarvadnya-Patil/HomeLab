@@ -1,0 +1,78 @@
+// Asynchronous Job Execution Engine Service
+import { EventEmitter } from 'events';
+import { DatabaseAdapter } from '../../database/adapter';
+import { JobsRepository } from '../../database/repositories/jobs';
+import { Job } from '../../types';
+import { Logger } from '../../utils/logger';
+import { randomUUID } from 'crypto';
+
+export class JobsService {
+  private repo: JobsRepository;
+
+  constructor(db: DatabaseAdapter, private eventBus: EventEmitter) {
+    this.repo = new JobsRepository(db);
+  }
+
+  // 1. Create a new persistent job
+  createJob(type: string, targetId?: string, serverId: string = 'local'): Job {
+    const job: Omit<Job, 'createdAt' | 'updatedAt'> = {
+      id: randomUUID(),
+      type,
+      status: 'pending',
+      progress: 0,
+      serverId,
+      targetId
+    };
+    const created = this.repo.create(job);
+    this.eventBus.emit('job.updated', created);
+    Logger.debug('JobEngine', `Job [${created.id}] created: type=${type}, target=${targetId}`);
+    return created;
+  }
+
+  // 2. Update job properties and emit event updates
+  updateJob(id: string, partial: Partial<Omit<Job, 'id' | 'createdAt' | 'updatedAt'>>): Job | undefined {
+    const updated = this.repo.update(id, partial);
+    if (updated) {
+      this.eventBus.emit('job.updated', updated);
+      Logger.debug('JobEngine', `Job [${id}] updated: status=${updated.status}, progress=${updated.progress}%`);
+    }
+    return updated;
+  }
+
+  // 3. Fetch jobs logs
+  getJobs(limit: number = 50): Job[] {
+    return this.repo.findAll(limit);
+  }
+
+  // 4. Retrieve single job
+  getJob(id: string): Job | undefined {
+    return this.repo.findById(id);
+  }
+
+  // 5. Run a background promise-based job task asynchronously without blocking HTTP cycles
+  async executeAsyncTask(
+    type: string,
+    targetId: string | undefined,
+    taskFn: (updateProgress: (prog: number) => void) => Promise<void>,
+    serverId: string = 'local'
+  ): Promise<Job> {
+    const job = this.createJob(type, targetId, serverId);
+    this.updateJob(job.id, { status: 'running', progress: 5 });
+
+    // Execute task in background thread promise
+    (async () => {
+      try {
+        await taskFn((prog: number) => {
+          this.updateJob(job.id, { progress: Math.min(Math.max(prog, 5), 95) });
+        });
+        this.updateJob(job.id, { status: 'success', progress: 100 });
+      } catch (err: any) {
+        Logger.error('JobEngine', `Job [${job.id}] execution failed: ${err.message}`);
+        this.updateJob(job.id, { status: 'failed', error: err.message });
+      }
+    })();
+
+    return job;
+  }
+}
+export default JobsService;

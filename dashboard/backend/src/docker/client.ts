@@ -2,8 +2,9 @@
 import { decodeDockerStream } from '../utils/decoder';
 import { Logger } from '../utils/logger';
 import { DockerContainer } from '../types';
+import { ContainerProvider } from '../core/container/provider';
 
-export class DockerClient {
+export class DockerClient implements ContainerProvider {
   private proxyUrl: string;
 
   constructor(proxyUrl: string = 'http://docker-proxy:2375') {

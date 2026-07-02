@@ -1,16 +1,13 @@
 // Docker service wrapper subsystem running container, image, and network API streams
 import { DatabaseAdapter } from '../../database/adapter';
 import { AuditRepository } from '../../database/repositories/audit';
-import { DockerClient } from '../../docker/client';
+import { ContainerProvider } from '../container/provider';
 import { DockerContainer } from '../../types';
 
 export class DockerService {
-  private client: DockerClient;
   private auditRepo: AuditRepository;
 
-  constructor(db: DatabaseAdapter) {
-    const proxyUrl = process.env.DOCKER_PROXY_URL || 'http://docker-proxy:2375';
-    this.client = new DockerClient(proxyUrl);
+  constructor(private client: ContainerProvider, db: DatabaseAdapter) {
     this.auditRepo = new AuditRepository(db);
   }
 
