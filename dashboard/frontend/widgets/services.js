@@ -356,11 +356,8 @@ export default {
   },
 
   triggerOSAction(action) {
-    fetch('/api/v1/terminal', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: action === 'restart-docker' ? 'sudo systemctl restart docker' : 'sudo reboot' })
-    });
+    api.post('/api/v1/terminal', { command: action === 'restart-docker' ? 'sudo systemctl restart docker' : 'sudo reboot' })
+      .catch(err => alert(`Action failed: ${err.message}`));
   },
 
   destroy(container) { }

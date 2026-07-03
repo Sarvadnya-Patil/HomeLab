@@ -5,7 +5,7 @@ import { MetricsService } from './metrics.service';
 import { CronScheduler } from '../../scheduler/cron';
 import { PluginService } from './plugin.service';
 import { CategoryService } from './category.service';
-import { PluginMetadata } from '../../types';
+import { PluginMetadata, SystemStats } from '../../types';
 import { Logger } from '../../utils/logger';
 
 export class InfrastructureService {
@@ -182,12 +182,28 @@ export class InfrastructureService {
     return this.docker;
   }
 
-  getMetrics() {
+  getMetrics(): SystemStats | null {
     return this.metrics.getLatestMetrics();
   }
 
   getScheduler() {
     return this.scheduler;
+  }
+
+  async getContainers(): Promise<any[]> {
+    return this.docker.getContainers();
+  }
+
+  async getImages(): Promise<any[]> {
+    return this.docker.getImages();
+  }
+
+  async getVolumes(): Promise<any[]> {
+    return this.docker.getVolumes();
+  }
+
+  async getNetworks(): Promise<any[]> {
+    return this.docker.getNetworks();
   }
 
   async getEnrichedServices(): Promise<PluginMetadata[]> {
@@ -234,6 +250,51 @@ export class InfrastructureService {
       }
 
       return serviceCopy;
+    });
+  }
+
+  async getAutomationPlatforms(platformsTemplate: Record<string, any>): Promise<any[]> {
+    let dockerContainers: any[] = [];
+    try {
+      dockerContainers = await this.getContainers();
+    } catch {
+      // Gracefully fall back to empty containers list
+    }
+
+    const enrichedServices = await this.getEnrichedServices().catch(() => []);
+
+    return Object.keys(platformsTemplate).map((id) => {
+      const platform = platformsTemplate[id];
+      const service = enrichedServices.find((s) => s.id === id);
+      const container = dockerContainers.find((c) =>
+        c.Names.some((n: string) => n === `/${id}` || n.endsWith(`-${id}`))
+      );
+
+      let status = 'not_installed';
+      let running = false;
+      let containerId = null;
+
+      if (service && service.status !== 'Not Installed' && service.status !== 'Unknown') {
+        status = 'installed';
+        if (service.status === 'Active') {
+          running = true;
+        }
+        containerId = service.containerId || null;
+      } else if (container) {
+        status = 'installed';
+        running = container.State === 'running';
+        containerId = container.Id;
+      }
+
+      return {
+        id,
+        name: platform.name,
+        description: platform.description,
+        port: platform.port,
+        status,
+        running,
+        containerId
+      };
     });
   }
 }
