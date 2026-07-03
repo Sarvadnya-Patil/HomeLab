@@ -27,6 +27,8 @@ services:
       - "${DASHBOARD_PORT:-8081}:8081"
     volumes:
       - ../services:/app/services:ro
+    env_file:
+      - ./backend/.env
     environment:
       - DOCKER_PROXY_URL=http://docker-proxy:2375
       - NODE_EXPORTER_URL=http://node-exporter:9100
