@@ -221,9 +221,62 @@ export class InfrastructureService {
     return this.docker.getNetworks();
   }
 
+  parseCloudflareIngressConfig(): Record<string, string> {
+    const map: Record<string, string> = {};
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const locations = [
+        path.join(process.cwd(), '..', 'services', 'cloudflared', 'config', 'config.yml'),
+        path.join(process.cwd(), '..', 'services', 'cloudflared', 'config', 'config.yaml'),
+        '/etc/cloudflared/config.yml',
+        '/etc/cloudflared/config.yaml'
+      ];
+      
+      let fileContent = '';
+      for (const loc of locations) {
+        if (fs.existsSync(loc)) {
+          fileContent = fs.readFileSync(loc, 'utf8');
+          break;
+        }
+      }
+      
+      if (!fileContent) return map;
+      
+      const lines = fileContent.split('\n');
+      let currentHostname = '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('#') || !trimmed) continue;
+        
+        if (trimmed.startsWith('- hostname:') || trimmed.startsWith('hostname:')) {
+          const parts = trimmed.split(':');
+          if (parts.length >= 2) {
+            currentHostname = parts.slice(1).join(':').trim();
+          }
+        } else if (trimmed.startsWith('service:')) {
+          const parts = trimmed.split(':');
+          if (parts.length >= 2 && currentHostname) {
+            const serviceVal = parts.slice(1).join(':').trim();
+            const urlMatch = serviceVal.match(/https?:\/\/([^:/\s]+)/);
+            if (urlMatch && urlMatch[1]) {
+              const serviceHost = urlMatch[1].toLowerCase();
+              map[serviceHost] = currentHostname;
+            }
+            currentHostname = '';
+          }
+        }
+      }
+    } catch (err) {
+      // Fallback silently
+    }
+    return map;
+  }
+
   async getEnrichedServices(): Promise<PluginMetadata[]> {
     const services = this.plugin.discover();
     const overrides: Record<string, string> = this.category.getOverrides();
+    const ingressMap = this.parseCloudflareIngressConfig();
     let dockerContainers: any[] = [];
     let dockerOnline = true;
 
@@ -239,6 +292,15 @@ export class InfrastructureService {
       const serviceCopy = { ...service };
       if (overrides[serviceCopy.id]) {
         serviceCopy.category = overrides[serviceCopy.id];
+      }
+
+      // Apply dynamic ingress config.yml URL mapping if available
+      const mappedPublicDomain = ingressMap[serviceCopy.id.toLowerCase()] || ingressMap[serviceCopy.name.toLowerCase()];
+      if (mappedPublicDomain) {
+        if (!serviceCopy.domain) serviceCopy.domain = {} as any;
+        serviceCopy.domain.public = mappedPublicDomain;
+        if (!serviceCopy.permissions) serviceCopy.permissions = {} as any;
+        serviceCopy.permissions.tunnelExposed = true;
       }
 
       const match = dockerContainers.find((c) =>
@@ -281,7 +343,7 @@ export class InfrastructureService {
       // Apply category overrides to synthesized docker containers too!
       const category = overrides[name] || 'Containers';
 
-      serviceList.push({
+      const serviceCopy = {
         id: name,
         name: name,
         category: category,
@@ -298,7 +360,16 @@ export class InfrastructureService {
           uptime: c.Status,
           lastCheck: 'Just now'
         }
-      } as any);
+      } as any;
+
+      // Apply dynamic ingress config.yml URL mapping if available
+      const mappedPublicDomain = ingressMap[name.toLowerCase()];
+      if (mappedPublicDomain) {
+        serviceCopy.domain = { public: mappedPublicDomain };
+        serviceCopy.permissions = { tunnelExposed: true } as any;
+      }
+
+      serviceList.push(serviceCopy);
     });
 
     return serviceList;
