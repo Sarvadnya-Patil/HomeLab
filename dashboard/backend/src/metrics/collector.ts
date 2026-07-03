@@ -30,7 +30,7 @@ export class MetricsCollector {
 
     // Set initial real host specs using Node's built-in OS library
     this.cachedStats = {
-      hostname: os.hostname(),
+      hostname: this._resolveHostname(),
       kernel: `${os.type()} ${os.release()}`,
       osName: this._getOSName(),
       ipAddress: this._getIpAddress(),
@@ -245,5 +245,20 @@ export class MetricsCollector {
       }
     }
     return metrics;
+  }
+
+  private _resolveHostname(): string {
+    const envHost = process.env.SERVER_HOSTNAME || process.env.HOST_HOSTNAME;
+    if (envHost) return envHost;
+
+    const sysHost = os.hostname();
+    if (/^[0-9a-fA-F]{12}$/.test(sysHost)) {
+      return 'homelab-host';
+    }
+    return sysHost;
+  }
+
+  setHostname(name: string): void {
+    this.cachedStats.hostname = name;
   }
 }

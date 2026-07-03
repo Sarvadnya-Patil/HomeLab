@@ -80,10 +80,15 @@ export const AppSettings = {
 
     if (this.activeTab === 'general') {
       const appName = this.settingsCache['app.name']?.value || 'HomeLab OS';
+      const serverHostname = this.settingsCache['server.hostname']?.value || '';
       formEl.innerHTML = `
         <div class="detail-item">
           <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: bold;">App Name Title</label>
           <input type="text" id="set-app-name" value="${appName}" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.5rem; color: var(--text-primary); font-family: inherit; font-size: 0.75rem; width: 100%;">
+        </div>
+        <div class="detail-item" style="margin-top: 1rem;">
+          <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: bold;">Server Hostname</label>
+          <input type="text" id="set-server-hostname" value="${serverHostname}" placeholder="e.g. homelab-host (Leave blank to use system hostname)" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.5rem; color: var(--text-primary); font-family: inherit; font-size: 0.75rem; width: 100%;">
         </div>
         <button class="btn btn-panel btn-open" id="btn-save-settings" style="margin-top: 1rem; width: 100px;">Save Settings</button>
       `;
@@ -258,7 +263,9 @@ export const AppSettings = {
     const payload = {};
     if (this.activeTab === 'general') {
       const name = this.container.querySelector('#set-app-name').value.trim();
+      const hostname = this.container.querySelector('#set-server-hostname').value.trim();
       payload['app.name'] = { value: name, groupName: 'general' };
+      payload['server.hostname'] = { value: hostname, groupName: 'general' };
     } else if (this.activeTab === 'appearance') {
       const width = this.container.querySelector('#set-sidebar-width').value.trim();
       payload['ui.sidebar_width'] = { value: width, groupName: 'appearance' };
