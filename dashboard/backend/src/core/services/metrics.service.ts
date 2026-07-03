@@ -9,7 +9,7 @@ export class MetricsService {
   private repo: MetricsRepository;
 
   constructor(
-    db: DatabaseAdapter,
+    private db: DatabaseAdapter,
     private docker: DockerService
   ) {
     const nodeExporterUrl = process.env.NODE_EXPORTER_URL || 'http://node-exporter:9100';
@@ -19,6 +19,15 @@ export class MetricsService {
 
   // 1. Scrape system resources utilization merged with container counters
   async collect(): Promise<any> {
+    try {
+      const row = this.db.get<any>('SELECT value FROM settings WHERE key = ?', 'server.hostname');
+      if (row && row.value) {
+        this.collector.setHostname(row.value);
+      }
+    } catch {
+      // Ignore settings lookup failures
+    }
+
     const containers = await this.docker.getContainers().catch(() => []);
     // Reconcile with collector format
     return this.collector.collect({ getContainers: () => Promise.resolve(containers) } as any);

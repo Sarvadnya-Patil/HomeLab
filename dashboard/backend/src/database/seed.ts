@@ -261,6 +261,7 @@ export function seedDatabase(db: DatabaseAdapter): void {
     // 6. Insert default settings
     const settings = [
       { key: 'app.name', value: 'HomeLab OS', group_name: 'general' },
+      { key: 'server.hostname', value: '', group_name: 'general' },
       { key: 'docker.proxy_url', value: 'http://docker-proxy:2375', group_name: 'docker' },
       { key: 'metrics.interval', value: '3000', group_name: 'metrics' },
       { key: 'ui.sidebar_width', value: '220', group_name: 'appearance' }

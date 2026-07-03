@@ -92,12 +92,22 @@
           <label for="setup-display-name" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">DISPLAY NAME</label>
           <input type="text" id="setup-display-name" placeholder="Administrator" required autocomplete="off" style="width: 100%; padding: 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
         </div>
-        <div class="form-group" style="margin-bottom: 1.5rem; text-align: left;">
+        <div class="form-group" style="margin-bottom: 1rem; text-align: left;">
           <label for="setup-password" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">PASSWORD</label>
-          <input type="password" id="setup-password" placeholder="••••••••" required style="width: 100%; padding: 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
+          <div style="position: relative; display: flex; align-items: center;">
+            <input type="password" id="setup-password" placeholder="••••••••" required style="width: 100%; padding: 0.6rem 3rem 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
+            <button type="button" class="password-toggle-btn" data-target="setup-password" style="position: absolute; right: 0.6rem; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.75rem; outline: none; font-family: var(--font-mono); user-select: none;">SHOW</button>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 1.5rem; text-align: left;">
+          <label for="setup-confirm-password" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">CONFIRM PASSWORD</label>
+          <div style="position: relative; display: flex; align-items: center;">
+            <input type="password" id="setup-confirm-password" placeholder="Re-enter password" required style="width: 100%; padding: 0.6rem 3rem 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
+            <button type="button" class="password-toggle-btn" data-target="setup-confirm-password" style="position: absolute; right: 0.6rem; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.75rem; outline: none; font-family: var(--font-mono); user-select: none;">SHOW</button>
+          </div>
         </div>
         <div class="form-error" id="setup-error" style="color: #ef4444; font-size: 0.75rem; margin-bottom: 1rem; text-align: left; display: none;"></div>
-        <button type="submit" class="btn-primary" style="width: 100%; padding: 0.75rem; background: var(--text-primary); color: var(--bg-shell); border: none; font-weight: 600; border-radius: 4px; cursor: pointer; font-family: var(--font-sans);">Initialize Credentials</button>
+        <button type="submit" id="btn-setup-submit" class="btn-primary" disabled style="width: 100%; padding: 0.75rem; background: var(--border-slate); color: var(--bg-shell); border: none; font-weight: 600; border-radius: 4px; cursor: not-allowed; font-family: var(--font-sans);">Initialize Credentials</button>
       </form>
     </div>
   </div>
