@@ -9,7 +9,7 @@
     "start": "node dist/server.js",
     "lint": "eslint \"src/**/*.ts\"",
     "format": "prettier --write \"src/**/*.ts\"",
-    "test": "tsx --test \"src/tests/**/*.test.ts\"",
+    "test": "tsx --test src/tests/*.test.ts",
     "generate:licenses": "node ../../scripts/generate_licenses.js"
   },
   "dependencies": {
