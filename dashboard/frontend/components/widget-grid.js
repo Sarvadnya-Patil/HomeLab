@@ -46,6 +46,15 @@ export const WidgetGrid = {
       });
     });
 
+    // Listen to categories and update matching widget modules
+    store.on('categories', ({ value }) => {
+      this.activeWidgets.forEach(item => {
+        if (item.widgetObj.wsEvents.includes('categories')) {
+          item.widgetObj.update(item.wrapperEl, value);
+        }
+      });
+    });
+
     // Intercept logs focus requests
     store.on('ui_logs_focus', ({ value }) => {
       const termWidget = this.activeWidgets.find(w => w.id === 'w-terminal' || w.widgetObj.id === 'terminal');
