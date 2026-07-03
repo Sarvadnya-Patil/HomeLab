@@ -17,7 +17,9 @@ export class SettingsRepository {
   }
 
   findByGroup(groupName: string): SettingItem[] {
-    return this.db.all<any>('SELECT * FROM settings WHERE group_name = ? ORDER BY key ASC', groupName).map(this._mapRow);
+    return this.db
+      .all<any>('SELECT * FROM settings WHERE group_name = ? ORDER BY key ASC', groupName)
+      .map(this._mapRow);
   }
 
   get(key: string): string | undefined {
@@ -30,7 +32,9 @@ export class SettingsRepository {
       `INSERT INTO settings (key, value, group_name, updated_at) 
        VALUES (?, ?, ?, datetime('now'))
        ON CONFLICT(key) DO UPDATE SET value = excluded.value, group_name = excluded.group_name, updated_at = datetime('now')`,
-      key, value, groupName
+      key,
+      value,
+      groupName
     );
     Logger.debug('SettingsRepository', `Settings key updated: ${key} -> ${value}`);
   }

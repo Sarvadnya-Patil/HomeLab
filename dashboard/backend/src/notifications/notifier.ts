@@ -26,7 +26,7 @@ export class Notifier {
   notify(origin: string, message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
     const time = new Date().toLocaleTimeString('en-US', { hour12: false });
     const alert: AlertEvent = { time, origin, message, level };
-    
+
     this.alertsQueue.unshift(alert);
     if (this.alertsQueue.length > this.maxAlerts) {
       this.alertsQueue.pop();

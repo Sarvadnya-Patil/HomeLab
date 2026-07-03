@@ -8,7 +8,12 @@ export class WidgetsRepository extends BaseRepository<Widget> {
   }
 
   findByWorkspace(workspaceId: string): Widget[] {
-    return this.db.all<any>('SELECT * FROM widgets WHERE workspace_id = ? ORDER BY display_order ASC', workspaceId).map(this._mapRow);
+    return this.db
+      .all<any>(
+        'SELECT * FROM widgets WHERE workspace_id = ? ORDER BY display_order ASC',
+        workspaceId
+      )
+      .map(this._mapRow);
   }
 
   // Composite primary key: (id, workspaceId)
@@ -19,7 +24,11 @@ export class WidgetsRepository extends BaseRepository<Widget> {
   }
 
   findByIdAndWorkspace(id: string, workspaceId: string): Widget | undefined {
-    const row = this.db.get<any>('SELECT * FROM widgets WHERE id = ? AND workspace_id = ?', id, workspaceId);
+    const row = this.db.get<any>(
+      'SELECT * FROM widgets WHERE id = ? AND workspace_id = ?',
+      id,
+      workspaceId
+    );
     return row ? this._mapRow(row) : undefined;
   }
 
@@ -27,9 +36,16 @@ export class WidgetsRepository extends BaseRepository<Widget> {
     this.db.run(
       `INSERT INTO widgets (id, workspace_id, type, title, size, col, row, display_order, pinned, visible, config) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      widget.id, widget.workspaceId, widget.type, widget.title || '',
-      widget.size || '1x1', widget.col || 0, widget.row || 0, widget.displayOrder,
-      widget.pinned ? 1 : 0, widget.visible ? 1 : 0,
+      widget.id,
+      widget.workspaceId,
+      widget.type,
+      widget.title || '',
+      widget.size || '1x1',
+      widget.col || 0,
+      widget.row || 0,
+      widget.displayOrder,
+      widget.pinned ? 1 : 0,
+      widget.visible ? 1 : 0,
       JSON.stringify(widget.config || {})
     );
     return this.findByIdAndWorkspace(widget.id, widget.workspaceId)!;
@@ -41,7 +57,9 @@ export class WidgetsRepository extends BaseRepository<Widget> {
   }
 
   updateInWorkspace(id: string, workspaceId: string, partial: Partial<Widget>): Widget | undefined {
-    const fields = Object.keys(partial).filter(k => k !== 'id' && k !== 'workspaceId' && k !== 'createdAt' && k !== 'updatedAt');
+    const fields = Object.keys(partial).filter(
+      (k) => k !== 'id' && k !== 'workspaceId' && k !== 'createdAt' && k !== 'updatedAt'
+    );
     if (fields.length === 0) return this.findByIdAndWorkspace(id, workspaceId);
 
     const sets: string[] = [];
@@ -62,7 +80,9 @@ export class WidgetsRepository extends BaseRepository<Widget> {
 
     this.db.run(
       `UPDATE widgets SET ${sets.join(', ')}, updated_at = datetime('now') WHERE id = ? AND workspace_id = ?`,
-      ...values, id, workspaceId
+      ...values,
+      id,
+      workspaceId
     );
     return this.findByIdAndWorkspace(id, workspaceId);
   }
@@ -73,7 +93,11 @@ export class WidgetsRepository extends BaseRepository<Widget> {
   }
 
   deleteFromWorkspace(id: string, workspaceId: string): boolean {
-    const res = this.db.run('DELETE FROM widgets WHERE id = ? AND workspace_id = ?', id, workspaceId);
+    const res = this.db.run(
+      'DELETE FROM widgets WHERE id = ? AND workspace_id = ?',
+      id,
+      workspaceId
+    );
     return res.changes > 0;
   }
 
@@ -87,8 +111,15 @@ export class WidgetsRepository extends BaseRepository<Widget> {
         this.db.run(
           `UPDATE widgets SET size = ?, col = ?, row = ?, display_order = ?, pinned = ?, visible = ?, config = ?, updated_at = datetime('now')
            WHERE id = ? AND workspace_id = ?`,
-          w.size, w.col, w.row, w.displayOrder, w.pinned ? 1 : 0, w.visible ? 1 : 0,
-          JSON.stringify(w.config || {}), w.id, workspaceId
+          w.size,
+          w.col,
+          w.row,
+          w.displayOrder,
+          w.pinned ? 1 : 0,
+          w.visible ? 1 : 0,
+          JSON.stringify(w.config || {}),
+          w.id,
+          workspaceId
         );
       }
     });

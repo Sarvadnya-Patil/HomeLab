@@ -4,20 +4,21 @@ A scalable, modular, self-hosted infrastructure control plane developed for hete
 
 ## Repository Structure
 
-- [dashboard/](file:///D:/My_Projects/HomeLab/dashboard/) - HomeLab OS administration interface (Frontend/Backend).
-- [services/](file:///D:/My_Projects/HomeLab/services/) - Discovered plugin manifest directories and docker-compose configurations.
-- [configs/](file:///D:/My_Projects/HomeLab/configs/) - Shared application configuration files, certificates, and proxy variables.
-- [templates/](file:///D:/My_Projects/HomeLab/templates/) - Docker Compose template definitions.
-- [scripts/](file:///D:/My_Projects/HomeLab/scripts/) - Deployment, backup, update, and monitoring utilities.
-- [backups/](file:///D:/My_Projects/HomeLab/backups/) - Local backup staging directory (Git-ignored).
-- [logs/](file:///D:/My_Projects/HomeLab/logs/) - Infrastructure and container logs (Git-ignored).
-- [docs/](file:///D:/My_Projects/HomeLab/docs/) - Detailed project specifications.
+* [dashboard/](dashboard/) - HomeLab OS administration interface (Frontend/Backend).
+* [services/](services/) - Discovered plugin manifest directories and docker-compose configurations.
+* [configs/](configs/) - Shared application configuration files, certificates, and proxy variables.
+* [templates/](templates/) - Docker Compose template definitions.
+* [scripts/](scripts/) - Deployment, backup, update, and monitoring utilities.
+* [backups/](backups/) - Local backup staging directory (Git-ignored).
+* [logs/](logs/) - Infrastructure and container logs (Git-ignored).
+* [docs/](docs/) - Detailed project specifications.
 
 ## Documentation Index
 
-- [PLAN.md](file:///D:/My_Projects/HomeLab/docs/PLAN.md) - Infrastructure specifications and implementation constraints.
-- [ROADMAP.md](file:///D:/My_Projects/HomeLab/docs/ROADMAP.md) - Project development phases and status.
-- [SERVICES.md](file:///D:/My_Projects/HomeLab/docs/SERVICES.md) - Port allocations and capability mappings.
+* [ROADMAP.md](docs/ROADMAP.md) - Project development phases and status.
+* [SERVICES.md](docs/SERVICES.md) - Port allocations and capability mappings.
+* [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Subsystem interface designs and lifecycle sequence flows.
+* [PLUGIN_SDK.md](docs/PLUGIN_SDK.md) - Core SDK manifest schemes and widget models.
 
 ## Plugin Discovery Engine
 

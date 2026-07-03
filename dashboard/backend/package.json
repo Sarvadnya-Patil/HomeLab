@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "lint": "eslint \"src/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "test": "tsx --test \"src/tests/**/*.test.ts\"",
+    "generate:licenses": "node ../../scripts/generate_licenses.js"
   },
   "dependencies": {
     "@fastify/static": "^7.0.4",
@@ -18,8 +22,19 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.12.12",
+    "@typescript-eslint/eslint-plugin": "^7.8.0",
+    "@typescript-eslint/parser": "^7.8.0",
+    "eslint": "^8.57.0",
+    "lint-staged": "^15.2.2",
+    "prettier": "^3.2.5",
     "tsx": "^4.16.2",
     "typescript": "^5.4.5"
+  },
+  "lint-staged": {
+    "src/**/*.ts": [
+      "prettier --write",
+      "eslint --fix"
+    ]
   },
   "engines": {
     "node": ">=18.0.0"

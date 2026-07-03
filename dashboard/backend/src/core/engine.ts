@@ -48,26 +48,46 @@ export class CoreEngine {
   }
 
   // Gateway getters mapping for backward compatibility
-  public get docker() { return this.registry.docker; }
-  public get metrics() { return this.registry.metrics; }
-  public get plugin() { return this.registry.plugin; }
-  public get notifier() { return this.registry.notification; }
-  public get scheduler() { return this.registry.scheduler; }
-  public get db() { return this.registry.db; }
-  public get jobs() { return this.registry.jobs; }
-  public get auth() { return this.registry.auth; }
-  public get backup() { return this.registry.backup; }
-  public get workflow() { return this.registry.workflow; }
+  public get docker() {
+    return this.registry.docker;
+  }
+  public get metrics() {
+    return this.registry.metrics;
+  }
+  public get plugin() {
+    return this.registry.plugin;
+  }
+  public get notifier() {
+    return this.registry.notification;
+  }
+  public get scheduler() {
+    return this.registry.scheduler;
+  }
+  public get db() {
+    return this.registry.db;
+  }
+  public get jobs() {
+    return this.registry.jobs;
+  }
+  public get auth() {
+    return this.registry.auth;
+  }
+  public get backup() {
+    return this.registry.backup;
+  }
+  public get workflow() {
+    return this.registry.workflow;
+  }
 
   // Engine Lifecycle Initializer
-  async init(): Promise<void> {
+  async init(dbPath?: string): Promise<void> {
     Logger.info('CoreEngine', 'Initializing runtime service registry container...');
-    
+
     // Boot up central registry singleton
-    await this.registry.init();
+    await this.registry.init(dbPath);
 
     const adapter = this.registry.db.getAdapter();
-    
+
     // Wire repositories pointers for REST controllers compatibility
     this.usersRepo = new UsersRepository(adapter);
     this.serversRepo = new ServersRepository(adapter);
@@ -117,6 +137,31 @@ export class CoreEngine {
         Logger.error('CoreEngine', `Failed to prune metrics history: ${err.message}`);
       }
     });
+
+    // Enforce backup retention policies every 12 hours
+    this.scheduler.schedule('backup-retention-pruner', 43200000, async () => {
+      const retentionDays = this.backup.getRetentionDays();
+      await this.backup.enforceRetention(retentionDays);
+    });
+
+    // WebSocket Client Ping/Pong Heartbeat Checker every 30 seconds
+    this.scheduler.schedule('ws-heartbeat', 30000, async () => {
+      for (const socket of this.wsClients.keys()) {
+        if (socket.isAlive === false) {
+          Logger.warn('CoreEngine', 'Terminating inactive WebSocket client connection.');
+          socket.terminate();
+          this.removeWsClient(socket);
+        } else {
+          socket.isAlive = false;
+          try {
+            socket.ping();
+          } catch {
+            socket.terminate();
+            this.removeWsClient(socket);
+          }
+        }
+      }
+    });
   }
 
   // Scan manifests and merge container state dynamically (No mock overlays)
@@ -125,7 +170,7 @@ export class CoreEngine {
     const overrides: Record<string, string> = this.registry.category.getOverrides();
     let dockerContainers: any[] = [];
     let dockerOnline = true;
-    
+
     try {
       dockerContainers = await this.docker.getContainers();
     } catch (err: any) {
@@ -133,12 +178,12 @@ export class CoreEngine {
       Logger.warn('CoreEngine', `Failed to query Docker Proxy containers: ${err.message}`);
     }
 
-    return services.map(service => {
+    return services.map((service) => {
       if (overrides[service.id]) {
         service.category = overrides[service.id];
       }
 
-      const match = dockerContainers.find(c =>
+      const match = dockerContainers.find((c) =>
         c.Names.some((name: string) => name === `/${service.id}` || name.endsWith(`-${service.id}`))
       );
 
@@ -168,12 +213,17 @@ export class CoreEngine {
 
   // Register client WebSocket connection and stream initial snapshots
   registerWsClient(socket: any): void {
+    socket.isAlive = true;
+    socket.on('pong', () => {
+      socket.isAlive = true;
+    });
+
     this.wsClients.set(socket, new Set(['metrics', 'services', 'events', 'alert']));
     Logger.info('CoreEngine', 'WebSocket client connection registered.');
-    
+
     try {
       socket.send(JSON.stringify({ type: 'metrics', data: this.metrics.getLatestMetrics() }));
-      this.getEnrichedServices().then(services => {
+      this.getEnrichedServices().then((services) => {
         socket.send(JSON.stringify({ type: 'services', data: services }));
       });
       socket.send(JSON.stringify({ type: 'events', data: this.notifier.getHistory() }));
@@ -184,8 +234,13 @@ export class CoreEngine {
 
   removeWsClient(socket: any): void {
     this.wsClients.delete(socket);
+    try {
+      socket.removeAllListeners();
+    } catch {
+      // ignore listener removal failures
+    }
     Logger.info('CoreEngine', 'WebSocket client connection removed.');
-    
+
     // Stop unused log background tasks
     const discovered = this.registry.plugin.discover();
     for (const s of discovered) {
@@ -214,7 +269,7 @@ export class CoreEngine {
   // Dynamic log poller interval task
   startLogPoller(serviceId: string): void {
     const jobName = `logs-poller-${serviceId}`;
-    
+
     this.scheduler.schedule(jobName, 1500, async () => {
       let dockerContainers = [];
       try {
@@ -222,8 +277,8 @@ export class CoreEngine {
       } catch (err) {
         return;
       }
-      
-      const match = dockerContainers.find(c => 
+
+      const match = dockerContainers.find((c) =>
         c.Names.some((name: string) => name === `/${serviceId}` || name.endsWith(`-${serviceId}`))
       );
       if (!match) return;
@@ -233,7 +288,10 @@ export class CoreEngine {
         if (logs && logs.trim() && !logs.includes('Failed to query logs')) {
           const raw = JSON.stringify({ type: 'terminal', output: logs, serviceId });
           for (const [socket, subs] of this.wsClients.entries()) {
-            if (socket.readyState === 1 && (subs.has(`docker.logs.${serviceId}`) || subs.has('*'))) {
+            if (
+              socket.readyState === 1 &&
+              (subs.has(`docker.logs.${serviceId}`) || subs.has('*'))
+            ) {
               socket.send(raw);
             }
           }
@@ -277,6 +335,8 @@ export class CoreEngine {
   }
 
   stop(): void {
+    this.scheduler.cancel('ws-heartbeat');
+    this.scheduler.cancel('backup-retention-pruner');
     this.registry.stop();
   }
 }

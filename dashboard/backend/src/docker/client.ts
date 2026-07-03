@@ -17,7 +17,7 @@ export class DockerClient implements ContainerProvider {
     try {
       const res = await fetch(`${this.proxyUrl}/containers/json?all=1`);
       if (!res.ok) throw new Error(`Proxy status: ${res.statusText}`);
-      const data = await res.json() as DockerContainer[];
+      const data = (await res.json()) as DockerContainer[];
       Logger.debug('DockerSubsystem', `Fetched ${data.length} active containers.`);
       return data;
     } catch (err: any) {
@@ -31,7 +31,7 @@ export class DockerClient implements ContainerProvider {
     try {
       const res = await fetch(`${this.proxyUrl}/version`);
       if (!res.ok) return null;
-      const data = await res.json() as { Version?: string };
+      const data = (await res.json()) as { Version?: string };
       return data.Version || null;
     } catch {
       return null;
@@ -42,7 +42,9 @@ export class DockerClient implements ContainerProvider {
   async getLogs(containerId: string, serviceId: string): Promise<string> {
     try {
       Logger.info('DockerSubsystem', `Fetching logs for [${serviceId}] (ID: ${containerId})`);
-      const res = await fetch(`${this.proxyUrl}/containers/${containerId}/logs?stdout=1&stderr=1&tail=100`);
+      const res = await fetch(
+        `${this.proxyUrl}/containers/${containerId}/logs?stdout=1&stderr=1&tail=100`
+      );
       if (!res.ok) throw new Error(res.statusText);
       const arrayBuffer = await res.arrayBuffer();
       return decodeDockerStream(Buffer.from(arrayBuffer));
@@ -57,7 +59,7 @@ export class DockerClient implements ContainerProvider {
     try {
       const res = await fetch(`${this.proxyUrl}/images/json`);
       if (!res.ok) throw new Error(res.statusText);
-      return await res.json() as any[];
+      return (await res.json()) as any[];
     } catch (err: any) {
       Logger.error('DockerSubsystem', `Failed to query Docker images: ${err.message}`);
       return [];
@@ -69,7 +71,7 @@ export class DockerClient implements ContainerProvider {
     try {
       const res = await fetch(`${this.proxyUrl}/volumes`);
       if (!res.ok) throw new Error(res.statusText);
-      const data = await res.json() as { Volumes?: any[] };
+      const data = (await res.json()) as { Volumes?: any[] };
       return data.Volumes || [];
     } catch (err: any) {
       Logger.error('DockerSubsystem', `Failed to query Docker volumes: ${err.message}`);
@@ -82,7 +84,7 @@ export class DockerClient implements ContainerProvider {
     try {
       const res = await fetch(`${this.proxyUrl}/networks`);
       if (!res.ok) throw new Error(res.statusText);
-      return await res.json() as any[];
+      return (await res.json()) as any[];
     } catch (err: any) {
       Logger.error('DockerSubsystem', `Failed to query Docker networks: ${err.message}`);
       return [];
@@ -93,9 +95,12 @@ export class DockerClient implements ContainerProvider {
   async pullImage(imageName: string): Promise<{ success: boolean }> {
     try {
       Logger.info('DockerSubsystem', `Requesting image pull: [${imageName}]`);
-      const res = await fetch(`${this.proxyUrl}/images/create?fromImage=${encodeURIComponent(imageName)}`, {
-        method: 'POST'
-      });
+      const res = await fetch(
+        `${this.proxyUrl}/images/create?fromImage=${encodeURIComponent(imageName)}`,
+        {
+          method: 'POST'
+        }
+      );
       if (!res.ok) throw new Error(res.statusText);
       await res.text(); // consume stream response
       return { success: true };
@@ -134,18 +139,27 @@ export class DockerClient implements ContainerProvider {
       if (!res.ok) throw new Error(res.statusText);
       return await res.json();
     } catch (err: any) {
-      Logger.warn('DockerSubsystem', `Failed to fetch stats for container [${containerId}]: ${err.message}`);
+      Logger.warn(
+        'DockerSubsystem',
+        `Failed to fetch stats for container [${containerId}]: ${err.message}`
+      );
       return null;
     }
   }
 
   // 11. Execute container lifecycle start, stop, or restart actions
-  async executeAction(containerId: string | null, serviceId: string, action: string): Promise<{ success: boolean }> {
+  async executeAction(
+    containerId: string | null,
+    serviceId: string,
+    action: string
+  ): Promise<{ success: boolean }> {
     let endpoint = '';
-    
+
     if (action === 'toggle' || action === 'start' || action === 'stop') {
       const containers = await this.getContainers();
-      const c = containers.find(item => item.Id === containerId || item.Names.some((n: string) => n === `/${serviceId}`));
+      const c = containers.find(
+        (item) => item.Id === containerId || item.Names.some((n: string) => n === `/${serviceId}`)
+      );
       if (!c) {
         if (action === 'start') {
           // If container is missing, try recreating/launching stack (will be handled by Compose or plugins engine)
@@ -153,17 +167,22 @@ export class DockerClient implements ContainerProvider {
         }
         throw new Error(`Container [${serviceId}] not found on host.`);
       }
-      
+
       const isRunning = c.State === 'running';
       const targetAction = action === 'toggle' ? (isRunning ? 'stop' : 'start') : action;
       endpoint = `/containers/${c.Id}/${targetAction}`;
-      Logger.info('DockerSubsystem', `Sending state transition command [${targetAction.toUpperCase()}] for container [${c.Id}]`);
+      Logger.info(
+        'DockerSubsystem',
+        `Sending state transition command [${targetAction.toUpperCase()}] for container [${c.Id}]`
+      );
     } else if (action === 'restart') {
-      if (!containerId) throw new Error(`No active containerId specified for restarting [${serviceId}].`);
+      if (!containerId)
+        throw new Error(`No active containerId specified for restarting [${serviceId}].`);
       endpoint = `/containers/${containerId}/restart`;
       Logger.info('DockerSubsystem', `Sending restart command for container [${containerId}]`);
     } else if (action === 'remove') {
-      if (!containerId) throw new Error(`No active containerId specified for removing [${serviceId}].`);
+      if (!containerId)
+        throw new Error(`No active containerId specified for removing [${serviceId}].`);
       return await this.removeContainer(containerId);
     } else {
       throw new Error(`Unsupported API action: ${action}`);
@@ -171,7 +190,10 @@ export class DockerClient implements ContainerProvider {
 
     const res = await fetch(`${this.proxyUrl}${endpoint}`, { method: 'POST' });
     if (res.status === 200 || res.status === 204 || res.status === 304) {
-      Logger.info('DockerSubsystem', `Action [${action.toUpperCase()}] executed on container [${serviceId}]`);
+      Logger.info(
+        'DockerSubsystem',
+        `Action [${action.toUpperCase()}] executed on container [${serviceId}]`
+      );
       return { success: true };
     }
     const errText = await res.text();

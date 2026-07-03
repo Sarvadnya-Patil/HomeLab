@@ -17,7 +17,10 @@ export class MetricsRepository {
     this.db.run(
       `INSERT INTO metrics_history (timestamp, cpu_percent, ram_percent, disk_percent, gpu_percent, created_at)
        VALUES (datetime('now'), ?, ?, ?, ?, datetime('now'))`,
-      record.cpuPercent, record.ramPercent, record.diskPercent, record.gpuPercent
+      record.cpuPercent,
+      record.ramPercent,
+      record.diskPercent,
+      record.gpuPercent
     );
   }
 
@@ -28,13 +31,15 @@ export class MetricsRepository {
        ORDER BY timestamp DESC LIMIT ?`,
       limit
     );
-    return rows.map(r => ({
-      timestamp: r.timestamp,
-      cpuPercent: r.cpu_percent,
-      ramPercent: r.ram_percent,
-      diskPercent: r.disk_percent,
-      gpuPercent: r.gpu_percent
-    })).reverse();
+    return rows
+      .map((r) => ({
+        timestamp: r.timestamp,
+        cpuPercent: r.cpu_percent,
+        ramPercent: r.ram_percent,
+        diskPercent: r.disk_percent,
+        gpuPercent: r.gpu_percent
+      }))
+      .reverse();
   }
 
   // 3. Prune old telemetry lines past retention window (hours)

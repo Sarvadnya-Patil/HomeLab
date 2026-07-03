@@ -1,8 +1,19 @@
-// REST API Client helper wrapper
+// REST API Client helper wrapper with Bearer token authentication injection
 
 export const api = {
+  getHeaders() {
+    const token = localStorage.getItem('homelab_token');
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  },
+
   async get(url) {
-    const res = await fetch(url);
+    const res = await fetch(url, {
+      headers: this.getHeaders()
+    });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || `GET request failed: ${res.status}`);
@@ -13,7 +24,10 @@ export const api = {
   async post(url, data = {}) {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getHeaders()
+      },
       body: JSON.stringify(data)
     });
     if (!res.ok) {
@@ -26,7 +40,10 @@ export const api = {
   async put(url, data = {}) {
     const res = await fetch(url, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getHeaders()
+      },
       body: JSON.stringify(data)
     });
     if (!res.ok) {
@@ -38,7 +55,8 @@ export const api = {
 
   async delete(url) {
     const res = await fetch(url, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: this.getHeaders()
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));

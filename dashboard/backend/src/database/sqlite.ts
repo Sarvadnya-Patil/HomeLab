@@ -16,7 +16,7 @@ export class SqliteAdapter implements DatabaseAdapter {
 
     Logger.info('DatabaseSubsystem', `Initializing SQLite connection at path: ${dbPath}`);
     this.db = new Database(dbPath);
-    
+
     // Optimize performance defaults
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');

@@ -7,18 +7,22 @@ import { PluginMetadata } from '../../types';
 export class PluginService {
   private manager: PluginsManager;
 
-  constructor(db: DatabaseAdapter, private categoryService: CategoryService) {
-    this.manager = new PluginsManager(db);
+  constructor(
+    db: DatabaseAdapter,
+    private categoryService: CategoryService,
+    servicesDir?: string
+  ) {
+    this.manager = new PluginsManager(db, servicesDir);
   }
 
   // 1. Scan filesystem for manifests, calculate checksums, and verify categories
   discover(): PluginMetadata[] {
     const list = this.manager.discover();
-    
+
     // Auto-bootstrap any categories declared in plugin specs that are missing
-    list.forEach(plugin => {
+    list.forEach((plugin) => {
       const cats = this.categoryService.getCategories();
-      const match = cats.find(c => c.id === plugin.category || c.name === plugin.category);
+      const match = cats.find((c) => c.id === plugin.category || c.name === plugin.category);
       if (!match && plugin.category) {
         this.categoryService.createCategory({
           id: plugin.category.toLowerCase().replace(/[^a-z0-9]/g, '-'),
@@ -29,7 +33,7 @@ export class PluginService {
         });
       }
     });
-    
+
     return list;
   }
 }

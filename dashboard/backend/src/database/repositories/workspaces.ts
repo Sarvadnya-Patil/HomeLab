@@ -4,7 +4,9 @@ import { Workspace } from '../../types';
 
 export class WorkspacesRepository extends BaseRepository<Workspace> {
   findAll(): Workspace[] {
-    return this.db.all<any>('SELECT * FROM workspaces ORDER BY display_order ASC, name ASC').map(this._mapRow);
+    return this.db
+      .all<any>('SELECT * FROM workspaces ORDER BY display_order ASC, name ASC')
+      .map(this._mapRow);
   }
 
   findById(id: string): Workspace | undefined {
@@ -15,14 +17,20 @@ export class WorkspacesRepository extends BaseRepository<Workspace> {
   create(workspace: Omit<Workspace, 'createdAt' | 'updatedAt'>): Workspace {
     this.db.run(
       'INSERT INTO workspaces (id, name, icon, description, display_order, is_default) VALUES (?, ?, ?, ?, ?, ?)',
-      workspace.id, workspace.name, workspace.icon, workspace.description || '',
-      workspace.displayOrder, workspace.isDefault ? 1 : 0
+      workspace.id,
+      workspace.name,
+      workspace.icon,
+      workspace.description || '',
+      workspace.displayOrder,
+      workspace.isDefault ? 1 : 0
     );
     return this.findById(workspace.id)!;
   }
 
   update(id: string, partial: Partial<Workspace>): Workspace | undefined {
-    const fields = Object.keys(partial).filter(k => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt');
+    const fields = Object.keys(partial).filter(
+      (k) => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt'
+    );
     if (fields.length === 0) return this.findById(id);
 
     const sets: string[] = [];
@@ -41,7 +49,8 @@ export class WorkspacesRepository extends BaseRepository<Workspace> {
 
     this.db.run(
       `UPDATE workspaces SET ${sets.join(', ')}, updated_at = datetime('now') WHERE id = ?`,
-      ...values, id
+      ...values,
+      id
     );
     return this.findById(id);
   }
@@ -54,7 +63,11 @@ export class WorkspacesRepository extends BaseRepository<Workspace> {
   reorder(orders: { id: string; displayOrder: number }[]): void {
     this.db.transaction(() => {
       for (const item of orders) {
-        this.db.run('UPDATE workspaces SET display_order = ?, updated_at = datetime("now") WHERE id = ?', item.displayOrder, item.id);
+        this.db.run(
+          'UPDATE workspaces SET display_order = ?, updated_at = datetime("now") WHERE id = ?',
+          item.displayOrder,
+          item.id
+        );
       }
     });
   }

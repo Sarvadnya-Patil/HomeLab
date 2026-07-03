@@ -1,51 +1,83 @@
-# Backups and logs (exclude contents, keep folder)
-backups/*
-!backups/.gitkeep
+# Dependency Directories
+node_modules/
+jspm_packages/
+web_modules/
+
+# Build and Compile Outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+dashboard/backend/dist/
+dashboard/backend/data/test-services/
+
+# SQLite Database Binaries
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Logs and Diagnostics
 logs/*
 !logs/.gitkeep
-
-# Environment secrets
-.env
-*.env
-.env.local
-.env.*.local
-
-# OS files
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# IDEs
-.vscode/
-.idea/
-
-# Dynamic Node/Python modules (for dashboard and tooling)
-node_modules/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-venv/
-__pycache__/
 
-# Runtime container data & config volumes (CRITICAL: Never commit database or app data!)
-services/*/data/*
-!services/*/data/.gitkeep
+# Backups and Exports
+backups/*
+!backups/.gitkeep
+exports/
+archives/
+snapshots/
+*.tar.gz
+*.zip
+*.tar
+
+# Environment Configurations
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+!*.env.example
+
+# Temporary and Cache Files
+.cache/
+.parcel-cache/
+.eslintcache
+.prettiercache
+.temp/
+tmp/
+temp/
+*.tmp
+*.temp
+
+# IDEs and System Metadata
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Credentials and Keys
+credentials.json
+cert.pem
+*.key
+*.pem
+*.pub
+ssh_host_*
+
+# Runtime container config and data volumes
 services/*/data/
-
-services/*/backup/*
-!services/*/backup/.gitkeep
 services/*/backup/
-
-# Exclude sensitive credentials and keys
-services/cloudflared/config/credentials.json
-
-# TypeScript compiled outputs
-dashboard/backend/dist/
-
-# SQLite database files
-dashboard/backend/data/homelab.db
-dashboard/backend/data/homelab.db-shm
-dashboard/backend/data/homelab.db-wal
-
-

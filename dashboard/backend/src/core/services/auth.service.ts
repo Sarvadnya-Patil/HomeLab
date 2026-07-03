@@ -11,7 +11,9 @@ export class AuthService {
   constructor(db: DatabaseAdapter) {
     this.usersRepo = new UsersRepository(db);
 
-    const secret = process.env.JWT_SECRET || (process.env.NODE_ENV !== 'production' ? crypto.randomBytes(32).toString('hex') : undefined);
+    const secret =
+      process.env.JWT_SECRET ||
+      (process.env.NODE_ENV !== 'production' ? crypto.randomBytes(32).toString('hex') : undefined);
     if (!secret) {
       throw new Error('FATAL: JWT_SECRET environment variable must be set in production mode');
     }
@@ -57,7 +59,7 @@ export class AuthService {
       const parts = token.split('.');
       if (parts.length !== 3) return null;
       const [header, body, signature] = parts;
-      
+
       const expectedSignature = crypto
         .createHmac('sha256', this.jwtSecret)
         .update(`${header}.${body}`)
@@ -90,9 +92,15 @@ export class AuthService {
 
     const rolePermissions: Record<string, string[]> = {
       admin: [
-        'start_container', 'stop_container', 'restart_container',
-        'edit_settings', 'view_logs', 'view_audit', 'backup_run',
-        'designer_deploy', 'workflow_write'
+        'start_container',
+        'stop_container',
+        'restart_container',
+        'edit_settings',
+        'view_logs',
+        'view_audit',
+        'backup_run',
+        'designer_deploy',
+        'workflow_write'
       ],
       operator: ['start_container', 'stop_container', 'restart_container', 'view_logs'],
       viewer: ['view_dashboard']

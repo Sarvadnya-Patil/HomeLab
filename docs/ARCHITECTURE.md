@@ -42,7 +42,7 @@ graph TD
 ## 2. Directory Structure
 
 ```
-D:/My_Projects/HomeLab/
+homelab-workspace/
 ├── .github/                  # GitHub Community & Actions configurations
 ├── configs/                  # Shared system configuration specs
 ├── docs/                     # Architectural & specification documents

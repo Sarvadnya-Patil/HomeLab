@@ -1,0 +1,9 @@
+{
+  "name": "homelab-os",
+  "version": "1.1.0",
+  "description": "HomeLab OS Platform Repository",
+  "private": true,
+  "scripts": {
+    "generate:licenses": "node scripts/generate_licenses.js"
+  }
+}

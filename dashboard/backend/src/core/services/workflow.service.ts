@@ -29,7 +29,7 @@ export class WorkflowService {
   private loadRulesFromDb(): void {
     try {
       const rows = this.db.all<any>('SELECT * FROM workflows');
-      this.rules = rows.map(r => ({
+      this.rules = rows.map((r) => ({
         id: r.id,
         name: r.name,
         triggerType: r.trigger_type as any,
@@ -37,7 +37,10 @@ export class WorkflowService {
         actions: JSON.parse(r.actions),
         enabled: r.enabled === 1
       }));
-      Logger.info('WorkflowEngine', `Loaded ${this.rules.length} operational automation workflows.`);
+      Logger.info(
+        'WorkflowEngine',
+        `Loaded ${this.rules.length} operational automation workflows.`
+      );
     } catch (err: any) {
       Logger.error('WorkflowEngine', `Failed to load rules: ${err.message}`);
     }
@@ -63,7 +66,7 @@ export class WorkflowService {
 
   // 3. Evaluate active workflows against incoming metrics or events
   private async evaluateRules(type: 'metrics' | 'event' | 'schedule', data: any): Promise<void> {
-    const active = this.rules.filter(r => r.enabled && r.triggerType === type);
+    const active = this.rules.filter((r) => r.enabled && r.triggerType === type);
 
     for (const rule of active) {
       let triggered = false;
@@ -71,7 +74,7 @@ export class WorkflowService {
       if (type === 'metrics') {
         const threshold = rule.triggerConfig.threshold || 90;
         const metricName = rule.triggerConfig.metric || 'cpu';
-        
+
         if (metricName === 'cpu' && data.cpuPercent > threshold) triggered = true;
         if (metricName === 'ram' && data.ramPercent > threshold) triggered = true;
       } else if (type === 'event') {
@@ -80,7 +83,10 @@ export class WorkflowService {
       }
 
       if (triggered) {
-        Logger.info('WorkflowEngine', `Workflow [${rule.name}] triggered. Running automation actions...`);
+        Logger.info(
+          'WorkflowEngine',
+          `Workflow [${rule.name}] triggered. Running automation actions...`
+        );
         this.executeActions(rule.actions);
       }
     }
@@ -92,15 +98,21 @@ export class WorkflowService {
       try {
         if (act.type === 'notification') {
           // Channel integration email / discord / telegram webhook mock
-          Logger.info('WorkflowEngine', `[Action: Notification] Dispatching webhook message: "${act.config.message}" to: ${act.config.channel}`);
+          Logger.info(
+            'WorkflowEngine',
+            `[Action: Notification] Dispatching webhook message: "${act.config.message}" to: ${act.config.channel}`
+          );
           this.eventBus.emit('alert', {
             origin: 'Automation',
             message: `[${act.config.channel.toUpperCase()}] ${act.config.message}`,
             level: 'warning'
           });
         } else if (act.type === 'container_action') {
-          Logger.info('WorkflowEngine', `[Action: Container] Triggering container action: [${act.config.action}] on: ${act.config.serviceId}`);
-          
+          Logger.info(
+            'WorkflowEngine',
+            `[Action: Container] Triggering container action: [${act.config.action}] on: ${act.config.serviceId}`
+          );
+
           await this.jobs.executeAsyncTask(
             `container_${act.config.action}`,
             act.config.serviceId,
@@ -110,7 +122,10 @@ export class WorkflowService {
             }
           );
         } else if (act.type === 'backup') {
-          Logger.info('WorkflowEngine', '[Action: Backup] Triggering automated database backup copy...');
+          Logger.info(
+            'WorkflowEngine',
+            '[Action: Backup] Triggering automated database backup copy...'
+          );
           // Trigger DB backup
           this.eventBus.emit('trigger.backup');
         }
@@ -126,8 +141,11 @@ export class WorkflowService {
     this.db.run(
       `INSERT INTO workflows (id, name, trigger_type, trigger_config, actions, enabled)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      newRule.id, newRule.name, newRule.triggerType,
-      JSON.stringify(newRule.triggerConfig), JSON.stringify(newRule.actions),
+      newRule.id,
+      newRule.name,
+      newRule.triggerType,
+      JSON.stringify(newRule.triggerConfig),
+      JSON.stringify(newRule.actions),
       newRule.enabled ? 1 : 0
     );
     this.loadRulesFromDb();

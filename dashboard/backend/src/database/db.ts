@@ -107,12 +107,66 @@ export class JsonDatabase {
 
   private _getDefaultCategories(): Category[] {
     return [
-      { id: 'infrastructure', name: 'Infrastructure', icon: 'infrastructure', description: 'Core host cluster assets', accent: '#3b82f6', order: 0, collapsed: false, visible: true },
-      { id: 'monitoring', name: 'Monitoring', icon: 'monitoring', description: 'Host health logs and metrics scraper tools', accent: '#10b981', order: 1, collapsed: false, visible: true },
-      { id: 'automation', name: 'Automation', icon: 'automation', description: 'Self-hosted workflow tools', accent: '#a855f7', order: 2, collapsed: false, visible: true },
-      { id: 'ai', name: 'AI Stack', icon: 'ai', description: 'Local LLMs and AI interfaces', accent: '#f59e0b', order: 3, collapsed: false, visible: true },
-      { id: 'networking', name: 'Networking', icon: 'networking', description: 'Routing and connection components', accent: '#06b6d4', order: 4, collapsed: false, visible: true },
-      { id: 'storage', name: 'Storage', icon: 'storage', description: 'File systems and object storage databases', accent: '#eab308', order: 5, collapsed: false, visible: true }
+      {
+        id: 'infrastructure',
+        name: 'Infrastructure',
+        icon: 'infrastructure',
+        description: 'Core host cluster assets',
+        accent: '#3b82f6',
+        order: 0,
+        collapsed: false,
+        visible: true
+      },
+      {
+        id: 'monitoring',
+        name: 'Monitoring',
+        icon: 'monitoring',
+        description: 'Host health logs and metrics scraper tools',
+        accent: '#10b981',
+        order: 1,
+        collapsed: false,
+        visible: true
+      },
+      {
+        id: 'automation',
+        name: 'Automation',
+        icon: 'automation',
+        description: 'Self-hosted workflow tools',
+        accent: '#a855f7',
+        order: 2,
+        collapsed: false,
+        visible: true
+      },
+      {
+        id: 'ai',
+        name: 'AI Stack',
+        icon: 'ai',
+        description: 'Local LLMs and AI interfaces',
+        accent: '#f59e0b',
+        order: 3,
+        collapsed: false,
+        visible: true
+      },
+      {
+        id: 'networking',
+        name: 'Networking',
+        icon: 'networking',
+        description: 'Routing and connection components',
+        accent: '#06b6d4',
+        order: 4,
+        collapsed: false,
+        visible: true
+      },
+      {
+        id: 'storage',
+        name: 'Storage',
+        icon: 'storage',
+        description: 'File systems and object storage databases',
+        accent: '#eab308',
+        order: 5,
+        collapsed: false,
+        visible: true
+      }
     ];
   }
 

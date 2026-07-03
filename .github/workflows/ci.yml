@@ -32,6 +32,16 @@ jobs:
           cd dashboard/backend
           npm run build
 
+      - name: Run Linter
+        run: |
+          cd dashboard/backend
+          npm run lint
+
+      - name: Run Unit Tests
+        run: |
+          cd dashboard/backend
+          npm run test
+
       - name: Run dependency audit
         run: |
           cd dashboard/backend

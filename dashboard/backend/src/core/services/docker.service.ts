@@ -7,7 +7,10 @@ import { DockerContainer } from '../../types';
 export class DockerService {
   private auditRepo: AuditRepository;
 
-  constructor(private client: ContainerProvider, db: DatabaseAdapter) {
+  constructor(
+    private client: ContainerProvider,
+    db: DatabaseAdapter
+  ) {
     this.auditRepo = new AuditRepository(db);
   }
 
@@ -52,7 +55,11 @@ export class DockerService {
   }
 
   // 9. Execute start, stop, restart, or recreate actions and write security logs
-  async executeAction(containerId: string | null, serviceId: string, action: string): Promise<{ success: boolean }> {
+  async executeAction(
+    containerId: string | null,
+    serviceId: string,
+    action: string
+  ): Promise<{ success: boolean }> {
     const res = await this.client.executeAction(containerId, serviceId, action);
     this.auditRepo.log('admin', `container_${action}`, 'service', serviceId, { containerId });
     return res;

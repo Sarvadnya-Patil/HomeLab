@@ -69,20 +69,98 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // 3. Load active apps on boot and establish socket streams
-  try {
-    const apps = await api.get('/api/v1/apps');
-    store.set('apps', apps);
-    
-    // Switch to initial app from local storage
-    const activeApp = store.get('activeApp') || 'dashboard';
-    store.set('activeApp', activeApp);
-  } catch (err) {
-    console.error('Failed to load OS applications list:', err);
-  }
+  const initializeConsole = async () => {
+    // 3. Load active apps on boot and establish socket streams
+    try {
+      const apps = await api.get('/api/v1/apps');
+      store.set('apps', apps);
+      
+      // Switch to initial app from local storage
+      const activeApp = store.get('activeApp') || 'dashboard';
+      store.set('activeApp', activeApp);
+    } catch (err) {
+      console.error('Failed to load OS applications list:', err);
+    }
 
-  // 4. Open WebSocket stream connection
-  WsClient.connect();
+    // 4. Open WebSocket stream connection
+    WsClient.connect();
+  };
+
+  const checkAuthAndBoot = async () => {
+    try {
+      const setupStatus = await api.get('/api/v1/auth/setup-status');
+      if (setupStatus.setupRequired) {
+        document.getElementById('setup-wizard-overlay').classList.remove('hidden');
+        return;
+      }
+
+      const token = localStorage.getItem('homelab_token');
+      if (!token) {
+        document.getElementById('login-overlay').classList.remove('hidden');
+        return;
+      }
+
+      // Verify token
+      try {
+        const user = await api.get('/api/v1/auth/me');
+        store.set('currentUser', user);
+        await initializeConsole();
+      } catch (err) {
+        localStorage.removeItem('homelab_token');
+        document.getElementById('login-overlay').classList.remove('hidden');
+      }
+    } catch (err) {
+      console.error('Setup status check failed:', err);
+    }
+  };
+
+  // Bind Setup Form Submits
+  const setupForm = document.getElementById('setup-form');
+  const setupError = document.getElementById('setup-error');
+  setupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setupError.style.display = 'none';
+
+    const username = document.getElementById('setup-username').value;
+    const displayName = document.getElementById('setup-display-name').value;
+    const password = document.getElementById('setup-password').value;
+
+    try {
+      await api.post('/api/v1/auth/setup', { username, displayName, password });
+      document.getElementById('setup-wizard-overlay').classList.add('hidden');
+      document.getElementById('login-overlay').classList.remove('hidden');
+    } catch (err) {
+      setupError.textContent = err.message;
+      setupError.style.display = 'block';
+    }
+  });
+
+  // Bind Login Form Submits
+  const loginForm = document.getElementById('login-form');
+  const loginError = document.getElementById('login-error');
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginError.style.display = 'none';
+
+    const username = document.getElementById('login-username').value;
+    const password = document.getElementById('login-password').value;
+
+    try {
+      const res = await api.post('/api/v1/auth/login', { username, password });
+      localStorage.setItem('homelab_token', res.token);
+      document.getElementById('login-overlay').classList.add('hidden');
+      
+      const user = await api.get('/api/v1/auth/me');
+      store.set('currentUser', user);
+      await initializeConsole();
+    } catch (err) {
+      loginError.textContent = err.message;
+      loginError.style.display = 'block';
+    }
+  });
+
+  // Boot startup check
+  await checkAuthAndBoot();
 
   // 5. Register global keystroke handlers for palette search
   document.addEventListener('keydown', (e) => {
@@ -98,4 +176,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isOpen = store.get('notificationCenterOpen');
     store.set('notificationCenterOpen', !isOpen);
   };
+
+  // 7. Bind mobile sidebar toggle controllers
+  const toggleBtn = document.getElementById('sidebar-toggle-btn');
+  const sidebar = document.querySelector('.sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('mobile-open');
+      backdrop.classList.toggle('hidden');
+    });
+  }
+
+  if (backdrop) {
+    backdrop.addEventListener('click', () => {
+      sidebar.classList.remove('mobile-open');
+      backdrop.classList.add('hidden');
+    });
+  }
 });

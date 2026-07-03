@@ -1,21 +1,19 @@
 // WebSocket API Handler
 import { CoreEngine } from '../core/engine';
-import { Logger } from '../utils/logger';
 
 export default function (fastify: any, engine: CoreEngine): void {
-  
   // Register /ws socket route
-  fastify.get('/ws', { websocket: true }, (connection: any, req: any) => {
+  fastify.get('/ws', { websocket: true }, (connection: any, _req: any) => {
     const socket = connection.socket;
-    
+
     // Add client socket connection to pool
     engine.registerWsClient(socket);
-    
+
     // Listen for incoming websocket text packages
     socket.on('message', async (messageStr: string) => {
       try {
         const payload = JSON.parse(messageStr);
-        
+
         if (payload.type === 'subscribe') {
           engine.updateSubscriptions(socket, payload.events || []);
         } else if (payload.type === 'unsubscribe') {
@@ -28,20 +26,24 @@ export default function (fastify: any, engine: CoreEngine): void {
           engine.stopLogPoller(payload.serviceId);
         } else if (payload.type === 'terminal' && payload.command) {
           const output = await engine.terminal.execute(payload.command);
-          socket.send(JSON.stringify({
-            type: 'terminal',
-            command: payload.command,
-            output: output
-          }));
+          socket.send(
+            JSON.stringify({
+              type: 'terminal',
+              command: payload.command,
+              output: output
+            })
+          );
         }
       } catch (err: any) {
-        socket.send(JSON.stringify({
-          type: 'error',
-          message: `Malformed websocket package payload: ${err.message}`
-        }));
+        socket.send(
+          JSON.stringify({
+            type: 'error',
+            message: `Malformed websocket package payload: ${err.message}`
+          })
+        );
       }
     });
-    
+
     // Disconnects
     socket.on('close', () => {
       engine.removeWsClient(socket);
@@ -49,6 +51,11 @@ export default function (fastify: any, engine: CoreEngine): void {
 
     socket.on('error', () => {
       engine.removeWsClient(socket);
+      try {
+        socket.terminate();
+      } catch {
+        // ignore connection teardown failures
+      }
     });
   });
 }

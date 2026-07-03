@@ -26,14 +26,17 @@ export class NotificationsRepository extends BaseRepository<Notification> {
   create(notification: Omit<Notification, 'id' | 'createdAt'>): Notification {
     const res = this.db.run(
       'INSERT INTO notifications (origin, message, level, read) VALUES (?, ?, ?, ?)',
-      notification.origin, notification.message, notification.level || 'info', notification.read ? 1 : 0
+      notification.origin,
+      notification.message,
+      notification.level || 'info',
+      notification.read ? 1 : 0
     );
     const id = Number(res.lastInsertRowid);
     return this.db.all<any>('SELECT * FROM notifications WHERE id = ?', id).map(this._mapRow)[0];
   }
 
   update(id: string, partial: Partial<Notification>): Notification | undefined {
-    const fields = Object.keys(partial).filter(k => k !== 'id' && k !== 'createdAt');
+    const fields = Object.keys(partial).filter((k) => k !== 'id' && k !== 'createdAt');
     if (fields.length === 0) return this.findById(id);
 
     const sets: string[] = [];
@@ -46,10 +49,7 @@ export class NotificationsRepository extends BaseRepository<Notification> {
       values.push(val);
     }
 
-    this.db.run(
-      `UPDATE notifications SET ${sets.join(', ')} WHERE id = ?`,
-      ...values, Number(id)
-    );
+    this.db.run(`UPDATE notifications SET ${sets.join(', ')} WHERE id = ?`, ...values, Number(id));
     return this.findById(id);
   }
 

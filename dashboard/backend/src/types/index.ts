@@ -1,12 +1,5 @@
 // HomeLab OS Core Subsystem Type Definitions
-import { 
-  ServiceStatus, 
-  NotificationLevel, 
-  WidgetSize, 
-  UserRole, 
-  ServerStatus,
-  ServiceCapability 
-} from './enums';
+import { NotificationLevel, WidgetSize, UserRole, ServerStatus, ServiceCapability } from './enums';
 
 export * from './enums';
 

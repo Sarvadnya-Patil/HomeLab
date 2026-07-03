@@ -15,6 +15,8 @@
 
   <!-- App Shell -->
   <div class="app-shell">
+    <!-- Mobile Navigation Overlay Backdrop -->
+    <div class="sidebar-backdrop hidden" id="sidebar-backdrop"></div>
     
     <!-- Left Navigation Sidebar -->
     <aside class="sidebar">
@@ -45,6 +47,9 @@
         
         <!-- HEADER STATUS BAR -->
         <header class="grid-header">
+          <button class="hamburger-btn" id="sidebar-toggle-btn" aria-label="Toggle Navigation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+          </button>
           <div class="header-main-info">
             <span class="os-title" id="host-name">HOMELAB OS</span>
             <span class="os-divider">|</span>
@@ -69,6 +74,54 @@
 
       </div>
     </main>
+  </div>
+
+  <!-- Setup Wizard Overlay -->
+  <div id="setup-wizard-overlay" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 style="font-size: 1.3rem; margin-bottom: 0.25rem;">Console Setup Wizard</h2>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 1.5rem;">Configure the primary Super Admin account to initialize HomeLab OS.</p>
+      </div>
+      <form id="setup-form">
+        <div class="form-group" style="margin-bottom: 1rem; text-align: left;">
+          <label for="setup-username" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">USERNAME</label>
+          <input type="text" id="setup-username" placeholder="admin" required autocomplete="off" style="width: 100%; padding: 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
+        </div>
+        <div class="form-group" style="margin-bottom: 1rem; text-align: left;">
+          <label for="setup-display-name" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">DISPLAY NAME</label>
+          <input type="text" id="setup-display-name" placeholder="Administrator" required autocomplete="off" style="width: 100%; padding: 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
+        </div>
+        <div class="form-group" style="margin-bottom: 1.5rem; text-align: left;">
+          <label for="setup-password" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">PASSWORD</label>
+          <input type="password" id="setup-password" placeholder="••••••••" required style="width: 100%; padding: 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
+        </div>
+        <div class="form-error" id="setup-error" style="color: #ef4444; font-size: 0.75rem; margin-bottom: 1rem; text-align: left; display: none;"></div>
+        <button type="submit" class="btn-primary" style="width: 100%; padding: 0.75rem; background: var(--text-primary); color: var(--bg-shell); border: none; font-weight: 600; border-radius: 4px; cursor: pointer; font-family: var(--font-sans);">Initialize Credentials</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Login Overlay -->
+  <div id="login-overlay" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 style="font-size: 1.3rem; margin-bottom: 0.25rem;">Access Console</h2>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 1.5rem;">Authenticate to access the HomeLab OS secure dashboard.</p>
+      </div>
+      <form id="login-form">
+        <div class="form-group" style="margin-bottom: 1rem; text-align: left;">
+          <label for="login-username" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">USERNAME</label>
+          <input type="text" id="login-username" placeholder="Username" required autocomplete="off" style="width: 100%; padding: 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
+        </div>
+        <div class="form-group" style="margin-bottom: 1.5rem; text-align: left;">
+          <label for="login-password" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">PASSWORD</label>
+          <input type="password" id="login-password" placeholder="••••••••" required style="width: 100%; padding: 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
+        </div>
+        <div class="form-error" id="login-error" style="color: #ef4444; font-size: 0.75rem; margin-bottom: 1rem; text-align: left; display: none;"></div>
+        <button type="submit" class="btn-primary" style="width: 100%; padding: 0.75rem; background: var(--text-primary); color: var(--bg-shell); border: none; font-weight: 600; border-radius: 4px; cursor: pointer; font-family: var(--font-sans);">Authenticate</button>
+      </form>
+    </div>
   </div>
 
   <!-- JavaScript App Bootstrapper Module -->

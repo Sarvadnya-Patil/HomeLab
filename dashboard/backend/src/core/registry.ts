@@ -44,11 +44,16 @@ export class ServiceRegistry {
     return ServiceRegistry.instance;
   }
 
+  // Reset the singleton instance for isolated test contexts
+  public static resetInstance(): void {
+    ServiceRegistry.instance = undefined as any;
+  }
+
   // 2. Initialize all subsystems and bind dependencies
-  public async init(): Promise<void> {
+  public async init(dbPath?: string): Promise<void> {
     Logger.info('ServiceRegistry', 'Initializing HomeLab OS runtime container services...');
 
-    this.db = new DatabaseManager();
+    this.db = new DatabaseManager(dbPath);
     this.eventBus = new EventEmitter();
     this.scheduler = new CronScheduler();
 
@@ -71,7 +76,7 @@ export class ServiceRegistry {
 
     // Bind automated backup signals from workflow actions
     this.eventBus.on('trigger.backup', () => {
-      this.backup.backupDatabase().catch(err => {
+      this.backup.backupDatabase().catch((err) => {
         Logger.error('ServiceRegistry', `Automated backup failed: ${err.message}`);
       });
     });

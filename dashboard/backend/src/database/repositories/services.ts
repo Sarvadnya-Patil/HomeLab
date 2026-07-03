@@ -40,7 +40,9 @@ export class ServicesRepository {
       `INSERT INTO service_overrides (service_id, category_id, server_id, updated_at) 
        VALUES (?, ?, ?, datetime('now'))
        ON CONFLICT(service_id) DO UPDATE SET category_id = excluded.category_id, server_id = excluded.server_id, updated_at = datetime('now')`,
-      serviceId, categoryId, serverId
+      serviceId,
+      categoryId,
+      serverId
     );
   }
 
@@ -51,12 +53,18 @@ export class ServicesRepository {
 
   // 2. Service metadata caching (Telemetry & Image tags)
   getCachedStats(serviceId: string, serverId: string = 'local'): CachedServiceStats | undefined {
-    const row = this.db.get<any>('SELECT * FROM service_cache WHERE service_id = ? AND server_id = ?', serviceId, serverId);
+    const row = this.db.get<any>(
+      'SELECT * FROM service_cache WHERE service_id = ? AND server_id = ?',
+      serviceId,
+      serverId
+    );
     return row ? this._mapCacheRow(row) : undefined;
   }
 
   getAllCachedStats(serverId: string = 'local'): CachedServiceStats[] {
-    return this.db.all<any>('SELECT * FROM service_cache WHERE server_id = ?', serverId).map(this._mapCacheRow);
+    return this.db
+      .all<any>('SELECT * FROM service_cache WHERE server_id = ?', serverId)
+      .map(this._mapCacheRow);
   }
 
   saveCachedStats(stats: Omit<CachedServiceStats, 'lastSeen'>): void {
@@ -73,8 +81,16 @@ export class ServicesRepository {
          image_version = excluded.image_version,
          update_available = excluded.update_available,
          last_seen = datetime('now')`,
-      stats.serviceId, stats.serverId, stats.containerId, stats.status, stats.health,
-      stats.cpuPercent, stats.memBytes, stats.restartCount, stats.imageVersion, stats.updateAvailable ? 1 : 0
+      stats.serviceId,
+      stats.serverId,
+      stats.containerId,
+      stats.status,
+      stats.health,
+      stats.cpuPercent,
+      stats.memBytes,
+      stats.restartCount,
+      stats.imageVersion,
+      stats.updateAvailable ? 1 : 0
     );
   }
 

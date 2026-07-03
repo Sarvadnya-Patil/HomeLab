@@ -8,7 +8,10 @@ export class MetricsService {
   private collector: MetricsCollector;
   private repo: MetricsRepository;
 
-  constructor(db: DatabaseAdapter, private docker: DockerService) {
+  constructor(
+    db: DatabaseAdapter,
+    private docker: DockerService
+  ) {
     const nodeExporterUrl = process.env.NODE_EXPORTER_URL || 'http://node-exporter:9100';
     this.collector = new MetricsCollector(nodeExporterUrl);
     this.repo = new MetricsRepository(db);

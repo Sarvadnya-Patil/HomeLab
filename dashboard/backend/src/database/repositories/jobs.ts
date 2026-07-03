@@ -5,10 +5,9 @@ import { Job } from '../../types';
 export class JobsRepository extends BaseRepository<Job> {
   // 1. Retrieve all jobs ordered by creation date
   findAll(limit: number = 50): Job[] {
-    return this.db.all<any>(
-      'SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?',
-      limit
-    ).map(this._mapRow);
+    return this.db
+      .all<any>('SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?', limit)
+      .map(this._mapRow);
   }
 
   // 2. Query single job by primary key ID
@@ -22,15 +21,23 @@ export class JobsRepository extends BaseRepository<Job> {
     this.db.run(
       `INSERT INTO jobs (id, type, status, progress, logs, error, server_id, target_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      job.id, job.type, job.status, job.progress, job.logs || '', job.error || null,
-      job.serverId || 'local', job.targetId || null
+      job.id,
+      job.type,
+      job.status,
+      job.progress,
+      job.logs || '',
+      job.error || null,
+      job.serverId || 'local',
+      job.targetId || null
     );
     return this.findById(job.id)!;
   }
 
   // 4. Update partial job states
   update(id: string, partial: Partial<Job>): Job | undefined {
-    const fields = Object.keys(partial).filter(k => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt');
+    const fields = Object.keys(partial).filter(
+      (k) => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt'
+    );
     if (fields.length === 0) return this.findById(id);
 
     const sets: string[] = [];
@@ -47,7 +54,8 @@ export class JobsRepository extends BaseRepository<Job> {
 
     this.db.run(
       `UPDATE jobs SET ${sets.join(', ')}, updated_at = datetime('now') WHERE id = ?`,
-      ...values, id
+      ...values,
+      id
     );
     return this.findById(id);
   }

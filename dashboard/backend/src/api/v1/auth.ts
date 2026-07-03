@@ -25,4 +25,42 @@ export default function (fastify: any, engine: CoreEngine): void {
     }
     return user;
   });
+
+  // 3. GET: /api/v1/auth/setup-status (Check if system requires first-time initialization setup)
+  fastify.get('/api/v1/auth/setup-status', async () => {
+    const users = engine.usersRepo.findAll();
+    return { setupRequired: users.length === 0 };
+  });
+
+  // 4. POST: /api/v1/auth/setup (Configure the first Super Admin user account during first startup setup wizard)
+  fastify.post('/api/v1/auth/setup', async (request: any, reply: any) => {
+    const users = engine.usersRepo.findAll();
+    if (users.length > 0) {
+      return reply.status(400).send({ error: 'Initialization setup is already complete' });
+    }
+
+    const { username, password, displayName } = request.body || {};
+    if (!username || !password || !displayName) {
+      return reply.status(400).send({ error: 'Username, password, and display name are required' });
+    }
+
+    try {
+      const hashedPassword = engine.auth.hashPassword(password);
+      const createdUser = engine.usersRepo.create({
+        id: 'admin', // use standard admin ID to satisfy foreign keys
+        username,
+        password: hashedPassword,
+        displayName,
+        role: 'admin',
+        avatar: ''
+      });
+
+      return {
+        success: true,
+        user: { id: createdUser.id, username: createdUser.username, role: createdUser.role }
+      };
+    } catch (err: any) {
+      return reply.status(500).send({ error: `Setup initialization failed: ${err.message}` });
+    }
+  });
 }

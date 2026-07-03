@@ -94,7 +94,11 @@ export default function (fastify: any, engine: CoreEngine): void {
       }
     };
 
-    fs.writeFileSync(path.join(customStackDir, 'service.yaml'), yaml.stringify(serviceManifest), 'utf8');
+    fs.writeFileSync(
+      path.join(customStackDir, 'service.yaml'),
+      yaml.stringify(serviceManifest),
+      'utf8'
+    );
 
     // D. Trigger asynchronous build and launch job
     const job = await engine.jobs.executeAsyncTask(
@@ -102,9 +106,9 @@ export default function (fastify: any, engine: CoreEngine): void {
       'custom-stack',
       async (updateProgress) => {
         updateProgress(10, 'Compiling custom docker-compose YAML configuration...');
-        
+
         updateProgress(30, 'Verifying target node networking configurations...');
-        
+
         // Simulating image pulls via Container Provider APIs for defined containers
         for (const c of containers) {
           const img = c.config?.image || 'nginx:alpine';
@@ -118,9 +122,9 @@ export default function (fastify: any, engine: CoreEngine): void {
         }
 
         updateProgress(80, 'Spawning Docker Compose services stacks...');
-        
+
         updateProgress(95, 'Infrastructure stack deployed. Running sync discovery scans...');
-        
+
         // Refresh plugins registry immediately
         engine.plugin.discover();
       }

@@ -9,13 +9,20 @@ export class NotificationService {
   private notifier: Notifier;
   private repo: NotificationsRepository;
 
-  constructor(db: DatabaseAdapter, private eventBus: EventEmitter) {
+  constructor(
+    db: DatabaseAdapter,
+    private eventBus: EventEmitter
+  ) {
     this.repo = new NotificationsRepository(db);
     this.notifier = new Notifier();
   }
 
   // 1. Build structured alert, save to SQLite, and stream event payload
-  notify(serviceId: string, message: string, level: 'info' | 'warn' | 'error' | 'success' = 'info'): void {
+  notify(
+    serviceId: string,
+    message: string,
+    level: 'info' | 'warn' | 'error' | 'success' = 'info'
+  ): void {
     // Map success level to info for the notifier proxy which expects standard types
     const mappedLevel = level === 'success' ? 'info' : level;
     this.notifier.notify(serviceId, message, mappedLevel);
@@ -38,7 +45,7 @@ export class NotificationService {
   // 2. Fetch history records list mapped to AlertEvent interface
   getHistory(limit: number = 50, unreadOnly: boolean = false): AlertEvent[] {
     const rows = this.repo.findLimit(limit, unreadOnly);
-    return rows.map(r => ({
+    return rows.map((r) => ({
       time: r.createdAt || new Date().toISOString(),
       origin: r.origin,
       message: r.message,

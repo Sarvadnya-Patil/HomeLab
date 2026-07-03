@@ -11,7 +11,7 @@ export class MetricsCollector {
 
   constructor(nodeExporterUrl: string = 'http://node-exporter:9100') {
     this.nodeExporterUrl = nodeExporterUrl;
-    
+
     // Set initial real host specs using Node's built-in OS library
     this.cachedStats = {
       hostname: os.hostname(),
@@ -40,7 +40,10 @@ export class MetricsCollector {
       stoppedContainers: 0
     };
 
-    Logger.info('MetricsSubsystem', `Collector initialized. Node Host OS: ${this.cachedStats.osName}`);
+    Logger.info(
+      'MetricsSubsystem',
+      `Collector initialized. Node Host OS: ${this.cachedStats.osName}`
+    );
   }
 
   getMetrics(): SystemStats {
@@ -67,12 +70,12 @@ export class MetricsCollector {
       if (res.ok) {
         const text = await res.text();
         const parsed = this._parsePrometheusText(text);
-        
+
         // Update disk metrics from exporter if available
         if (parsed.diskTotal && parsed.diskFree) {
-          this.cachedStats.diskGbTotal = Math.round(parsed.diskTotal / (1024 ** 3));
+          this.cachedStats.diskGbTotal = Math.round(parsed.diskTotal / 1024 ** 3);
           const used = parsed.diskTotal - parsed.diskFree;
-          this.cachedStats.diskGbUsed = Math.round(used / (1024 ** 3));
+          this.cachedStats.diskGbUsed = Math.round(used / 1024 ** 3);
           this.cachedStats.disk = Math.round((used / parsed.diskTotal) * 100);
         }
 
@@ -95,12 +98,16 @@ export class MetricsCollector {
       try {
         const version = await dockerClient.getVersion();
         const containers = await dockerClient.getContainers();
-        
+
         this.cachedStats.dockerStatus = 'Online';
         this.cachedStats.dockerVersion = version;
         this.cachedStats.containerCount = containers.length;
-        this.cachedStats.runningContainers = containers.filter((c: any) => c.State === 'running').length;
-        this.cachedStats.stoppedContainers = containers.filter((c: any) => c.State !== 'running').length;
+        this.cachedStats.runningContainers = containers.filter(
+          (c: any) => c.State === 'running'
+        ).length;
+        this.cachedStats.stoppedContainers = containers.filter(
+          (c: any) => c.State !== 'running'
+        ).length;
       } catch (err: any) {
         this.cachedStats.dockerStatus = 'Offline';
         this.cachedStats.dockerVersion = null;
@@ -161,7 +168,7 @@ export class MetricsCollector {
       const deltaTotal = total - this.lastCpuTicks.total;
       const deltaIdle = idle - this.lastCpuTicks.idle;
       if (deltaTotal > 0) {
-        this.cachedStats.cpu = Math.round((1 - (deltaIdle / deltaTotal)) * 100);
+        this.cachedStats.cpu = Math.round((1 - deltaIdle / deltaTotal) * 100);
       }
     }
     this.lastCpuTicks = { idle, total };
@@ -172,8 +179,8 @@ export class MetricsCollector {
     const free = os.freemem();
     const used = total - free;
 
-    this.cachedStats.ramGbTotal = (total / (1024 ** 3)).toFixed(1);
-    this.cachedStats.ramGbUsed = (used / (1024 ** 3)).toFixed(1);
+    this.cachedStats.ramGbTotal = (total / 1024 ** 3).toFixed(1);
+    this.cachedStats.ramGbUsed = (used / 1024 ** 3).toFixed(1);
     this.cachedStats.ram = Math.round((used / total) * 100);
   }
 
@@ -202,19 +209,22 @@ export class MetricsCollector {
   private _parsePrometheusText(text: string): Record<string, number> {
     const metrics: Record<string, number> = {};
     const lines = text.split('\n');
-    
+
     for (const line of lines) {
       if (line.startsWith('#') || !line.trim()) continue;
       const parts = line.split(' ');
       if (parts.length < 2) continue;
       const key = parts[0];
       const val = parseFloat(parts[1]);
-      
+
       if (key.startsWith('node_filesystem_size_bytes') && key.includes('mountpoint="/"')) {
         metrics.diskTotal = val;
       } else if (key.startsWith('node_filesystem_free_bytes') && key.includes('mountpoint="/"')) {
         metrics.diskFree = val;
-      } else if (key.startsWith('node_hwmon_temp_celsius') || key.startsWith('node_hwmon_temp1_input')) {
+      } else if (
+        key.startsWith('node_hwmon_temp_celsius') ||
+        key.startsWith('node_hwmon_temp1_input')
+      ) {
         metrics.cpuTemp = val;
       }
     }

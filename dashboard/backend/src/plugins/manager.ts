@@ -11,7 +11,10 @@ export class PluginsManager {
   private db: DatabaseAdapter;
   private servicesDir: string;
 
-  constructor(db: DatabaseAdapter, servicesDir: string = path.join(process.cwd(), '../../services')) {
+  constructor(
+    db: DatabaseAdapter,
+    servicesDir: string = path.join(process.cwd(), '../../services')
+  ) {
     this.db = db;
     this.servicesDir = servicesDir;
     Logger.info('PluginsSubsystem', `Plugin discovery registry scanning path: ${servicesDir}`);
@@ -37,10 +40,10 @@ export class PluginsManager {
 
           try {
             const fileContent = fs.readFileSync(yamlPath, 'utf8');
-            
+
             // Compute md5 checksum
             const checksum = crypto.createHash('md5').update(fileContent).digest('hex');
-            
+
             // Check if manifest is already in cache with matching checksum
             const cached = this.db.get<{ checksum: string; manifest: string }>(
               'SELECT checksum, manifest FROM plugin_meta WHERE service_id = ?',
@@ -53,7 +56,7 @@ export class PluginsManager {
             } else {
               const rawParsed = yaml.parse(fileContent);
               parsedManifest = this._normalizeSchema(rawParsed, item);
-              
+
               if (parsedManifest) {
                 // Upsert manifest cache record
                 this.db.run(
@@ -63,7 +66,9 @@ export class PluginsManager {
                      manifest = excluded.manifest,
                      checksum = excluded.checksum,
                      updated_at = datetime('now')`,
-                  item, JSON.stringify(parsedManifest), checksum
+                  item,
+                  JSON.stringify(parsedManifest),
+                  checksum
                 );
                 Logger.info('PluginsSubsystem', `Discovered/updated service manifest: [${item}]`);
               }
@@ -71,12 +76,15 @@ export class PluginsManager {
 
             if (parsedManifest) {
               services.push(parsedManifest);
-              
+
               // Automatically ensure service category exists in the database
               this._ensureCategoryExists(parsedManifest.category);
             }
           } catch (err: any) {
-            Logger.error('PluginsSubsystem', `Failed to parse YAML manifest in folder [${item}]: ${err.message}`);
+            Logger.error(
+              'PluginsSubsystem',
+              `Failed to parse YAML manifest in folder [${item}]: ${err.message}`
+            );
           }
         }
       });
@@ -93,13 +101,22 @@ export class PluginsManager {
     const existing = this.db.get('SELECT id FROM categories WHERE id = ?', catId);
     if (!existing) {
       // Find highest order
-      const maxOrderRow = this.db.get<{ max_order: number }>('SELECT MAX(display_order) as max_order FROM categories');
-      const nextOrder = maxOrderRow && maxOrderRow.max_order !== null ? maxOrderRow.max_order + 1 : 0;
-      
+      const maxOrderRow = this.db.get<{ max_order: number }>(
+        'SELECT MAX(display_order) as max_order FROM categories'
+      );
+      const nextOrder =
+        maxOrderRow && maxOrderRow.max_order !== null ? maxOrderRow.max_order + 1 : 0;
+
       this.db.run(
         `INSERT INTO categories (id, workspace_id, name, icon, description, accent, display_order)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        catId, 'overview', catName, 'folder', `Auto-created category for ${catName}`, '#8b8b8b', nextOrder
+        catId,
+        'overview',
+        catName,
+        'folder',
+        `Auto-created category for ${catName}`,
+        '#8b8b8b',
+        nextOrder
       );
       Logger.info('PluginsSubsystem', `Auto-created dynamic category: [${catName}] (ID: ${catId})`);
     }
@@ -110,10 +127,10 @@ export class PluginsManager {
     if (!data) return null;
 
     const id = data.id || defaultId;
-    
+
     // Default capabilities list if not defined in YAML manifest
     const defaultCapabilities: ServiceCapability[] = ['open', 'start', 'stop', 'restart', 'logs'];
-    
+
     if (data.apiVersion && data.kind === 'Service') {
       const metadata = data.metadata || {};
       const spec = data.spec || {};
@@ -159,17 +176,25 @@ export class PluginsManager {
       status: data.status || 'managed',
       compose: data.compose || 'docker-compose.yml',
       domain: {
-        public: data.domain && typeof data.domain === 'object' ? data.domain.public : (data.domain || ''),
+        public:
+          data.domain && typeof data.domain === 'object' ? data.domain.public : data.domain || '',
         local: data.domain && typeof data.domain === 'object' ? data.domain.local : ''
       },
       ports: {
-        http: data.ports && typeof data.ports === 'object' ? data.ports.http : (data.port || null)
+        http: data.ports && typeof data.ports === 'object' ? data.ports.http : data.port || null
       },
       actions: data.actions || ['start', 'stop', 'restart', 'logs'],
       capabilities: data.capabilities || defaultCapabilities,
       permissions: data.permissions || { adminOnly: false, tunnelExposed: true },
-      metrics: data.metrics || { enabled: data.port !== undefined, port: data.port, path: '/metrics' },
-      routing: data.routing || { domain: (data.domain && typeof data.domain === 'object' ? data.domain.public : data.domain) || '' },
+      metrics: data.metrics || {
+        enabled: data.port !== undefined,
+        port: data.port,
+        path: '/metrics'
+      },
+      routing: data.routing || {
+        domain:
+          (data.domain && typeof data.domain === 'object' ? data.domain.public : data.domain) || ''
+      },
       apiVersion: 'homelab.khulnasoft.com/v1alpha1',
       kind: 'LegacyService'
     };

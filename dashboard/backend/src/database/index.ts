@@ -8,8 +8,8 @@ import { Logger } from '../utils/logger';
 export class DatabaseManager {
   private adapter: SqliteAdapter;
 
-  constructor() {
-    this.adapter = new SqliteAdapter();
+  constructor(dbPath?: string) {
+    this.adapter = new SqliteAdapter(dbPath);
     this.initSchema();
   }
 
@@ -20,7 +20,7 @@ export class DatabaseManager {
       if (!fs.existsSync(schemaPath)) {
         schemaPath = path.join(process.cwd(), 'src', 'database', 'schema.sql');
       }
-      
+
       if (!fs.existsSync(schemaPath)) {
         schemaPath = path.join(process.cwd(), 'dist', 'src', 'database', 'schema.sql');
       }

@@ -16,14 +16,17 @@ export class CronScheduler {
   // Bind interval task
   schedule(name: string, intervalMs: number, taskFn: () => Promise<void> | void): void {
     this.cancel(name);
-    
+
     Logger.debug('SchedulerSubsystem', `Scheduling background job [${name}] every ${intervalMs}ms`);
 
     const timerId = setInterval(async () => {
       try {
         await taskFn();
       } catch (err: any) {
-        Logger.error('SchedulerSubsystem', `Scheduler job [${name}] execution error: ${err.message}`);
+        Logger.error(
+          'SchedulerSubsystem',
+          `Scheduler job [${name}] execution error: ${err.message}`
+        );
       }
     }, intervalMs);
 
@@ -32,7 +35,7 @@ export class CronScheduler {
 
   // Cancel registered interval
   cancel(name: string): void {
-    const idx = this.jobs.findIndex(j => j.name === name);
+    const idx = this.jobs.findIndex((j) => j.name === name);
     if (idx !== -1) {
       clearInterval(this.jobs[idx].timerId);
       this.jobs.splice(idx, 1);

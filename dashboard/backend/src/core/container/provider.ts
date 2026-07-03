@@ -11,6 +11,11 @@ export interface ContainerProvider {
   pullImage(imageName: string, serverId?: string): Promise<{ success: boolean }>;
   removeContainer(containerId: string, serverId?: string): Promise<{ success: boolean }>;
   getStats(containerId: string, serverId?: string): Promise<any>;
-  executeAction(containerId: string | null, serviceId: string, action: string, serverId?: string): Promise<{ success: boolean }>;
+  executeAction(
+    containerId: string | null,
+    serviceId: string,
+    action: string,
+    serverId?: string
+  ): Promise<{ success: boolean }>;
 }
 export default ContainerProvider;

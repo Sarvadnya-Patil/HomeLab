@@ -5,8 +5,11 @@ export default function (fastify: any, engine: CoreEngine): void {
   // 1. GET: /api/v1/health (Query health reports for core subsystems)
   fastify.get('/api/v1/health', async () => {
     // Check if Docker client is responsive
-    const dockerOnline = await engine.docker.getVersion().then(() => true).catch(() => false);
-    
+    const dockerOnline = await engine.docker
+      .getVersion()
+      .then(() => true)
+      .catch(() => false);
+
     return {
       status: dockerOnline ? 'healthy' : 'degraded',
       subsystems: {

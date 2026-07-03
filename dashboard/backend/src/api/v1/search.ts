@@ -26,7 +26,10 @@ export default function (fastify: any, engine: CoreEngine): void {
     // B. Index Workspaces
     const workspaces = engine.workspacesRepo.findAll();
     for (const w of workspaces) {
-      if (w.name.toLowerCase().includes(query) || (w.description || '').toLowerCase().includes(query)) {
+      if (
+        w.name.toLowerCase().includes(query) ||
+        (w.description || '').toLowerCase().includes(query)
+      ) {
         results.push({
           type: 'workspace',
           id: w.id,
@@ -40,7 +43,10 @@ export default function (fastify: any, engine: CoreEngine): void {
     // C. Index Categories
     const categories = engine.categoriesRepo.findAll();
     for (const c of categories) {
-      if (c.name.toLowerCase().includes(query) || (c.description || '').toLowerCase().includes(query)) {
+      if (
+        c.name.toLowerCase().includes(query) ||
+        (c.description || '').toLowerCase().includes(query)
+      ) {
         results.push({
           type: 'category',
           id: c.id,
@@ -54,7 +60,11 @@ export default function (fastify: any, engine: CoreEngine): void {
     // D. Index Jobs
     const jobs = engine.jobs.getJobs(20);
     for (const j of jobs) {
-      if (j.type.toLowerCase().includes(query) || j.status.toLowerCase().includes(query) || (j.error || '').toLowerCase().includes(query)) {
+      if (
+        j.type.toLowerCase().includes(query) ||
+        j.status.toLowerCase().includes(query) ||
+        (j.error || '').toLowerCase().includes(query)
+      ) {
         results.push({
           type: 'job',
           id: j.id,
@@ -83,14 +93,22 @@ export default function (fastify: any, engine: CoreEngine): void {
     const commands = [
       { id: 'system.settings', title: 'Open Settings Panel', action: 'open-settings' },
       { id: 'system.terminal', title: 'Open Direct Terminal Console', action: 'open-terminal' },
-      { id: 'system.health', title: 'Open System Subsystem Health Dashboard', action: 'open-health' },
+      {
+        id: 'system.health',
+        title: 'Open System Subsystem Health Dashboard',
+        action: 'open-health'
+      },
       { id: 'system.jobs', title: 'Open Asynchronous Job Center', action: 'open-jobs' },
-      { id: 'system.designer', title: 'Open Visual Infrastructure Designer', action: 'open-designer' }
+      {
+        id: 'system.designer',
+        title: 'Open Visual Infrastructure Designer',
+        action: 'open-designer'
+      }
     ];
 
     // Read commands dynamically from service plugins manifests
     const plugins = engine.plugin.discover();
-    plugins.forEach(p => {
+    plugins.forEach((p) => {
       // Dynamic commands registry builders
       commands.push({
         id: `plugin.${p.id}.restart`,

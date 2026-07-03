@@ -9,7 +9,10 @@ import { randomUUID } from 'crypto';
 export class JobsService {
   private repo: JobsRepository;
 
-  constructor(db: DatabaseAdapter, private eventBus: EventEmitter) {
+  constructor(
+    db: DatabaseAdapter,
+    private eventBus: EventEmitter
+  ) {
     this.repo = new JobsRepository(db);
   }
 
@@ -31,7 +34,10 @@ export class JobsService {
   }
 
   // 2. Update job properties and emit event updates
-  updateJob(id: string, partial: Partial<Omit<Job, 'id' | 'createdAt' | 'updatedAt'>>): Job | undefined {
+  updateJob(
+    id: string,
+    partial: Partial<Omit<Job, 'id' | 'createdAt' | 'updatedAt'>>
+  ): Job | undefined {
     const updated = this.repo.update(id, partial);
     if (updated) {
       this.eventBus.emit('job.updated', updated);
@@ -57,7 +63,11 @@ export class JobsService {
     serverId: string = 'local'
   ): Promise<Job> {
     const job = this.createJob(type, targetId, serverId);
-    this.updateJob(job.id, { status: 'running', progress: 5, logs: '[SYSTEM] Job execution started.' });
+    this.updateJob(job.id, {
+      status: 'running',
+      progress: 5,
+      logs: '[SYSTEM] Job execution started.'
+    });
 
     // Execute task in background thread
     (async () => {

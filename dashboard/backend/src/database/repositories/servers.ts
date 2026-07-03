@@ -4,7 +4,9 @@ import { Server } from '../../types';
 
 export class ServersRepository extends BaseRepository<Server> {
   findAll(): Server[] {
-    return this.db.all<any>('SELECT * FROM servers ORDER BY is_local DESC, name ASC').map(this._mapRow);
+    return this.db
+      .all<any>('SELECT * FROM servers ORDER BY is_local DESC, name ASC')
+      .map(this._mapRow);
   }
 
   findById(id: string): Server | undefined {
@@ -16,14 +18,24 @@ export class ServersRepository extends BaseRepository<Server> {
     this.db.run(
       `INSERT INTO servers (id, name, hostname, ip_address, os_name, kernel, is_local, docker_proxy_url, node_exporter_url, status) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      server.id, server.name, server.hostname, server.ipAddress, server.osName, server.kernel,
-      server.isLocal ? 1 : 0, server.dockerProxyUrl, server.nodeExporterUrl, server.status
+      server.id,
+      server.name,
+      server.hostname,
+      server.ipAddress,
+      server.osName,
+      server.kernel,
+      server.isLocal ? 1 : 0,
+      server.dockerProxyUrl,
+      server.nodeExporterUrl,
+      server.status
     );
     return this.findById(server.id)!;
   }
 
   update(id: string, partial: Partial<Server>): Server | undefined {
-    const fields = Object.keys(partial).filter(k => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt');
+    const fields = Object.keys(partial).filter(
+      (k) => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt'
+    );
     if (fields.length === 0) return this.findById(id);
 
     const sets: string[] = [];
@@ -45,7 +57,8 @@ export class ServersRepository extends BaseRepository<Server> {
 
     this.db.run(
       `UPDATE servers SET ${sets.join(', ')}, updated_at = datetime('now') WHERE id = ?`,
-      ...values, id
+      ...values,
+      id
     );
     return this.findById(id);
   }

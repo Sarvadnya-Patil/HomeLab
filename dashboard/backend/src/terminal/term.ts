@@ -42,21 +42,25 @@ export class TerminalEngine {
     if (cmd.startsWith('docker stats')) {
       const containers = await this.dockerClient.getContainers();
       const headers = 'CONTAINER       CPU %     MEM USAGE / LIMIT     STATUS\n';
-      const rows = containers.map(c => {
-        const name = c.Names && c.Names[0] ? c.Names[0].substring(1) : 'unknown';
-        const paddedName = name.padEnd(15);
-        const cpu = c.State === 'running' ? 'N/A' : '0.00%';
-        const ram = c.State === 'running' ? 'N/A' : '0.00%';
-        const status = c.Status || 'Offline';
-        return `${paddedName} ${cpu.padEnd(9)} ${ram.padEnd(20)} ${status}`;
-      }).join('\n');
+      const rows = containers
+        .map((c) => {
+          const name = c.Names && c.Names[0] ? c.Names[0].substring(1) : 'unknown';
+          const paddedName = name.padEnd(15);
+          const cpu = c.State === 'running' ? 'N/A' : '0.00%';
+          const ram = c.State === 'running' ? 'N/A' : '0.00%';
+          const status = c.Status || 'Offline';
+          return `${paddedName} ${cpu.padEnd(9)} ${ram.padEnd(20)} ${status}`;
+        })
+        .join('\n');
       return headers + rows;
     }
 
     if (cmd.startsWith('docker logs ')) {
       const serviceId = cmd.replace('docker logs ', '').trim();
       const containers = await this.dockerClient.getContainers();
-      const match = containers.find(c => c.Names.some((n: string) => n === `/${serviceId}` || n.endsWith(`-${serviceId}`)));
+      const match = containers.find((c) =>
+        c.Names.some((n: string) => n === `/${serviceId}` || n.endsWith(`-${serviceId}`))
+      );
       if (!match) {
         return `Container error: No container matches service ID [${serviceId}].`;
       }

@@ -97,12 +97,24 @@ export const Sidebar = {
 
     this.container.innerHTML = html;
 
+    const closeMobileSidebar = () => {
+      const sidebarEl = document.querySelector('.sidebar');
+      const backdropEl = document.getElementById('sidebar-backdrop');
+      if (sidebarEl && sidebarEl.classList.contains('mobile-open')) {
+        sidebarEl.classList.remove('mobile-open');
+      }
+      if (backdropEl && !backdropEl.classList.contains('hidden')) {
+        backdropEl.classList.add('hidden');
+      }
+    };
+
     // Attach click events for app switching
     this.container.querySelectorAll('.app-nav-item').forEach(el => {
       el.addEventListener('click', (e) => {
         e.preventDefault();
         const appId = el.getAttribute('data-app-id');
         store.set('activeApp', appId);
+        closeMobileSidebar();
       });
     });
 
@@ -112,6 +124,7 @@ export const Sidebar = {
         e.preventDefault();
         const wsId = el.getAttribute('data-ws-id');
         store.set('activeWorkspace', wsId);
+        closeMobileSidebar();
       });
     });
 
