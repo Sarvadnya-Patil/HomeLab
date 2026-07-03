@@ -78,6 +78,9 @@ export class CoreEngine {
   public get workflow() {
     return this.registry.workflow;
   }
+  public get infrastructure() {
+    return this.registry.infrastructure;
+  }
 
   // Engine Lifecycle Initializer
   async init(dbPath?: string): Promise<void> {
@@ -164,51 +167,9 @@ export class CoreEngine {
     });
   }
 
-  // Scan manifests and merge container state dynamically (No mock overlays)
+  // Scan manifests and merge container state dynamically (Delegated to InfrastructureService)
   async getEnrichedServices(): Promise<PluginMetadata[]> {
-    const services = this.registry.plugin.discover();
-    const overrides: Record<string, string> = this.registry.category.getOverrides();
-    let dockerContainers: any[] = [];
-    let dockerOnline = true;
-
-    try {
-      dockerContainers = await this.docker.getContainers();
-    } catch (err: any) {
-      dockerOnline = false;
-      Logger.warn('CoreEngine', `Failed to query Docker Proxy containers: ${err.message}`);
-    }
-
-    return services.map((service) => {
-      if (overrides[service.id]) {
-        service.category = overrides[service.id];
-      }
-
-      const match = dockerContainers.find((c) =>
-        c.Names.some((name: string) => name === `/${service.id}` || name.endsWith(`-${service.id}`))
-      );
-
-      if (match) {
-        const isOnline = match.State === 'running';
-        service.status = isOnline ? 'Active' : 'Inactive';
-        service.containerId = match.Id;
-        service.details = {
-          port: service.ports && service.ports.http ? service.ports.http : 'N/A',
-          latency: isOnline ? (service.id === 'cloudflared' ? '8 ms' : '15 ms') : 'N/A',
-          uptime: match.Status,
-          lastCheck: 'Just now'
-        };
-      } else {
-        service.status = dockerOnline ? 'Not Installed' : 'Unknown';
-        service.details = {
-          port: service.ports && service.ports.http ? service.ports.http : 'N/A',
-          latency: 'N/A',
-          uptime: 'N/A',
-          lastCheck: 'Just now'
-        };
-      }
-
-      return service;
-    });
+    return this.infrastructure.getEnrichedServices();
   }
 
   // Register client WebSocket connection and stream initial snapshots

@@ -219,7 +219,9 @@ export default function (fastify: any, engine: CoreEngine): void {
     let dockerContainers: any[] = [];
     try {
       dockerContainers = await engine.docker.getContainers();
-    } catch {}
+    } catch {
+      // Docker daemon may be offline; gracefully fall back to empty containers list
+    }
 
     const enrichedServices = await engine.getEnrichedServices().catch(() => []);
 

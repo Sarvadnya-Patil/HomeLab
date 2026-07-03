@@ -5,7 +5,33 @@ import path from 'path';
 import yaml from 'yaml';
 
 export default function (fastify: any, engine: CoreEngine): void {
-  // 1. POST: /api/v1/designer/deploy (Compile canvas map and trigger job deploy)
+  // 1. GET: /api/v1/designer/topology (Fetch live topological graph coordinates and connections)
+  fastify.get('/api/v1/designer/topology', async () => {
+    const nodes = await engine.infrastructure.getTopology();
+    const layoutStr = engine.settingsRepo.get('designer.layout');
+    if (layoutStr) {
+      try {
+        const layout = JSON.parse(layoutStr);
+        nodes.forEach((node: any) => {
+          if (layout[node.id]) {
+            node.position = layout[node.id];
+          }
+        });
+      } catch {}
+    }
+    return nodes;
+  });
+
+  // 2. POST: /api/v1/designer/layout (Save visual coordinates layout specifications)
+  fastify.post('/api/v1/designer/layout', async (request: any) => {
+    const { layout } = request.body || {};
+    if (layout) {
+      engine.settingsRepo.set('designer.layout', JSON.stringify(layout), 'designer');
+    }
+    return { success: true };
+  });
+
+  // 3. POST: /api/v1/designer/deploy (Compile canvas map and trigger job deploy)
   fastify.post('/api/v1/designer/deploy', async (request: any) => {
     const { nodes, links } = request.body || {};
 

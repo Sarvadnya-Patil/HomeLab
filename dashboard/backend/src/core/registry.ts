@@ -13,6 +13,7 @@ import { JobsService } from './services/jobs.service';
 import { AuthService } from './services/auth.service';
 import { BackupService } from './services/backup.service';
 import { WorkflowService } from './services/workflow.service';
+import { InfrastructureService } from './services/infrastructure.service';
 import { DockerClient } from '../docker/client';
 import { Logger } from '../utils/logger';
 
@@ -33,6 +34,7 @@ export class ServiceRegistry {
   public auth!: AuthService;
   public backup!: BackupService;
   public workflow!: WorkflowService;
+  public infrastructure!: InfrastructureService;
 
   private constructor() {}
 
@@ -73,6 +75,14 @@ export class ServiceRegistry {
     this.auth = new AuthService(adapter);
     this.backup = new BackupService(adapter, this.jobs);
     this.workflow = new WorkflowService(adapter, this.eventBus, this.jobs);
+    this.infrastructure = new InfrastructureService(
+      this.db,
+      this.docker,
+      this.metrics,
+      this.scheduler,
+      this.plugin,
+      this.category
+    );
 
     // Bind automated backup signals from workflow actions
     this.eventBus.on('trigger.backup', () => {
