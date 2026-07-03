@@ -432,7 +432,7 @@ body {
   border-color: var(--border-focus);
 }
 
-.services-container {
+.services-cards-grid-row {
   display: grid;
   grid-template-columns: repeat(6, 1fr); /* 6 columns grid for uneven card widths */
   gap: 0.75rem;
@@ -1099,6 +1099,9 @@ body {
 @media (max-width: 1023px) {
   .widget-viewport {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+  .services-cards-grid-row {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
   }
 }
 

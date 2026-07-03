@@ -138,6 +138,21 @@ export class MetricsCollector {
       this._clearExporterMetrics();
     }
 
+    // Fallback disk metrics using local fs if Node Exporter is offline or didn't supply them
+    if (this.cachedStats.disk === null) {
+      try {
+        const stats = fs.statfsSync('/');
+        const total = stats.blocks * stats.bsize;
+        const free = stats.bfree * stats.bsize;
+        const used = total - free;
+        this.cachedStats.diskGbTotal = Math.round(total / 1024 ** 3);
+        this.cachedStats.diskGbUsed = Math.round(used / 1024 ** 3);
+        this.cachedStats.disk = Math.round((used / total) * 100);
+      } catch {
+        // Fallback silently if statfs is unsupported or throws
+      }
+    }
+
     // 5. Query active Docker Stats via Docker Client
     if (dockerClient) {
       try {

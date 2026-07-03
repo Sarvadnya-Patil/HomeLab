@@ -300,7 +300,8 @@ export class InfrastructureService {
       const platform = platformsTemplate[id];
       const service = enrichedServices.find((s) => s.id === id);
       const container = dockerContainers.find((c) =>
-        c.Names.some((n: string) => n === `/${id}` || n.endsWith(`-${id}`))
+        c.Names.some((n: string) => n === `/${id}` || n.endsWith(`-${id}`) || n.includes(`${id}-`) || n.includes(`-${id}-`)) ||
+        (c.Image && c.Image.toLowerCase().includes(id.toLowerCase()))
       );
 
       let status = 'not_installed';

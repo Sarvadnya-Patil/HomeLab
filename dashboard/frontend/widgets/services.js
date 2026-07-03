@@ -85,7 +85,7 @@ export default {
             <button class="btn btn-panel btn-cat-delete" style="font-size: 0.6rem; padding: 0.15rem 0.35rem; color: var(--border-focus);">Delete</button>
           </div>
         </div>
-        <div class="services-cards-grid-row" style="display: ${isCollapsed ? 'none' : 'grid'}; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; min-height: 50px; padding: 0.25rem 0;">
+        <div class="services-cards-grid-row" style="display: ${isCollapsed ? 'none' : 'grid'}; gap: 0.75rem; min-height: 50px; padding: 0.25rem 0;">
           <!-- Cards go here -->
         </div>
       `;
@@ -174,8 +174,9 @@ export default {
       actionButtons += `<span style="font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 2;">Not Installed</span>`;
     }
 
+    const colSpan = (service.category === 'Infrastructure' || service.id === 'portainer' || service.id === 'homepage') ? 'col-span-3' : 'col-span-2';
     const card = document.createElement("div");
-    card.className = "service-card";
+    card.className = `service-card ${colSpan}`;
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-service-id', service.id);
 
@@ -183,7 +184,7 @@ export default {
       <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; width: 100%; min-width: 0;">
         <div class="card-title-group" style="display: flex; align-items: center; gap: 0.4rem; min-width: 0; flex: 1;">
           <span class="card-icon" style="flex-shrink: 0; display: flex; align-items: center;">${getIcon(service.id)}</span>
-          <span class="card-name" style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 100px;" title="${service.name}">${service.name}</span>
+          <span class="card-name" style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 100%;" title="${service.name}">${service.name}</span>
           <span class="card-version" style="font-size: 0.65rem; font-family: var(--font-mono); color: var(--text-muted); flex-shrink: 0;">v${service.version}</span>
         </div>
         <span class="card-status ${isOnline ? 'online' : 'offline'}" style="flex-shrink: 0; font-size: 0.7rem; font-family: var(--font-mono); display: flex; align-items: center; padding: 0.15rem 0.35rem; border-radius: 3px;">${service.status}</span>
@@ -272,7 +273,7 @@ export default {
   async triggerServiceAction(serviceId, action) {
     // If requesting logs, broadcast terminal focus
     if (action === 'logs') {
-      store.emit('ui_logs_focus', serviceId);
+      store.emit('ui_logs_focus', { value: serviceId });
       return;
     }
 
