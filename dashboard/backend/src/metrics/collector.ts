@@ -4,6 +4,22 @@ import os from 'os';
 import { Logger } from '../utils/logger';
 import { SystemStats } from '../types';
 
+async function fetchWithTimeout(url: string, options: any = {}, timeout = 2000): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
+
 export class MetricsCollector {
   private nodeExporterUrl: string;
   private lastCpuTicks: { idle: number; total: number } | null = null;
@@ -66,7 +82,7 @@ export class MetricsCollector {
 
     // 4. Try parsing Prometheus Node Exporter metrics for extra data (disk space / temperature)
     try {
-      const res = await fetch(`${this.nodeExporterUrl}/metrics`);
+      const res = await fetchWithTimeout(`${this.nodeExporterUrl}/metrics`, {}, 1500);
       if (res.ok) {
         const text = await res.text();
         const parsed = this._parsePrometheusText(text);

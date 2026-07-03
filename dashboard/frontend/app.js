@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('Booting HomeLab OS Control Plane...');
 
   const viewport = document.getElementById('widget-grid-viewport');
+  const appShell = document.querySelector('.app-shell');
 
   // 1. Initialize global overlay components
   Header.init();
@@ -91,12 +92,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       const setupStatus = await api.get('/api/v1/auth/setup-status');
       if (setupStatus.setupRequired) {
         document.getElementById('setup-wizard-overlay').classList.remove('hidden');
+        if (appShell) appShell.style.display = 'none';
         return;
       }
 
       const token = localStorage.getItem('homelab_token');
       if (!token) {
         document.getElementById('login-overlay').classList.remove('hidden');
+        if (appShell) appShell.style.display = 'none';
         return;
       }
 
@@ -104,13 +107,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         const user = await api.get('/api/v1/auth/me');
         store.set('currentUser', user);
+        if (appShell) appShell.style.display = 'flex';
         await initializeConsole();
       } catch (err) {
         localStorage.removeItem('homelab_token');
         document.getElementById('login-overlay').classList.remove('hidden');
+        if (appShell) appShell.style.display = 'none';
       }
     } catch (err) {
       console.error('Setup status check failed:', err);
+      if (appShell) appShell.style.display = 'none';
     }
   };
 
@@ -129,6 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await api.post('/api/v1/auth/setup', { username, displayName, password });
       document.getElementById('setup-wizard-overlay').classList.add('hidden');
       document.getElementById('login-overlay').classList.remove('hidden');
+      if (appShell) appShell.style.display = 'none';
     } catch (err) {
       setupError.textContent = err.message;
       setupError.style.display = 'block';
@@ -152,6 +159,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       const user = await api.get('/api/v1/auth/me');
       store.set('currentUser', user);
+      if (appShell) appShell.style.display = 'flex';
       await initializeConsole();
     } catch (err) {
       loginError.textContent = err.message;

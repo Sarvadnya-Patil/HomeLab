@@ -4,6 +4,22 @@ import { Logger } from '../utils/logger';
 import { DockerContainer } from '../types';
 import { ContainerProvider } from '../core/container/provider';
 
+async function fetchWithTimeout(url: string, options: any = {}, timeout = 2500): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
+
 export class DockerClient implements ContainerProvider {
   private proxyUrl: string;
 
@@ -15,7 +31,7 @@ export class DockerClient implements ContainerProvider {
   // 1. Retrieve docker containers list
   async getContainers(): Promise<DockerContainer[]> {
     try {
-      const res = await fetch(`${this.proxyUrl}/containers/json?all=1`);
+      const res = await fetchWithTimeout(`${this.proxyUrl}/containers/json?all=1`, {}, 2500);
       if (!res.ok) throw new Error(`Proxy status: ${res.statusText}`);
       const data = (await res.json()) as DockerContainer[];
       Logger.debug('DockerSubsystem', `Fetched ${data.length} active containers.`);
@@ -29,7 +45,7 @@ export class DockerClient implements ContainerProvider {
   // 2. Retrieve docker version
   async getVersion(): Promise<string | null> {
     try {
-      const res = await fetch(`${this.proxyUrl}/version`);
+      const res = await fetchWithTimeout(`${this.proxyUrl}/version`, {}, 2500);
       if (!res.ok) return null;
       const data = (await res.json()) as { Version?: string };
       return data.Version || null;
@@ -42,8 +58,10 @@ export class DockerClient implements ContainerProvider {
   async getLogs(containerId: string, serviceId: string): Promise<string> {
     try {
       Logger.info('DockerSubsystem', `Fetching logs for [${serviceId}] (ID: ${containerId})`);
-      const res = await fetch(
-        `${this.proxyUrl}/containers/${containerId}/logs?stdout=1&stderr=1&tail=100`
+      const res = await fetchWithTimeout(
+        `${this.proxyUrl}/containers/${containerId}/logs?stdout=1&stderr=1&tail=100`,
+        {},
+        3000
       );
       if (!res.ok) throw new Error(res.statusText);
       const arrayBuffer = await res.arrayBuffer();
@@ -57,7 +75,7 @@ export class DockerClient implements ContainerProvider {
   // 4. Retrieve Docker images list
   async getImages(): Promise<any[]> {
     try {
-      const res = await fetch(`${this.proxyUrl}/images/json`);
+      const res = await fetchWithTimeout(`${this.proxyUrl}/images/json`, {}, 2500);
       if (!res.ok) throw new Error(res.statusText);
       return (await res.json()) as any[];
     } catch (err: any) {
@@ -69,7 +87,7 @@ export class DockerClient implements ContainerProvider {
   // 5. Retrieve Docker volumes list
   async getVolumes(): Promise<any[]> {
     try {
-      const res = await fetch(`${this.proxyUrl}/volumes`);
+      const res = await fetchWithTimeout(`${this.proxyUrl}/volumes`, {}, 2500);
       if (!res.ok) throw new Error(res.statusText);
       const data = (await res.json()) as { Volumes?: any[] };
       return data.Volumes || [];
@@ -82,7 +100,7 @@ export class DockerClient implements ContainerProvider {
   // 6. Retrieve Docker networks list
   async getNetworks(): Promise<any[]> {
     try {
-      const res = await fetch(`${this.proxyUrl}/networks`);
+      const res = await fetchWithTimeout(`${this.proxyUrl}/networks`, {}, 2500);
       if (!res.ok) throw new Error(res.statusText);
       return (await res.json()) as any[];
     } catch (err: any) {
@@ -95,11 +113,12 @@ export class DockerClient implements ContainerProvider {
   async pullImage(imageName: string): Promise<{ success: boolean }> {
     try {
       Logger.info('DockerSubsystem', `Requesting image pull: [${imageName}]`);
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `${this.proxyUrl}/images/create?fromImage=${encodeURIComponent(imageName)}`,
         {
           method: 'POST'
-        }
+        },
+        10000
       );
       if (!res.ok) throw new Error(res.statusText);
       await res.text(); // consume stream response
@@ -114,9 +133,9 @@ export class DockerClient implements ContainerProvider {
   async removeContainer(containerId: string): Promise<{ success: boolean }> {
     try {
       Logger.info('DockerSubsystem', `Removing container: ${containerId}`);
-      const res = await fetch(`${this.proxyUrl}/containers/${containerId}?force=true&v=true`, {
+      const res = await fetchWithTimeout(`${this.proxyUrl}/containers/${containerId}?force=true&v=true`, {
         method: 'DELETE'
-      });
+      }, 5000);
       if (!res.ok) throw new Error(res.statusText);
       return { success: true };
     } catch (err: any) {
@@ -127,7 +146,7 @@ export class DockerClient implements ContainerProvider {
 
   // 9. Inspect Docker container
   async inspectContainer(containerId: string): Promise<any> {
-    const res = await fetch(`${this.proxyUrl}/containers/${containerId}/json`);
+    const res = await fetchWithTimeout(`${this.proxyUrl}/containers/${containerId}/json`, {}, 2500);
     if (!res.ok) throw new Error(`Inspect failed: ${res.statusText}`);
     return await res.json();
   }
@@ -135,7 +154,7 @@ export class DockerClient implements ContainerProvider {
   // 10. Query container resources utilization statistics
   async getStats(containerId: string): Promise<any> {
     try {
-      const res = await fetch(`${this.proxyUrl}/containers/${containerId}/stats?stream=false`);
+      const res = await fetchWithTimeout(`${this.proxyUrl}/containers/${containerId}/stats?stream=false`, {}, 2500);
       if (!res.ok) throw new Error(res.statusText);
       return await res.json();
     } catch (err: any) {
@@ -188,7 +207,7 @@ export class DockerClient implements ContainerProvider {
       throw new Error(`Unsupported API action: ${action}`);
     }
 
-    const res = await fetch(`${this.proxyUrl}${endpoint}`, { method: 'POST' });
+    const res = await fetchWithTimeout(`${this.proxyUrl}${endpoint}`, { method: 'POST' }, 5000);
     if (res.status === 200 || res.status === 204 || res.status === 304) {
       Logger.info(
         'DockerSubsystem',

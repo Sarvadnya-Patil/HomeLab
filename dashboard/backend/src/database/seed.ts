@@ -13,6 +13,15 @@ export function seedDatabase(db: DatabaseAdapter): void {
   Logger.info('DatabaseSubsystem', 'Database is empty. Executing initial seeder hooks...');
 
   db.transaction(() => {
+    // 0. Insert system user to satisfy foreign key constraints for system audit logs
+    db.run(
+      `INSERT OR IGNORE INTO users (id, username, display_name, role) VALUES (?, ?, ?, ?)`,
+      'system',
+      'system',
+      'System Engine',
+      'admin'
+    );
+
     // 1. Initial workspaces metadata seeder
     // Local host servers and default category structures are bootstrapped here.
 

@@ -335,6 +335,9 @@ export class CoreEngine {
   }
 
   stop(): void {
+    this.scheduler.cancel('metrics-collector');
+    this.scheduler.cancel('docker-sync');
+    this.scheduler.cancel('metrics-pruner');
     this.scheduler.cancel('ws-heartbeat');
     this.scheduler.cancel('backup-retention-pruner');
     this.registry.stop();

@@ -23,18 +23,22 @@ export default function (fastify: any, engine: CoreEngine): void {
     if (!user) {
       return reply.status(401).send({ error: 'Invalid or expired token' });
     }
+    const dbUser = engine.usersRepo.findById(user.id);
+    if (!dbUser) {
+      return reply.status(401).send({ error: 'User no longer exists' });
+    }
     return user;
   });
 
   // 3. GET: /api/v1/auth/setup-status (Check if system requires first-time initialization setup)
   fastify.get('/api/v1/auth/setup-status', async () => {
-    const users = engine.usersRepo.findAll();
+    const users = engine.usersRepo.findAll().filter((u) => u.username !== 'system');
     return { setupRequired: users.length === 0 };
   });
 
   // 4. POST: /api/v1/auth/setup (Configure the first Super Admin user account during first startup setup wizard)
   fastify.post('/api/v1/auth/setup', async (request: any, reply: any) => {
-    const users = engine.usersRepo.findAll();
+    const users = engine.usersRepo.findAll().filter((u) => u.username !== 'system');
     if (users.length > 0) {
       return reply.status(400).send({ error: 'Initialization setup is already complete' });
     }
