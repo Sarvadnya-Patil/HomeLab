@@ -3,6 +3,7 @@ import { CoreEngine } from '../../core/engine';
 import fs from 'fs';
 import path from 'path';
 import yaml from 'yaml';
+import { Logger } from '../../utils/logger';
 
 export default function (fastify: any, engine: CoreEngine): void {
   // 1. GET: /api/v1/designer/topology (Fetch live topological graph coordinates and connections)
@@ -17,8 +18,8 @@ export default function (fastify: any, engine: CoreEngine): void {
             node.position = layout[node.id];
           }
         });
-      } catch {
-        // Fallback gracefully to calculated default positions if layout settings string is corrupted
+      } catch (err: any) {
+        Logger.warn('DesignerRoutes', `Failed to parse layout configuration settings: ${err.message}`);
       }
     }
     return nodes;
