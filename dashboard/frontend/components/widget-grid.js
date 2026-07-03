@@ -11,6 +11,7 @@ export const WidgetGrid = {
 
   init(containerEl) {
     this.container = containerEl;
+    this.activeWorkspaceId = store.get('activeWorkspace') || 'overview';
     
     // Rerender grid whenever active workspace changes
     store.on('activeWorkspace', ({ value }) => {

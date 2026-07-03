@@ -29,7 +29,20 @@ export default function (fastify: any, engine: CoreEngine): void {
 
   // 2. Categories CRUD
   fastify.get('/api/v1/categories', async () => {
-    return engine.categoriesRepo.findAll();
+    const list = engine.categoriesRepo.findAll();
+    if (!list.some(c => c.id === 'containers' || c.name.toLowerCase() === 'containers')) {
+      list.push({
+        id: 'containers',
+        workspace_id: 'overview',
+        name: 'Containers',
+        icon: 'server',
+        description: 'Auto-discovered Docker host container instances',
+        display_order: 10,
+        collapsed: 0,
+        visible: 1
+      });
+    }
+    return list;
   });
 
   fastify.post('/api/v1/categories', async (request: any) => {

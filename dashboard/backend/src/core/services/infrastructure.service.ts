@@ -219,7 +219,8 @@ export class InfrastructureService {
       Logger.warn('InfrastructureService', `Failed to query Docker Proxy containers: ${err.message}`);
     }
 
-    return services.map((service) => {
+    const matchedIds = new Set<string>();
+    const serviceList = services.map((service) => {
       const serviceCopy = { ...service };
       if (overrides[serviceCopy.id]) {
         serviceCopy.category = overrides[serviceCopy.id];
@@ -230,6 +231,7 @@ export class InfrastructureService {
       );
 
       if (match) {
+        matchedIds.add(match.Id);
         const isOnline = match.State === 'running';
         serviceCopy.status = isOnline ? 'Active' : 'Inactive';
         serviceCopy.containerId = match.Id;
@@ -251,6 +253,37 @@ export class InfrastructureService {
 
       return serviceCopy;
     });
+
+    dockerContainers.forEach((c) => {
+      if (matchedIds.has(c.Id)) return;
+
+      const name = c.Names[0] ? c.Names[0].replace('/', '') : c.Id.substring(0, 12);
+      const isOnline = c.State === 'running';
+
+      // Check if there is an explicit port binding exposed
+      const port = c.Ports && c.Ports.length > 0 ? c.Ports[0].PublicPort : null;
+
+      serviceList.push({
+        id: name,
+        name: name,
+        category: 'Containers',
+        description: `Docker container running image: ${c.Image}`,
+        version: 'latest',
+        icon: 'server',
+        enabled: true,
+        status: isOnline ? 'Active' : 'Inactive',
+        containerId: c.Id,
+        ports: { http: port },
+        details: {
+          port: port ? port.toString() : 'N/A',
+          latency: 'N/A',
+          uptime: c.Status,
+          lastCheck: 'Just now'
+        }
+      });
+    });
+
+    return serviceList;
   }
 
   async getAutomationPlatforms(platformsTemplate: Record<string, any>): Promise<any[]> {
