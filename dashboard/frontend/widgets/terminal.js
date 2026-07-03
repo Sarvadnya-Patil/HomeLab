@@ -18,7 +18,7 @@ export default {
         <span class="panel-title">Server Console Terminal</span>
         <span class="console-host" id="w-term-host-label" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);">root@homelab-os</span>
       </div>
-      <div class="terminal-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.75rem; height: 180px; overflow-y: auto; line-height: 1.45; display: flex; flex-direction: column; justify-content: space-between;">
+      <div class="terminal-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.75rem; height: 260px; overflow-y: auto; line-height: 1.45; display: flex; flex-direction: column; justify-content: space-between;">
         <div class="terminal-content" id="w-term-output" style="flex: 1; overflow-y: auto; margin-bottom: 0.5rem; white-space: pre-wrap;">
           <span class="cyan-text">root@homelab:~$</span> OS control console active. Type 'help' for commands.<br><br>
           <span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>
@@ -31,7 +31,16 @@ export default {
     `;
 
     // Hook up local command intercept listener
-    this.logCallback = (output) => this.appendOutput(container, output);
+    this.logCallback = (output) => {
+      const outputEl = container.querySelector('#w-term-output');
+      if (!outputEl) return;
+      const formatted = output.replace(/\n/g, '<br>');
+      outputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>`;
+      const body = container.querySelector('.terminal-body');
+      if (body) {
+        body.scrollTop = body.scrollHeight;
+      }
+    };
 
     const inputField = container.querySelector('#w-term-input');
     const body = container.querySelector('.terminal-body');
@@ -48,6 +57,18 @@ export default {
           const command = inputField.value.trim();
           if (!command) return;
           inputField.value = '';
+
+          // If streaming logs, stop streaming on manual command execution
+          if (this.activeLogsServiceId) {
+            WsClient.unsubscribeLogs(this.activeLogsServiceId, this.logCallback);
+            this.activeLogsServiceId = null;
+            const hostLabel = container.querySelector('#w-term-host-label');
+            if (hostLabel) hostLabel.textContent = `root@homelab-os`;
+            
+            // Clear screen of logs first to show fresh command
+            const outputEl = container.querySelector('#w-term-output');
+            if (outputEl) outputEl.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>`;
+          }
 
           // Display command in output
           this.appendOutput(container, `> ${command}`);
@@ -110,7 +131,7 @@ export default {
   resize(container, size) {
     const body = container.querySelector('.terminal-body');
     if (body) {
-      body.style.height = size === '2x2' ? '360px' : '180px';
+      body.style.height = size === '2x2' ? '400px' : '260px';
     }
   },
 

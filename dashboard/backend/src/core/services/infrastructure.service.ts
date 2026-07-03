@@ -263,10 +263,13 @@ export class InfrastructureService {
       // Check if there is an explicit port binding exposed
       const port = c.Ports && c.Ports.length > 0 ? c.Ports[0].PublicPort : null;
 
+      // Apply category overrides to synthesized docker containers too!
+      const category = overrides[name] || 'Containers';
+
       serviceList.push({
         id: name,
         name: name,
-        category: 'Containers',
+        category: category,
         description: `Docker container running image: ${c.Image}`,
         version: 'latest',
         icon: 'server',

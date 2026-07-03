@@ -58,7 +58,8 @@ export default {
       const catServices = services.filter(s => {
         const matchesCategory = s.category.toLowerCase() === cat.id.toLowerCase() || s.category === cat.name;
         const matchesFilter = !filterQuery || s.name.toLowerCase().includes(filterQuery) || s.description.toLowerCase().includes(filterQuery);
-        return matchesCategory && matchesFilter;
+        const isInstalled = s.status !== 'Not Installed';
+        return matchesCategory && matchesFilter && isInstalled;
       });
 
       // Renders collapsed state
