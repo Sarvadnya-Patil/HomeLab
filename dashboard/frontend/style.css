@@ -802,7 +802,10 @@ body {
 .widget-wrapper[data-size="1x1"] { grid-column: span 1; grid-row: span 1; }
 .widget-wrapper[data-size="2x1"] { grid-column: span 2; grid-row: span 1; }
 .widget-wrapper[data-size="2x2"] { grid-column: span 2; grid-row: span 2; }
-.widget-wrapper[data-size="full"] { grid-column: 1 / -1; }
+.widget-wrapper[data-size="full"] {
+  grid-column: 1 / -1;
+  grid-column: span 12;
+}
 
 .widget-item {
   width: 100%;
