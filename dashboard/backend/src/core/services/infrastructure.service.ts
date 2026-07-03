@@ -77,7 +77,7 @@ export class InfrastructureService {
         tunnelOnline = containers.some(
           (c) =>
             c.State === 'running' &&
-            c.Names.some((n) =>
+            c.Names.some((n: string) =>
               n.toLowerCase().includes('cloudflared') ||
               n.toLowerCase().includes('tunnel') ||
               n.toLowerCase().includes('cloudflare')
@@ -329,7 +329,7 @@ export class InfrastructureService {
       tunnelOnline = dockerContainers.some(
         (c) =>
           c.State === 'running' &&
-          c.Names.some((n) =>
+          c.Names.some((n: string) =>
             n.toLowerCase().includes('cloudflared') ||
             n.toLowerCase().includes('tunnel') ||
             n.toLowerCase().includes('cloudflare')
