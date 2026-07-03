@@ -44,10 +44,25 @@ export class InfrastructureService {
         tunnelOnline = containers.some(
           (c) =>
             c.State === 'running' &&
-            c.Names.some((n) => n.toLowerCase().includes('cloudflared') || n.toLowerCase().includes('tunnel'))
+            c.Names.some((n) =>
+              n.toLowerCase().includes('cloudflared') ||
+              n.toLowerCase().includes('tunnel') ||
+              n.toLowerCase().includes('cloudflare')
+            )
         );
       } catch {
         tunnelOnline = false;
+      }
+    }
+
+    // Fallback: Check local process table if running natively or with host access
+    if (!tunnelOnline) {
+      try {
+        const { execSync } = require('child_process');
+        execSync('pgrep cloudflared || pidof cloudflared || pgrep -f cloudflared', { stdio: 'ignore' });
+        tunnelOnline = true;
+      } catch {
+        // Fallback silently if process is not found or command fails
       }
     }
 
