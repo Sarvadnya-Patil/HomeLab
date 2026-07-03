@@ -33,14 +33,14 @@ export default function (fastify: any, engine: CoreEngine): void {
     if (!list.some(c => c.id === 'containers' || c.name.toLowerCase() === 'containers')) {
       list.push({
         id: 'containers',
-        workspace_id: 'overview',
+        workspaceId: 'overview',
         name: 'Containers',
         icon: 'server',
         description: 'Auto-discovered Docker host container instances',
-        display_order: 10,
-        collapsed: 0,
-        visible: 1
-      });
+        displayOrder: 10,
+        collapsed: false,
+        visible: true
+      } as any);
     }
     return list;
   });

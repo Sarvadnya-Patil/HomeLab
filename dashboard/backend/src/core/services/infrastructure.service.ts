@@ -280,7 +280,7 @@ export class InfrastructureService {
           uptime: c.Status,
           lastCheck: 'Just now'
         }
-      });
+      } as any);
     });
 
     return serviceList;
