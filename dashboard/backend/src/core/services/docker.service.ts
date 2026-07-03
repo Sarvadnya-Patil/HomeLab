@@ -69,5 +69,10 @@ export class DockerService {
   async inspectContainer(containerId: string): Promise<any> {
     return (this.client as any).inspectContainer(containerId);
   }
+
+  // 11. Retrieve Docker host system information
+  async getInfo(): Promise<any> {
+    return this.client.getInfo();
+  }
 }
 export default DockerService;

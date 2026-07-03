@@ -17,5 +17,6 @@ export interface ContainerProvider {
     action: string,
     serverId?: string
   ): Promise<{ success: boolean }>;
+  getInfo(serverId?: string): Promise<any>;
 }
 export default ContainerProvider;
