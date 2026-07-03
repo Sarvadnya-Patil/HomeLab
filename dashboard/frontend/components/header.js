@@ -3,17 +3,23 @@ import { store } from '../core/state.js';
 
 export const Header = {
   init(headerEl) {
-    // Listen to metrics and service registry updates to patch elements
+    // Listen to metrics updates for host info
     store.on('metrics', () => this.updateUI());
-    store.on('services', () => this.updateUI());
+    // Listen to unified health status updates for status pills
+    store.on('healthStatus', ({ value }) => this.updateHealthUI(value));
     
+    // Trigger initial render if healthStatus is already loaded
+    const currentHealth = store.get('healthStatus');
+    if (currentHealth) {
+      this.updateHealthUI(currentHealth);
+    }
+
     // Start live clock intervals
     this.startClock();
   },
 
   updateUI() {
     const stats = store.get('metrics');
-    const services = store.get('services') || [];
     if (!stats) return;
 
     // 1. Update text metadata
@@ -28,54 +34,54 @@ export const Header = {
     if (hostIpEl) hostIpEl.textContent = stats.ipAddress;
     if (hostKernelEl) hostKernelEl.textContent = `Kernel: ${stats.kernel}`;
     if (liveUptimeEl) liveUptimeEl.innerHTML = `<span class="white-text">${stats.uptime}</span>`;
+  },
 
-    // 2. Render dynamic status pills
+  updateHealthUI(healthData) {
     const statusPills = document.getElementById("header-status-pills");
-    if (!statusPills) return;
+    if (!statusPills || !healthData || !healthData.subsystems) return;
     statusPills.innerHTML = "";
 
-    // 2.1 Docker Pill
-    const dockerOnline = stats.dockerStatus === "Online";
+    const subs = healthData.subsystems;
+
+    // 1. Docker Pill
+    const dockerOnline = subs.docker && subs.docker.status === "online";
     const dockerPill = document.createElement("span");
     dockerPill.className = "status-pill";
     dockerPill.innerHTML = `
       <span class="led ${dockerOnline ? 'green' : 'red'}"></span>
-      Docker: ${dockerOnline ? `${stats.runningContainers}/${stats.containerCount} Active` : 'Offline'}
+      Docker: ${dockerOnline ? 'Online' : 'Offline'}
     `;
     statusPills.appendChild(dockerPill);
 
-    // 2.2 Cloudflare Tunnel Pill
-    const tunnelService = services.find(s => s.id === 'cloudflared');
-    const tunnelOnline = tunnelService && tunnelService.status === 'Active';
+    // 2. Cloudflare Tunnel Pill
+    const tunnelOnline = subs.tunnel && subs.tunnel.status === "online";
     const tunnelPill = document.createElement("span");
     tunnelPill.className = "status-pill";
     tunnelPill.innerHTML = `
       <span class="led ${tunnelOnline ? 'green' : 'red'}"></span>
-      Tunnel: ${tunnelOnline ? 'Exposed' : 'Offline'}
+      Tunnel: ${tunnelOnline ? 'Online' : 'Offline'}
     `;
     statusPills.appendChild(tunnelPill);
 
-    // 2.3 Prometheus Scraper Pill
-    const promService = services.find(s => s.id === 'prometheus');
-    const promOnline = promService && promService.status === 'Active';
-    const promPill = document.createElement("span");
-    promPill.className = "status-pill";
-    promPill.innerHTML = `
-      <span class="led ${promOnline ? 'green' : 'red'}"></span>
-      Scraper: ${promOnline ? 'Active' : 'Offline'}
+    // 3. Prometheus Scraper Pill
+    const scraperOnline = subs.scraper && subs.scraper.status === "online";
+    const scraperPill = document.createElement("span");
+    scraperPill.className = "status-pill";
+    scraperPill.innerHTML = `
+      <span class="led ${scraperOnline ? 'green' : 'red'}"></span>
+      Scraper: ${scraperOnline ? 'Online' : 'Offline'}
     `;
-    statusPills.appendChild(promPill);
+    statusPills.appendChild(scraperPill);
 
-    // 2.4 Grafana Dashboard Pill
-    const grafanaService = services.find(s => s.id === 'grafana');
-    const grafanaOnline = grafanaService && grafanaService.status === 'Active';
-    const grafanaPill = document.createElement("span");
-    grafanaPill.className = "status-pill";
-    grafanaPill.innerHTML = `
-      <span class="led ${grafanaOnline ? 'green' : 'red'}"></span>
-      Grafana: ${grafanaOnline ? 'Online' : 'Offline'}
+    // 4. Scheduler Pill
+    const schedulerOnline = subs.scheduler && subs.scheduler.status === "online";
+    const schedulerPill = document.createElement("span");
+    schedulerPill.className = "status-pill";
+    schedulerPill.innerHTML = `
+      <span class="led ${schedulerOnline ? 'green' : 'red'}"></span>
+      Scheduler: ${schedulerOnline ? 'Online' : 'Offline'}
     `;
-    statusPills.appendChild(grafanaPill);
+    statusPills.appendChild(schedulerPill);
   },
 
   startClock() {

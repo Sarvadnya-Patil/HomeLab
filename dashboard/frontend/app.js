@@ -70,6 +70,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  const startHealthPolling = () => {
+    const poll = async () => {
+      try {
+        const health = await api.get('/api/v1/health');
+        store.set('healthStatus', health);
+      } catch (err) {
+        console.error('Failed to fetch health status:', err);
+      }
+    };
+    poll();
+    setInterval(poll, 5000);
+  };
+
   const initializeConsole = async () => {
     // 3. Load active apps on boot and establish socket streams
     try {
@@ -82,6 +95,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       console.error('Failed to load OS applications list:', err);
     }
+
+    startHealthPolling();
 
     // 4. Open WebSocket stream connection
     WsClient.connect();
@@ -123,13 +138,74 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Bind Setup Form Submits
   const setupForm = document.getElementById('setup-form');
   const setupError = document.getElementById('setup-error');
-  setupForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  const setupUsernameInput = document.getElementById('setup-username');
+  const setupDisplayNameInput = document.getElementById('setup-display-name');
+  const setupPasswordInput = document.getElementById('setup-password');
+  const setupConfirmPasswordInput = document.getElementById('setup-confirm-password');
+  const setupSubmitBtn = document.getElementById('btn-setup-submit');
+
+  const validateSetupForm = () => {
+    const username = setupUsernameInput.value.trim();
+    const displayName = setupDisplayNameInput.value.trim();
+    const password = setupPasswordInput.value;
+    const confirmPassword = setupConfirmPasswordInput.value;
+
+    let isValid = true;
     setupError.style.display = 'none';
 
-    const username = document.getElementById('setup-username').value;
-    const displayName = document.getElementById('setup-display-name').value;
-    const password = document.getElementById('setup-password').value;
+    if (!username || !displayName || !password || !confirmPassword) {
+      isValid = false;
+    }
+
+    if (password && confirmPassword && password !== confirmPassword) {
+      setupError.textContent = 'Passwords do not match.';
+      setupError.style.display = 'block';
+      isValid = false;
+    }
+
+    if (isValid) {
+      setupSubmitBtn.disabled = false;
+      setupSubmitBtn.style.background = 'var(--text-primary)';
+      setupSubmitBtn.style.cursor = 'pointer';
+    } else {
+      setupSubmitBtn.disabled = true;
+      setupSubmitBtn.style.background = 'var(--border-slate)';
+      setupSubmitBtn.style.cursor = 'not-allowed';
+    }
+    return isValid;
+  };
+
+  setupUsernameInput.addEventListener('input', validateSetupForm);
+  setupDisplayNameInput.addEventListener('input', validateSetupForm);
+  setupPasswordInput.addEventListener('input', validateSetupForm);
+  setupConfirmPasswordInput.addEventListener('input', validateSetupForm);
+
+  // Setup password show/hide toggles
+  document.querySelectorAll('.password-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-target');
+      const input = document.getElementById(targetId);
+      if (input) {
+        if (input.type === 'password') {
+          input.type = 'text';
+          btn.textContent = 'HIDE';
+        } else {
+          input.type = 'password';
+          btn.textContent = 'SHOW';
+        }
+      }
+    });
+  });
+
+  setupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!validateSetupForm()) {
+      return;
+    }
+
+    const username = setupUsernameInput.value;
+    const displayName = setupDisplayNameInput.value;
+    const password = setupPasswordInput.value;
 
     try {
       await api.post('/api/v1/auth/setup', { username, displayName, password });
