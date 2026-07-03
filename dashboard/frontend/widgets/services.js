@@ -135,10 +135,14 @@ export default {
     const statusClass = service.status.toLowerCase().replace(' ', '-');
 
     let href = '#';
-    if (service.domain && service.domain.public) {
+    const tunnelOnline = store.get('tunnelOnline') || false;
+
+    if (tunnelOnline && service.domain && service.domain.public) {
       href = `http://${service.domain.public}`;
+    } else if (service.domain && service.domain.local) {
+      href = `http://${service.domain.local}`;
     } else if (service.ports && service.ports.http) {
-      href = `http://localhost:${service.ports.http}`;
+      href = `http://${location.hostname}:${service.ports.http}`;
     }
 
     const isPublic = service.permissions && service.permissions.tunnelExposed;

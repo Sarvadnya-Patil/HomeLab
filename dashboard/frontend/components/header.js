@@ -42,6 +42,7 @@ export const Header = {
     statusPills.innerHTML = "";
 
     const subs = data.subsystems;
+    store.set('tunnelOnline', subs.tunnel && subs.tunnel.status === "online");
 
     // 1. Docker Pill
     const dockerOnline = subs.docker && subs.docker.status === "online";
