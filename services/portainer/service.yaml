@@ -19,6 +19,7 @@ volumes:
   - backup
 
 capabilities:
+  - open
   - start
   - stop
   - restart

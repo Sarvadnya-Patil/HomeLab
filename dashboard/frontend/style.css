@@ -1096,12 +1096,25 @@ body {
   transition: opacity 0.25s ease-in-out;
 }
 
+/* Resource Stats Row Wrapper */
+.resource-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  width: 100%;
+  grid-column: 1 / -1;
+  grid-column: span 12;
+}
+
 @media (max-width: 1023px) {
   .widget-viewport {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   }
   .services-cards-grid-row {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+  }
+  .resource-stats-row {
+    grid-template-columns: repeat(2, 1fr) !important;
   }
 }
 
@@ -1215,8 +1228,16 @@ body {
     grid-template-columns: 1fr !important;
   }
 
+  .resource-stats-row {
+    grid-template-columns: 1fr !important;
+  }
+
   .grid-split-row {
     grid-template-columns: 1fr !important;
+  }
+
+  .btn-expand-terminal {
+    display: none !important;
   }
 
   /* Command Palette Overlays (Touch Targets) */

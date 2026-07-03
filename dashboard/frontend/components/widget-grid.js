@@ -100,6 +100,8 @@ export const WidgetGrid = {
       // Sort widgets by displayOrder
       const sorted = [...widgets].sort((a, b) => a.displayOrder - b.displayOrder);
 
+      let statsRow = null;
+
       sorted.forEach(w => {
         if (!w.visible) return;
 
@@ -117,7 +119,18 @@ export const WidgetGrid = {
         
         // Render widget markup
         widgetObj.render(wrapper);
-        this.container.appendChild(wrapper);
+
+        const isResource = ['cpu', 'ram', 'gpu', 'disk'].includes(w.type);
+        if (isResource) {
+          if (!statsRow) {
+            statsRow = document.createElement('div');
+            statsRow.className = 'resource-stats-row';
+            this.container.appendChild(statsRow);
+          }
+          statsRow.appendChild(wrapper);
+        } else {
+          this.container.appendChild(wrapper);
+        }
 
         // Map initial state updates
         if (widgetObj.wsEvents.includes('metrics')) {

@@ -10,12 +10,20 @@ export default {
   wsEvents: ['terminal'],
   logCallback: null,
   activeLogsServiceId: null,
+  modalActive: false,
+  modalOutputEl: null,
 
   render(container) {
     container.className = 'grid-terminal widget-item';
     container.innerHTML = `
       <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
-        <span class="panel-title">Server Console Terminal</span>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span class="panel-title">Server Console Terminal</span>
+          <button class="btn btn-panel btn-expand-terminal" style="font-size: 0.6rem; padding: 0.15rem 0.35rem; display: flex; align-items: center; gap: 0.2rem;" title="Expand Terminal Log Viewer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 10px; height: 10px;"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+            Expand
+          </button>
+        </div>
         <span class="console-host" id="w-term-host-label" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);">root@homelab-os</span>
       </div>
       <div class="terminal-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.75rem; height: 260px; overflow-y: auto; line-height: 1.45; display: flex; flex-direction: column; justify-content: space-between;">
@@ -36,11 +44,24 @@ export default {
       if (!outputEl) return;
       const formatted = output.replace(/\n/g, '<br>');
       outputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>`;
+      
+      if (this.modalActive && this.modalOutputEl) {
+        this.modalOutputEl.innerHTML = `<span class="white-text">${formatted}</span>`;
+        this.modalOutputEl.scrollTop = this.modalOutputEl.scrollHeight;
+      }
+
       const body = container.querySelector('.terminal-body');
       if (body) {
         body.scrollTop = body.scrollHeight;
       }
     };
+
+    const expandBtn = container.querySelector('.btn-expand-terminal');
+    if (expandBtn) {
+      expandBtn.addEventListener('click', () => {
+        this.openExpandModal(container);
+      });
+    }
 
     const inputField = container.querySelector('#w-term-input');
     const body = container.querySelector('.terminal-body');
@@ -107,6 +128,16 @@ export default {
       output.innerHTML += `<br><span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>`;
     }
 
+    if (this.modalActive && this.modalOutputEl) {
+      if (text === '__CLEAR__') {
+        this.modalOutputEl.innerHTML = '';
+      } else {
+        const formatted = text.replace(/\n/g, '<br>');
+        this.modalOutputEl.innerHTML += `<br><span class="white-text">${formatted}</span>`;
+      }
+      this.modalOutputEl.scrollTop = this.modalOutputEl.scrollHeight;
+    }
+
     const body = container.querySelector('.terminal-body');
     if (body) {
       body.scrollTop = body.scrollHeight;
@@ -135,9 +166,48 @@ export default {
     }
   },
 
+  openExpandModal(container) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay terminal-expand-modal';
+    modal.style.zIndex = '20000';
+    
+    const currentLogs = container.querySelector('#w-term-output').innerHTML;
+    
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 1000px; width: 95%; height: 80vh; display: flex; flex-direction: column; background-color: var(--bg-panel); border: 1px solid var(--border-slate); border-radius: 8px;">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border-slate);">
+          <span style="font-weight: bold; text-transform: uppercase; font-size: 0.85rem; color: #fff;">Expanded Server Console Terminal</span>
+          <button class="btn btn-close-modal" style="font-size: 1.5rem; background: transparent; border: none; color: var(--text-muted); cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+        <div class="modal-body" style="flex: 1; display: flex; flex-direction: column; background: var(--bg-shell); padding: 1rem; overflow: hidden; position: relative;">
+          <div class="terminal-content" id="m-term-output" style="flex: 1; overflow-y: auto; font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.45; white-space: pre-wrap; margin-bottom: 0.5rem; color: var(--text-primary);">
+            ${currentLogs}
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const modalOutput = modal.querySelector('#m-term-output');
+    if (modalOutput) modalOutput.scrollTop = modalOutput.scrollHeight;
+    
+    const closeBtn = modal.querySelector('.btn-close-modal');
+    closeBtn.addEventListener('click', () => {
+      this.modalActive = false;
+      this.modalOutputEl = null;
+      modal.remove();
+    });
+    
+    this.modalActive = true;
+    this.modalOutputEl = modalOutput;
+  },
+
   destroy(container) {
     if (this.activeLogsServiceId) {
       WsClient.unsubscribeLogs(this.activeLogsServiceId, this.logCallback);
     }
+    this.modalActive = false;
+    this.modalOutputEl = null;
   }
 };
