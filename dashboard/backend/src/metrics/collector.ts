@@ -342,7 +342,9 @@ export class MetricsCollector {
       try {
         const content = fs.readFileSync('/host/etc/hostname', 'utf8').trim();
         if (content) return content;
-      } catch {}
+      } catch {
+        // Fallback gracefully if host hostname file read fails
+      }
     }
 
     const sysHost = os.hostname();
@@ -351,7 +353,9 @@ export class MetricsCollector {
         try {
           const content = fs.readFileSync('/etc/hostname', 'utf8').trim();
           if (content && !/^[0-9a-fA-F]{12}$/.test(content)) return content;
-        } catch {}
+        } catch {
+          // Fallback gracefully if standard hostname file read fails
+        }
       }
       return 'homelab-host';
     }
