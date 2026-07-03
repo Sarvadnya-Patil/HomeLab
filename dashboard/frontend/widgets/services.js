@@ -12,6 +12,8 @@ export default {
 
   render(container) {
     container.className = 'grid-services widget-item';
+    container.style.overflowY = 'auto';
+    container.style.maxHeight = '100%';
     container.innerHTML = `
       <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
         <span class="panel-title">Active Environment Services</span>
@@ -83,7 +85,7 @@ export default {
             <button class="btn btn-panel btn-cat-delete" style="font-size: 0.6rem; padding: 0.15rem 0.35rem; color: var(--border-focus);">Delete</button>
           </div>
         </div>
-        <div class="services-cards-grid-row" style="display: ${isCollapsed ? 'none' : 'grid'}; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; min-height: 50px; padding: 0.25rem 0;">
+        <div class="services-cards-grid-row" style="display: ${isCollapsed ? 'none' : 'grid'}; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; min-height: 50px; padding: 0.25rem 0;">
           <!-- Cards go here -->
         </div>
       `;
@@ -104,7 +106,7 @@ export default {
 
       if (catServices.length === 0) {
         cardsGrid.innerHTML = `
-          <div class="col-span-6 empty-category-placeholder" style="border: 1px dashed var(--border-slate); border-radius: 6px; padding: 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.75rem;">
+          <div class="col-span-6 empty-category-placeholder" style="border: 1px dashed var(--border-slate); border-radius: 6px; padding: 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.75rem; width: 100%; grid-column: 1 / -1;">
             No services registered in this category. <a href="#" class="add-service-link" style="color: var(--text-primary); text-decoration: underline;">+ Add Service</a>
           </div>
         `;
@@ -130,7 +132,6 @@ export default {
   createServiceCard(service) {
     const isOnline = service.status === "Active" || service.status === "Online";
     const statusClass = service.status.toLowerCase().replace(' ', '-');
-    const colSpan = (service.category === 'Infrastructure' || service.id === 'portainer') ? 'col-span-3' : 'col-span-2';
 
     let href = '#';
     if (service.domain && service.domain.public) {
@@ -153,7 +154,7 @@ export default {
     }
 
     // Dynamic Capabilities checks
-    const capabilities = service.capabilities || ['open', 'start', 'stop', 'restart', 'logs'];
+    const capabilities = service.capabilities || (service.ports && service.ports.http ? ['open', 'start', 'stop', 'restart', 'logs'] : ['start', 'stop', 'restart', 'logs']);
     let actionButtons = '';
     
     if (service.status !== 'Not Installed') {
@@ -174,18 +175,18 @@ export default {
     }
 
     const card = document.createElement("div");
-    card.className = `service-card ${colSpan}`;
+    card.className = "service-card";
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-service-id', service.id);
 
     card.innerHTML = `
-      <div class="card-header-row">
-        <div class="card-title-group">
-          <span class="card-icon">${getIcon(service.id)}</span>
-          <span class="card-name">${service.name}</span>
-          <span class="card-version">v${service.version}</span>
+      <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; width: 100%; min-width: 0;">
+        <div class="card-title-group" style="display: flex; align-items: center; gap: 0.4rem; min-width: 0; flex: 1;">
+          <span class="card-icon" style="flex-shrink: 0; display: flex; align-items: center;">${getIcon(service.id)}</span>
+          <span class="card-name" style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 100px;" title="${service.name}">${service.name}</span>
+          <span class="card-version" style="font-size: 0.65rem; font-family: var(--font-mono); color: var(--text-muted); flex-shrink: 0;">v${service.version}</span>
         </div>
-        <span class="card-status ${isOnline ? 'online' : 'offline'}">${service.status}</span>
+        <span class="card-status ${isOnline ? 'online' : 'offline'}" style="flex-shrink: 0; font-size: 0.7rem; font-family: var(--font-mono); display: flex; align-items: center; padding: 0.15rem 0.35rem; border-radius: 3px;">${service.status}</span>
       </div>
       <p class="service-description" style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; min-height: 32px;">${service.description}</p>
       
@@ -304,10 +305,9 @@ export default {
         id,
         workspaceId,
         name,
-        icon: 'folder',
-        description: '',
-        accent: '#8b8b8b',
-        displayOrder: 99
+        displayOrder: 10,
+        collapsed: false,
+        visible: true
       });
       const current = store.get('categories') || [];
       store.set('categories', [...current, created]);
@@ -316,49 +316,63 @@ export default {
     }
   },
 
-  async promptRenameCategory(categoryId, oldName) {
-    const name = prompt("Enter new category name:", oldName);
-    if (!name) return;
+  async promptRenameCategory(categoryId, currentName) {
+    const name = prompt("Enter new category name:", currentName);
+    if (!name || name === currentName) return;
+
     try {
       const updated = await api.put(`/api/v1/categories/${categoryId}`, { name });
       const current = store.get('categories') || [];
       store.set('categories', current.map(c => c.id === categoryId ? updated : c));
     } catch (err) {
-      alert(err.message);
+      alert(`Failed to rename category: ${err.message}`);
     }
   },
 
-  async promptAccentCategory(categoryId, oldAccent) {
-    const accent = prompt("Enter new color hex code (e.g. #3b82f6):", oldAccent);
-    if (!accent) return;
+  async promptAccentCategory(categoryId, currentAccent) {
+    const accent = prompt("Enter category HEX color (e.g. #3b82f6):", currentAccent);
+    if (!accent || accent === currentAccent) return;
+
     try {
       const updated = await api.put(`/api/v1/categories/${categoryId}`, { accent });
       const current = store.get('categories') || [];
       store.set('categories', current.map(c => c.id === categoryId ? updated : c));
     } catch (err) {
-      alert(err.message);
+      alert(`Failed to update color: ${err.message}`);
     }
   },
 
-  async promptDeleteCategory(categoryId, name) {
-    if (!confirm(`Are you sure you want to delete category [${name}]? Services will lose their assignments.`)) return;
+  async promptDeleteCategory(categoryId, categoryName) {
+    if (!confirm(`Are you sure you want to delete category "${categoryName}"? Services in it will revert to uncategorized.`)) return;
+
     try {
       await api.delete(`/api/v1/categories/${categoryId}`);
       const current = store.get('categories') || [];
       store.set('categories', current.filter(c => c.id !== categoryId));
     } catch (err) {
-      alert(err.message);
+      alert(`Failed to delete category: ${err.message}`);
     }
   },
 
-  promptAddServiceToCategory(categoryId) {
-    alert(`To add a service, create a manifest under services/[service-id]/service.yaml specifying "category: ${categoryId}". The OS registry engine scans manifests dynamically.`);
+  async promptAddServiceToCategory(categoryId) {
+    const serviceId = prompt("Enter service ID to move into this category:");
+    if (!serviceId) return;
+
+    try {
+      await api.put(`/api/v1/services/${serviceId}/category`, { categoryId });
+      const currentServices = store.get('services') || [];
+      store.set('services', currentServices.map(s => s.id === serviceId ? { ...s, category: categoryId } : s));
+    } catch (err) {
+      alert(`Failed to add service: ${err.message}`);
+    }
   },
 
-  triggerOSAction(action) {
-    api.post('/api/v1/terminal', { command: action === 'restart-docker' ? 'sudo systemctl restart docker' : 'sudo reboot' })
-      .catch(err => alert(`Action failed: ${err.message}`));
-  },
-
-  destroy(container) { }
+  async triggerOSAction(action) {
+    try {
+      const res = await api.post('/api/v1/system/action', { action });
+      alert(res.message || 'Action executed successfully.');
+    } catch (err) {
+      alert(`OS Action failed: ${err.message}`);
+    }
+  }
 };
