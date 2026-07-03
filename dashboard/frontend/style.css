@@ -799,10 +799,10 @@ body {
 }
 
 /* Dynamic Sizes */
-.widget-wrapper[data-size="1x1"] { grid-column: span 1; grid-row: span 1; }
-.widget-wrapper[data-size="2x1"] { grid-column: span 2; grid-row: span 1; }
-.widget-wrapper[data-size="2x2"] { grid-column: span 2; grid-row: span 2; }
-.widget-wrapper[data-size="full"] {
+[data-size="1x1"] { grid-column: span 1; grid-row: span 1; }
+[data-size="2x1"] { grid-column: span 2; grid-row: span 1; }
+[data-size="2x2"] { grid-column: span 2; grid-row: span 2; }
+[data-size="full"] {
   grid-column: 1 / -1;
   grid-column: span 12;
 }
@@ -1200,9 +1200,9 @@ body {
   }
 
   /* Clamp span sizes to single column on phone screen */
-  .widget-wrapper[data-size="2x1"],
-  .widget-wrapper[data-size="2x2"],
-  .widget-wrapper[data-size="full"],
+  [data-size="2x1"],
+  [data-size="2x2"],
+  [data-size="full"],
   .service-card.col-span-3,
   .service-card.col-span-2 {
     grid-column: span 1 !important;
