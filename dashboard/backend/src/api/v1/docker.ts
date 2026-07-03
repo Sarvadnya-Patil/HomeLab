@@ -36,4 +36,17 @@ export default function (fastify: any, engine: CoreEngine): void {
     );
     return { success: true, jobId: job.id };
   });
+
+  // 6. GET: /api/v1/docker/containers/:id/inspect
+  fastify.get('/api/v1/docker/containers/:id/inspect', async (request: any) => {
+    const { id } = request.params;
+    return await engine.docker.inspectContainer(id);
+  });
+
+  // 7. GET: /api/v1/docker/containers/:id/logs
+  fastify.get('/api/v1/docker/containers/:id/logs', async (request: any) => {
+    const { id } = request.params;
+    const logs = await engine.docker.getLogs(id, id);
+    return { logs };
+  });
 }

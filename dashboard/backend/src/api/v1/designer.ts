@@ -17,7 +17,9 @@ export default function (fastify: any, engine: CoreEngine): void {
             node.position = layout[node.id];
           }
         });
-      } catch {}
+      } catch {
+        // Fallback gracefully to calculated default positions if layout settings string is corrupted
+      }
     }
     return nodes;
   });

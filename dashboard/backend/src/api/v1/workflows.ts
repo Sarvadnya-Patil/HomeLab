@@ -210,6 +210,46 @@ actions:
   stop: docker compose down
   restart: docker compose restart
   update: docker compose pull && docker compose up -d`
+  },
+  temporal: {
+    name: 'Temporal',
+    category: 'Automation',
+    description: 'Developer platform for robust execution of background workflows and durable state.',
+    image: 'temporalio/ui:latest',
+    port: 8233,
+    compose: `version: '3.8'
+services:
+  temporal:
+    image: temporalio/ui:latest
+    container_name: temporal
+    restart: unless-stopped
+    ports:
+      - "8233:8080"
+    networks:
+      - homelab-network
+networks:
+  homelab-network:
+    external: true`,
+    service: `id: temporal
+name: Temporal
+category: Automation
+description: Developer platform for robust execution of background workflows and durable state.
+version: latest
+icon: grid
+enabled: true
+compose: docker-compose.yml
+ports:
+  http: 8233
+backup:
+  enabled: true
+  exportPath: backups/temporal.tar.gz
+homepage:
+  enabled: true
+actions:
+  start: docker compose up -d
+  stop: docker compose down
+  restart: docker compose restart
+  update: docker compose pull && docker compose up -d`
   }
 };
 

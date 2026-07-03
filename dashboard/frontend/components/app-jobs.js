@@ -125,6 +125,11 @@ export const AppJobs = {
       return this.activeTab === 'active' ? isActive : !isActive;
     });
 
+    if (this.jobs.length === 0) {
+      container.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">No jobs have been executed yet.</div>`;
+      return;
+    }
+
     if (filtered.length === 0) {
       container.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">No ${this.activeTab} jobs found.</div>`;
       return;

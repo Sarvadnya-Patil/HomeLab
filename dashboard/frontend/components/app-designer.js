@@ -216,6 +216,11 @@ export const AppDesigner = {
     const selectedNodeId = this.selectedNodeId;
     container.innerHTML = '';
 
+    if (!this.nodes || this.nodes.length === 0) {
+      container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding-top: 150px; width: 100%; font-weight: 500;">No topology discovered.</div>`;
+      return;
+    }
+
     this.nodes.forEach(node => {
       // Map node position defaults if not set
       if (!node.position) {

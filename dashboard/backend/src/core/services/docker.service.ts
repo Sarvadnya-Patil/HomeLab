@@ -64,5 +64,10 @@ export class DockerService {
     this.auditRepo.log('admin', `container_${action}`, 'service', serviceId, { containerId });
     return res;
   }
+
+  // 10. Inspect container configuration
+  async inspectContainer(containerId: string): Promise<any> {
+    return (this.client as any).inspectContainer(containerId);
+  }
 }
 export default DockerService;

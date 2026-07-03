@@ -46,7 +46,10 @@ export const AppWorkflows = {
 
   renderList() {
     const grid = this.container.querySelector('#platforms-grid');
-    if (!grid) return;
+    if (!this.platforms || this.platforms.length === 0) {
+      grid.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 2rem 0; width: 100%;">No automation platforms detected.</div>`;
+      return;
+    }
 
     let html = '';
     const stats = store.get('metrics') || {};

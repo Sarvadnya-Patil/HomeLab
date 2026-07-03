@@ -77,6 +77,40 @@ export default function (fastify: any, engine: CoreEngine): void {
     }
   });
 
+  // Enforce JWT Auth globally on administrative v1 endpoints (except auth setup/login and public endpoints)
+  fastify.addHook('preHandler', async (request: any, reply: any) => {
+    const url = request.url || '';
+    if (!url.startsWith('/api/v1/')) {
+      return;
+    }
+
+    const publicPaths = [
+      '/api/v1/auth/login',
+      '/api/v1/auth/setup',
+      '/api/v1/auth/setup-status',
+      '/api/v1/health',
+      '/api/v1/apps',
+      '/api/v1/docs'
+    ];
+
+    if (publicPaths.some(p => url.startsWith(p))) {
+      return;
+    }
+
+    const authHeader = request.headers.authorization || '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return reply.status(401).send({ error: 'Authorization token required' });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const user = engine.auth.verifyToken(token);
+    if (!user) {
+      return reply.status(401).send({ error: 'Invalid or expired token' });
+    }
+
+    request.user = user;
+  });
+
   // Load modular v1 routes
   metricsRoutes(fastify, engine);
   widgetsRoutes(fastify, engine);
