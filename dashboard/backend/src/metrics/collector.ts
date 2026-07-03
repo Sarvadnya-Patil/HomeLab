@@ -141,7 +141,8 @@ export class MetricsCollector {
     // Fallback disk metrics using local fs if Node Exporter is offline or didn't supply them
     if (this.cachedStats.disk === null) {
       try {
-        const stats = fs.statfsSync('/');
+        const targetPath = fs.existsSync('/host') ? '/host' : '/';
+        const stats = fs.statfsSync(targetPath);
         const total = stats.blocks * stats.bsize;
         const free = stats.bfree * stats.bsize;
         const used = total - free;
