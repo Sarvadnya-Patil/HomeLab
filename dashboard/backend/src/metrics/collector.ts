@@ -179,7 +179,13 @@ export class MetricsCollector {
     // Final Host OS and Hostname resolution (never reporting container values as host values)
     const configuredHostname = process.env.SERVER_HOSTNAME || process.env.HOST_HOSTNAME;
     this.cachedStats.hostname = configuredHostname || hostHostname;
+    if (/^[0-9a-fA-F]{12}$/.test(this.cachedStats.hostname)) {
+      this.cachedStats.hostname = 'homelab-host';
+    }
     this.cachedStats.osName = hostOsName;
+    if (this.cachedStats.osName.toLowerCase().includes('alpine')) {
+      this.cachedStats.osName = 'Linux Server';
+    }
     this.cachedStats.kernel = hostKernel;
 
     // Fill separated hostInfo and containerInfo objects
@@ -205,15 +211,27 @@ export class MetricsCollector {
     return this.cachedStats;
   }
 
-  // Parses OS Pretty Name
   private _getOSName(): string {
     try {
       if (os.platform() === 'win32') return 'Windows Host';
       if (os.platform() === 'darwin') return 'macOS Host';
+
+      if (fs.existsSync('/host/etc/os-release')) {
+        const content = fs.readFileSync('/host/etc/os-release', 'utf8');
+        const match = content.match(/^PRETTY_NAME="?([^"\n]+)"?/m);
+        if (match && !match[1].toLowerCase().includes('alpine')) return match[1];
+      }
+
       if (fs.existsSync('/etc/os-release')) {
         const content = fs.readFileSync('/etc/os-release', 'utf8');
         const match = content.match(/^PRETTY_NAME="?([^"\n]+)"?/m);
-        if (match) return match[1];
+        if (match) {
+          const pretty = match[1];
+          if (pretty.toLowerCase().includes('alpine')) {
+            return 'Linux Server';
+          }
+          return pretty;
+        }
       }
       return 'Linux Server';
     } catch {
@@ -320,8 +338,21 @@ export class MetricsCollector {
     const envHost = process.env.SERVER_HOSTNAME || process.env.HOST_HOSTNAME;
     if (envHost) return envHost;
 
+    if (fs.existsSync('/host/etc/hostname')) {
+      try {
+        const content = fs.readFileSync('/host/etc/hostname', 'utf8').trim();
+        if (content) return content;
+      } catch {}
+    }
+
     const sysHost = os.hostname();
     if (/^[0-9a-fA-F]{12}$/.test(sysHost)) {
+      if (fs.existsSync('/etc/hostname')) {
+        try {
+          const content = fs.readFileSync('/etc/hostname', 'utf8').trim();
+          if (content && !/^[0-9a-fA-F]{12}$/.test(content)) return content;
+        } catch {}
+      }
       return 'homelab-host';
     }
     return sysHost;

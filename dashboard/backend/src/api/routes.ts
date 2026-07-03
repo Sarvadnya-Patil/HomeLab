@@ -90,7 +90,8 @@ export default function (fastify: any, engine: CoreEngine): void {
       '/api/v1/auth/setup-status',
       '/api/v1/health',
       '/api/v1/apps',
-      '/api/v1/docs'
+      '/api/v1/docs',
+      '/api/v1/system/header'
     ];
 
     if (publicPaths.some(p => url.startsWith(p))) {
