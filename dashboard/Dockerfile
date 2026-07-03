@@ -39,7 +39,7 @@ COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/backend/src/database/schema.sql ./backend/dist/src/database/schema.sql
 
 # Copy frontend static files
-COPY frontend/ ./frontend/
+COPY frontend/ ./backend/frontend/
 
 # Runtime environment settings
 EXPOSE 8081

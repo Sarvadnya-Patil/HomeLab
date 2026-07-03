@@ -26,7 +26,7 @@ services:
     ports:
       - "${DASHBOARD_PORT:-8081}:8081"
     volumes:
-      - ../services:/app/services:ro
+      - ../services:/services:ro
     env_file:
       - ./backend/.env
     environment:
@@ -44,4 +44,3 @@ services:
 networks:
   homelab-network:
     external: true
-
