@@ -1,0 +1,7 @@
+# Ignore compiled outputs and database binaries
+node_modules/
+dashboard/backend/dist/
+dashboard/backend/data/
+*.db
+*.sqlite
+*.log

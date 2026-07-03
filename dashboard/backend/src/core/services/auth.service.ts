@@ -1,4 +1,4 @@
-// Authentication and RBAC Service Subsystem (Zero-Dependency)
+// Authentication and RBAC Service Subsystem (Production Hardened)
 import crypto from 'crypto';
 import { DatabaseAdapter } from '../../database/adapter';
 import { UsersRepository } from '../../database/repositories/users';
@@ -10,30 +10,42 @@ export class AuthService {
 
   constructor(db: DatabaseAdapter) {
     this.usersRepo = new UsersRepository(db);
-    this.jwtSecret = process.env.JWT_SECRET || 'homelab-secret-key-32-chars-long-1234';
+
+    const secret = process.env.JWT_SECRET || (process.env.NODE_ENV !== 'production' ? crypto.randomBytes(32).toString('hex') : undefined);
+    if (!secret) {
+      throw new Error('FATAL: JWT_SECRET environment variable must be set in production mode');
+    }
+    this.jwtSecret = secret;
   }
 
-  // 1. Hash a raw password using built-in scrypt
-  hashPassword(password: string, salt: string = 'salt123'): string {
-    return crypto.scryptSync(password, salt, 64).toString('hex');
+  // 1. Generate salt and hash for a password
+  hashPassword(password: string): string {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+    return `${salt}:${hash}`;
   }
 
-  // 2. Validate user login credentials and return signed JWT
+  // 2. Validate user login credentials
   login(username: string, rawPassword: string): string | null {
     const user = this.usersRepo.findByUsername(username);
-    if (!user) {
+    if (!user || !user.password) {
       Logger.warn('AuthService', `User login failed: Username [${username}] not found`);
       return null;
     }
 
-    // Hash raw input password and match (legacy mock bypass check included)
-    const matched = user.password === rawPassword || user.password === this.hashPassword(rawPassword);
-    if (!matched) {
+    const parts = user.password.split(':');
+    if (parts.length !== 2) {
+      Logger.error('AuthService', `User [${username}] has malformed password hash format`);
+      return null;
+    }
+
+    const [salt, hash] = parts;
+    const computedHash = crypto.scryptSync(rawPassword, salt, 64).toString('hex');
+    if (computedHash !== hash) {
       Logger.warn('AuthService', `User login failed: Invalid credentials for user [${username}]`);
       return null;
     }
 
-    // Generate signed JWT payload
     const token = this.signJwt({ id: user.id, username: user.username, role: user.role });
     Logger.info('AuthService', `User [${username}] logged in successfully. Role: ${user.role}`);
     return token;

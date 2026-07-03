@@ -15,7 +15,9 @@ export function seedDatabase(db: DatabaseAdapter): void {
 
   db.transaction(() => {
     // 1. Insert default admin user
-    const adminPass = crypto.scryptSync('admin', 'salt123', 64).toString('hex');
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync('admin', salt, 64).toString('hex');
+    const adminPass = `${salt}:${hash}`;
     db.run(
       `INSERT INTO users (id, username, password, display_name, role) VALUES (?, ?, ?, ?, ?)`,
       'admin', 'admin', adminPass, 'Administrator', 'admin'
