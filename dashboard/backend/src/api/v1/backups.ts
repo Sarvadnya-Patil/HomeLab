@@ -4,8 +4,8 @@ import { CoreEngine } from '../../core/engine';
 export default function (fastify: any, engine: CoreEngine): void {
   // 1. POST: /api/v1/backups/db (Trigger SQLite configuration database backup copy)
   fastify.post('/api/v1/backups/db', async () => {
-    const backupPath = await engine.backup.backupDatabase();
-    return { success: true, backupPath };
+    const job = await engine.backup.backupDatabase();
+    return { success: true, jobId: job.id };
   });
 
   // 2. POST: /api/v1/backups/plugin/:pluginId (Trigger plugin volume compression backups)
@@ -21,7 +21,21 @@ export default function (fastify: any, engine: CoreEngine): void {
     }
 
     const manifest = JSON.parse(cached.manifest);
-    await engine.backup.backupPlugin(pluginId, manifest);
-    return { success: true };
+    const job = await engine.backup.backupPlugin(pluginId, manifest);
+    return { success: true, jobId: job.id };
+  });
+
+  // 3. POST: /api/v1/backups/restore (Trigger configurations database restore)
+  fastify.post('/api/v1/backups/restore', async (request: any, reply: any) => {
+    const { backupFile } = request.body || {};
+    if (!backupFile) {
+      return reply.status(400).send({ error: 'Missing backupFile parameters.' });
+    }
+    try {
+      const job = await engine.backup.restoreDatabase(backupFile);
+      return { success: true, jobId: job.id };
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
+    }
   });
 }

@@ -144,6 +144,18 @@ export interface SystemMetrics {
   containerCount: number;
   runningContainers: number;
   stoppedContainers: number;
+  hostInfo?: {
+    osName: string;
+    hostname: string;
+    kernel: string;
+    uptime: string;
+  };
+  containerInfo?: {
+    osName: string;
+    hostname: string;
+    kernel: string;
+    uptime: string;
+  };
 }
 
 export interface Notification {

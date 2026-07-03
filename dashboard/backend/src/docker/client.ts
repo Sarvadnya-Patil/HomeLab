@@ -218,5 +218,16 @@ export class DockerClient implements ContainerProvider {
     const errText = await res.text();
     throw new Error(errText || `Docker Proxy returned error code: ${res.status}`);
   }
+
+  // 12. Retrieve Docker system information
+  async getInfo(): Promise<any> {
+    try {
+      const res = await fetchWithTimeout(`${this.proxyUrl}/info`, {}, 2500);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
 }
 export default DockerClient;

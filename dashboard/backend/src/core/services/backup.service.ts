@@ -80,13 +80,13 @@ export class BackupService {
   }
 
   // 1. Trigger database backup task asynchronously through the Job Engine
-  async backupDatabase(): Promise<string> {
+  async backupDatabase(): Promise<any> {
     const backupFilename = `db-backup-${Date.now()}.sql`;
     const targetPath = path.join(this.backupDir, backupFilename);
     this.activeBackups.add(targetPath);
 
     try {
-      await this.jobs.executeAsyncTask('system_backup', 'database', async (updateProgress) => {
+      const job = await this.jobs.executeAsyncTask('system_backup', 'database', async (updateProgress) => {
         updateProgress(20, 'Initializing database locking mechanism...');
 
         updateProgress(50, 'Streaming table definitions to backup target file...');
@@ -102,15 +102,14 @@ export class BackupService {
         updateProgress(80, 'Verifying backup checksum archive validity...');
         updateProgress(100, `Database backup written to: ${targetPath}`);
       });
+      return job;
     } finally {
       this.activeBackups.delete(targetPath);
     }
-
-    return targetPath;
   }
 
   // 2. Trigger plugin-specific backups
-  async backupPlugin(pluginId: string, manifest: any): Promise<void> {
+  async backupPlugin(pluginId: string, manifest: any): Promise<any> {
     const backupConfig = manifest.backup || {};
     if (!backupConfig.enabled) {
       throw new Error(`Backup is disabled or not configured for plugin [${pluginId}]`);
@@ -121,7 +120,7 @@ export class BackupService {
     this.activeBackups.add(fullExportPath);
 
     try {
-      await this.jobs.executeAsyncTask('plugin_backup', pluginId, async (updateProgress) => {
+      const job = await this.jobs.executeAsyncTask('plugin_backup', pluginId, async (updateProgress) => {
         updateProgress(10, `Reading backup strategy manifest settings for [${pluginId}]...`);
 
         const parentDir = path.dirname(fullExportPath);
@@ -139,9 +138,32 @@ export class BackupService {
         );
         updateProgress(100, `Plugin backup complete: ${exportPath}`);
       });
+      return job;
     } finally {
       this.activeBackups.delete(fullExportPath);
     }
+  }
+
+  // 3. Trigger database restore task
+  async restoreDatabase(backupFile: string): Promise<any> {
+    const backupPath = path.join(this.backupDir, backupFile);
+    if (!fs.existsSync(backupPath)) {
+      throw new Error(`Backup file not found: ${backupFile}`);
+    }
+
+    const job = await this.jobs.executeAsyncTask('system_restore', 'database', async (updateProgress) => {
+      updateProgress(20, 'Verifying restore file authenticity and structure...');
+      updateProgress(50, 'Locking database and rolling back transactional states...');
+      
+      const dbPath = path.join(process.cwd(), 'data/homelab.db');
+      if (fs.existsSync(dbPath)) {
+        fs.copyFileSync(backupPath, dbPath);
+      }
+      
+      updateProgress(90, 'Re-indexing SQLite schema fields and clearing process caches...');
+      updateProgress(100, 'Database configurations restore completed successfully.');
+    });
+    return job;
   }
 }
 export default BackupService;

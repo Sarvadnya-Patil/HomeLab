@@ -80,7 +80,17 @@ export class MetricsCollector {
     // Update real load average array
     this.cachedStats.loadAvg = os.loadavg();
 
-    // 4. Try parsing Prometheus Node Exporter metrics for extra data (disk space / temperature)
+    let hostOsName = this._getOSName();
+    let hostHostname = this._resolveHostname();
+    let hostKernel = `${os.type()} ${os.release()}`;
+    const hostUptime = this.cachedStats.uptime;
+
+    // Fallback if inside container and we detected Alpine Linux
+    if (hostOsName.toLowerCase().includes('alpine') && (fs.existsSync('/.dockerenv') || fs.existsSync('/proc/1/cgroup'))) {
+      hostOsName = 'Linux Server (Docker)';
+    }
+
+    // 4. Try parsing Prometheus Node Exporter metrics for extra data (disk space / temperature / OS / Hostname)
     try {
       const res = await fetchWithTimeout(`${this.nodeExporterUrl}/metrics`, {}, 1500);
       if (res.ok) {
@@ -100,6 +110,25 @@ export class MetricsCollector {
           this.cachedStats.cpuTemp = parsed.cpuTemp;
         } else {
           this.cachedStats.cpuTemp = null; // No fakes
+        }
+
+        // Parse host OS info & Host name from node exporter
+        const lines = text.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('node_uname_info')) {
+            const labels = parseLabels(line);
+            if (labels.nodename) {
+              hostHostname = labels.nodename;
+            }
+            if (labels.release) {
+              hostKernel = labels.release;
+            }
+          } else if (line.startsWith('node_os_info')) {
+            const labels = parseLabels(line);
+            if (labels.pretty_name) {
+              hostOsName = labels.pretty_name;
+            }
+          }
         }
       } else {
         this._clearExporterMetrics();
@@ -124,6 +153,20 @@ export class MetricsCollector {
         this.cachedStats.stoppedContainers = containers.filter(
           (c: any) => c.State !== 'running'
         ).length;
+
+        // Query Docker system info for host OS / host hostname / host kernel
+        const dockerInfo = await dockerClient.getInfo();
+        if (dockerInfo) {
+          if (dockerInfo.OperatingSystem) {
+            hostOsName = dockerInfo.OperatingSystem;
+          }
+          if (dockerInfo.KernelVersion) {
+            hostKernel = dockerInfo.KernelVersion;
+          }
+          if (dockerInfo.Name) {
+            hostHostname = dockerInfo.Name;
+          }
+        }
       } catch (err: any) {
         this.cachedStats.dockerStatus = 'Offline';
         this.cachedStats.dockerVersion = null;
@@ -132,6 +175,32 @@ export class MetricsCollector {
         this.cachedStats.stoppedContainers = 0;
       }
     }
+
+    // Final Host OS and Hostname resolution (never reporting container values as host values)
+    const configuredHostname = process.env.SERVER_HOSTNAME || process.env.HOST_HOSTNAME;
+    this.cachedStats.hostname = configuredHostname || hostHostname;
+    this.cachedStats.osName = hostOsName;
+    this.cachedStats.kernel = hostKernel;
+
+    // Fill separated hostInfo and containerInfo objects
+    this.cachedStats.hostInfo = {
+      osName: hostOsName,
+      hostname: this.cachedStats.hostname,
+      kernel: hostKernel,
+      uptime: hostUptime
+    };
+
+    const containerOsName = this._getOSName();
+    const containerHostname = os.hostname();
+    const containerKernel = `${os.type()} ${os.release()}`;
+    const formattedContainerUptime = this._formatSecondsToUptime(process.uptime());
+
+    this.cachedStats.containerInfo = {
+      osName: containerOsName,
+      hostname: containerHostname,
+      kernel: containerKernel,
+      uptime: formattedContainerUptime
+    };
 
     return this.cachedStats;
   }
@@ -261,4 +330,39 @@ export class MetricsCollector {
   setHostname(name: string): void {
     this.cachedStats.hostname = name;
   }
+
+  private _formatSecondsToUptime(seconds: number): string {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+
+    if (days > 0) {
+      return `${days}d ${hours}h ${mins}m`;
+    } else if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    } else {
+      return `${mins}m`;
+    }
+  }
+}
+
+function parseLabels(line: string): Record<string, string> {
+  const labels: Record<string, string> = {};
+  const match = line.match(/\{([^}]+)\}/);
+  if (match) {
+    const rawLabels = match[1];
+    const pairs = rawLabels.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+    for (const pair of pairs) {
+      const eqIdx = pair.indexOf('=');
+      if (eqIdx !== -1) {
+        const key = pair.substring(0, eqIdx).trim();
+        let val = pair.substring(eqIdx + 1).trim();
+        if (val.startsWith('"') && val.endsWith('"')) {
+          val = val.substring(1, val.length - 1);
+        }
+        labels[key] = val;
+      }
+    }
+  }
+  return labels;
 }

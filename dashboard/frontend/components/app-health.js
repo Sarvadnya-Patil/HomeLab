@@ -11,11 +11,16 @@ export const AppHealth = {
 
     // Listen to unified health status updates
     store.on('healthStatus', ({ value }) => this.updateUI(value));
+    store.on('metrics', () => this.updateMetricsUI());
 
-    // Initial render if status is already loaded
+    // Initial render if data is already loaded
     const currentHealth = store.get('healthStatus');
     if (currentHealth) {
       this.updateUI(currentHealth);
+    }
+    const currentMetrics = store.get('metrics');
+    if (currentMetrics) {
+      this.updateMetricsUI(currentMetrics);
     }
   },
 
@@ -23,7 +28,7 @@ export const AppHealth = {
     if (!this.container) return;
 
     this.container.innerHTML = `
-      <div class="health-layout" style="display: flex; flex-direction: column; gap: 1rem; color: var(--text-slate);">
+      <div class="health-layout" style="display: flex; flex-direction: column; gap: 1rem; color: var(--text-slate); height: 100%;">
         <div>
           <h2 style="margin: 0; font-size: 1.1rem; color: #fff; font-weight: 600;">System Subsystems Health Check</h2>
           <span style="font-size: 0.7rem; color: var(--text-muted);">Real-time metrics, response latency, and heartbeats</span>
@@ -31,6 +36,13 @@ export const AppHealth = {
 
         <div id="health-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
           <div class="card card-loading">Gathering subsystem statuses...</div>
+        </div>
+
+        <div style="margin-top: 1rem; border-top: 1px dashed var(--border-slate); padding-top: 1rem;">
+          <h3 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; color: #fff; font-weight: 600;">System Information Overview</h3>
+          <div id="system-info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
+            <div class="card card-loading" style="font-size: 0.75rem; color: var(--text-muted);">Gathering system platform metrics...</div>
+          </div>
         </div>
       </div>
     `;
@@ -76,6 +88,56 @@ export const AppHealth = {
     }
 
     grid.innerHTML = html;
+  },
+
+  updateMetricsUI() {
+    const stats = store.get('metrics');
+    const container = this.container?.querySelector('#system-info-grid');
+    if (!container || !stats) return;
+
+    const host = stats.hostInfo || {
+      osName: stats.osName,
+      hostname: stats.hostname,
+      kernel: stats.kernel,
+      uptime: stats.uptime
+    };
+
+    const containerInfo = stats.containerInfo || {
+      osName: 'Alpine Linux',
+      hostname: 'homelab-dashboard',
+      kernel: stats.kernel,
+      uptime: stats.uptime
+    };
+
+    container.innerHTML = `
+      <!-- Host Platform specs -->
+      <div class="res-card" style="padding: 1.25rem; background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-slate); border-radius: 8px; backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 0.5rem;">
+        <div style="font-weight: 700; color: #fff; font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.5rem;">
+          ${getIcon('server')} Host Node Platform Specification
+        </div>
+        <div style="font-size: 0.7rem; color: var(--text-muted); display: grid; grid-template-columns: 110px 1fr; gap: 0.35rem; margin-top: 0.25rem;">
+          <span>Hostname:</span> <span style="color: #fff; font-weight: 600;">${host.hostname}</span>
+          <span>Operating System:</span> <span style="color: #fff; font-weight: 600;">${host.osName}</span>
+          <span>Kernel Release:</span> <span style="color: #fff; font-family: monospace;">${host.kernel}</span>
+          <span>Host Uptime:</span> <span style="color: #fff;">${host.uptime}</span>
+          <span>IP Address:</span> <span>${stats.ipAddress || '127.0.0.1'}</span>
+          <span>Hardware Model:</span> <span style="font-size: 0.65rem;">${stats.cpuModel} (${stats.cpuCores} Cores)</span>
+        </div>
+      </div>
+
+      <!-- Container local specs -->
+      <div class="res-card" style="padding: 1.25rem; background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-slate); border-radius: 8px; backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 0.5rem;">
+        <div style="font-weight: 700; color: #fff; font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.5rem;">
+          ${getIcon('grid')} HomeLab Dashboard Container Context
+        </div>
+        <div style="font-size: 0.7rem; color: var(--text-muted); display: grid; grid-template-columns: 110px 1fr; gap: 0.35rem; margin-top: 0.25rem;">
+          <span>Container Name/ID:</span> <span style="color: #fff; font-weight: 600; font-family: monospace;">${containerInfo.hostname}</span>
+          <span>Container OS:</span> <span style="color: #fff;">${containerInfo.osName}</span>
+          <span>Shared Kernel:</span> <span style="font-family: monospace;">${containerInfo.kernel}</span>
+          <span>Process Uptime:</span> <span style="color: #fff;">${containerInfo.uptime}</span>
+        </div>
+      </div>
+    `;
   }
 };
 

@@ -15,6 +15,7 @@ import designerRoutes from './v1/designer';
 import authRoutes from './v1/auth';
 import workflowsRoutes from './v1/workflows';
 import backupsRoutes from './v1/backups';
+import dockerRoutes from './v1/docker';
 
 export default function (fastify: any, engine: CoreEngine): void {
   // Centralized Audit Middleware Hook
@@ -90,6 +91,7 @@ export default function (fastify: any, engine: CoreEngine): void {
   authRoutes(fastify, engine);
   workflowsRoutes(fastify, engine);
   backupsRoutes(fastify, engine);
+  dockerRoutes(fastify, engine);
 
   // 1. GET: /api/v1/apps (Dynamic Application Registry)
   fastify.get('/api/v1/apps', async () => {
