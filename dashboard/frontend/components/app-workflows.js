@@ -214,7 +214,7 @@ export const AppWorkflows = {
         }
 
         // Build actions config
-        const actionItem: any = { type: actionType.value, config: {} };
+        const actionItem = { type: actionType.value, config: {} };
         if (actionType.value === 'notification') {
           actionItem.config = {
             channel: this.container.querySelector('#rule-action-channel').value,
