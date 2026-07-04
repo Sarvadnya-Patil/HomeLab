@@ -285,17 +285,14 @@ export class InfrastructureService {
       const fs = require('fs');
       const path = require('path');
       const os = require('os');
+      // 1. Host system locations (priority)
       const locations = [
-        path.join(process.cwd(), '..', 'services', 'cloudflared', 'config', 'config.yml'),
-        path.join(process.cwd(), '..', 'services', 'cloudflared', 'config', 'config.yaml'),
-        '/services/cloudflared/config/config.yml',
-        '/services/cloudflared/config/config.yaml',
-        path.join(os.homedir(), '.cloudflared', 'config.yml'),
-        path.join(os.homedir(), '.cloudflared', 'config.yaml'),
         '/etc/cloudflared/config.yml',
         '/etc/cloudflared/config.yaml',
         '/root/.cloudflared/config.yml',
-        '/root/.cloudflared/config.yaml'
+        '/root/.cloudflared/config.yaml',
+        path.join(os.homedir(), '.cloudflared', 'config.yml'),
+        path.join(os.homedir(), '.cloudflared', 'config.yaml')
       ];
 
       // Dynamic host-user home directory config scanner
@@ -317,12 +314,31 @@ export class InfrastructureService {
           // Ignore directory read errors
         }
       }
-      
+
+      // 2. Repository template fallbacks (only searched if no host configs found)
+      const fallbackLocations = [
+        '/services/cloudflared/config/config.yml',
+        '/services/cloudflared/config/config.yaml',
+        path.join(process.cwd(), '..', 'services', 'cloudflared', 'config', 'config.yml'),
+        path.join(process.cwd(), '..', 'services', 'cloudflared', 'config', 'config.yaml')
+      ];
+
       let fileContent = '';
+      // Try host locations first
       for (const loc of locations) {
         if (fs.existsSync(loc)) {
           fileContent = fs.readFileSync(loc, 'utf8');
           break;
+        }
+      }
+
+      // If no host configuration found, fallback to repository templates
+      if (!fileContent) {
+        for (const loc of fallbackLocations) {
+          if (fs.existsSync(loc)) {
+            fileContent = fs.readFileSync(loc, 'utf8');
+            break;
+          }
         }
       }
       
@@ -337,7 +353,12 @@ export class InfrastructureService {
         if (trimmed.startsWith('- hostname:') || trimmed.startsWith('hostname:')) {
           const parts = trimmed.split(':');
           if (parts.length >= 2) {
-            currentHostname = parts.slice(1).join(':').trim();
+            const parsedHost = parts.slice(1).join(':').trim();
+            if (parsedHost.toLowerCase().includes('example.com')) {
+              currentHostname = '';
+            } else {
+              currentHostname = parsedHost;
+            }
           }
         } else if (trimmed.startsWith('service:')) {
           const parts = trimmed.split(':');
