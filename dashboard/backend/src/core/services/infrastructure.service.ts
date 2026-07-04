@@ -559,7 +559,7 @@ export class InfrastructureService {
       serviceList.push(serviceCopy);
     });
 
-    return serviceList;
+    return serviceList.filter((s) => s.status === 'Active' || s.status === 'Inactive');
   }
 
   async getAutomationPlatforms(platformsTemplate: Record<string, any>): Promise<any[]> {

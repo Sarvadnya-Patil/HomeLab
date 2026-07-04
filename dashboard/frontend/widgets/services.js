@@ -2,6 +2,7 @@
 import { store } from '../core/state.js';
 import { api } from '../core/api.js';
 import { getIcon } from '../utils/icons.js';
+import { Dialog } from '../utils/dialog.js';
 
 export default {
   id: 'services',
@@ -63,6 +64,8 @@ export default {
         const isInstalled = s.status !== 'Not Installed';
         return matchesCategory && matchesFilter && isInstalled;
       });
+
+      if (catServices.length === 0) return;
 
       // Renders collapsed state
       const isCollapsed = cat.collapsed;
@@ -303,7 +306,11 @@ export default {
   },
 
   async promptAddCategory() {
-    const name = prompt("Enter new category name:");
+    const name = await Dialog.prompt({
+      title: 'New Category',
+      message: 'Enter a name for the new services category:',
+      placeholder: 'Management, Home, Databases...'
+    });
     if (!name) return;
     const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
     const workspaceId = store.get('activeWorkspace');
@@ -320,12 +327,16 @@ export default {
       const current = store.get('categories') || [];
       store.set('categories', [...current, created]);
     } catch (err) {
-      alert(`Failed to create category: ${err.message}`);
+      console.error(`Failed to create category: ${err.message}`);
     }
   },
 
   async promptRenameCategory(categoryId, currentName) {
-    const name = prompt("Enter new category name:", currentName);
+    const name = await Dialog.prompt({
+      title: 'Rename Category',
+      message: 'Enter the new name for this category:',
+      defaultValue: currentName
+    });
     if (!name || name === currentName) return;
 
     try {
@@ -333,12 +344,16 @@ export default {
       const current = store.get('categories') || [];
       store.set('categories', current.map(c => c.id === categoryId ? updated : c));
     } catch (err) {
-      alert(`Failed to rename category: ${err.message}`);
+      console.error(`Failed to rename category: ${err.message}`);
     }
   },
 
   async promptAccentCategory(categoryId, currentAccent) {
-    const accent = prompt("Enter category HEX color (e.g. #3b82f6):", currentAccent);
+    const accent = await Dialog.prompt({
+      title: 'Category Accent Color',
+      message: 'Enter a HEX color code for the border accent:',
+      defaultValue: currentAccent || '#3b82f6'
+    });
     if (!accent || accent === currentAccent) return;
 
     try {
@@ -346,24 +361,32 @@ export default {
       const current = store.get('categories') || [];
       store.set('categories', current.map(c => c.id === categoryId ? updated : c));
     } catch (err) {
-      alert(`Failed to update color: ${err.message}`);
+      console.error(`Failed to update color: ${err.message}`);
     }
   },
 
   async promptDeleteCategory(categoryId, categoryName) {
-    if (!confirm(`Are you sure you want to delete category "${categoryName}"? Services in it will revert to uncategorized.`)) return;
+    const confirmDelete = await Dialog.confirm({
+      title: 'Delete Category',
+      message: `Are you sure you want to delete category "${categoryName}"? Services in it will revert to uncategorized.`
+    });
+    if (!confirmDelete) return;
 
     try {
       await api.delete(`/api/v1/categories/${categoryId}`);
       const current = store.get('categories') || [];
       store.set('categories', current.filter(c => c.id !== categoryId));
     } catch (err) {
-      alert(`Failed to delete category: ${err.message}`);
+      console.error(`Failed to delete category: ${err.message}`);
     }
   },
 
   async promptAddServiceToCategory(categoryId) {
-    const serviceId = prompt("Enter service ID to move into this category:");
+    const serviceId = await Dialog.prompt({
+      title: 'Move Service',
+      message: 'Enter the Service ID (slug) to move it into this category:',
+      placeholder: 'e.g. portainer'
+    });
     if (!serviceId) return;
 
     try {
@@ -371,16 +394,21 @@ export default {
       const currentServices = store.get('services') || [];
       store.set('services', currentServices.map(s => s.id === serviceId ? { ...s, category: categoryId } : s));
     } catch (err) {
-      alert(`Failed to add service: ${err.message}`);
+      console.error(`Failed to add service: ${err.message}`);
     }
   },
 
   async triggerOSAction(action) {
+    const confirmAction = await Dialog.confirm({
+      title: 'System Command Execution',
+      message: `Are you sure you want to execute system action: "${action}"? This will impact server processes.`
+    });
+    if (!confirmAction) return;
+
     try {
-      const res = await api.post('/api/v1/system/action', { action });
-      alert(res.message || 'Action executed successfully.');
+      await api.post('/api/v1/system/action', { action });
     } catch (err) {
-      alert(`OS Action failed: ${err.message}`);
+      console.error(`OS Action failed: ${err.message}`);
     }
   }
 };

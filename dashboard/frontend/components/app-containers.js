@@ -1,5 +1,6 @@
 // Containers Application - Dynamic Docker Manager View
 import { api } from '../core/api.js';
+import { Dialog } from '../utils/dialog.js';
 
 export const AppContainers = {
   container: null,
@@ -150,9 +151,13 @@ export const AppContainers = {
     });
 
     target.querySelectorAll('.btn-container-remove').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-container-id');
-        if (confirm('Are you sure you want to remove this container?')) {
+        const confirmDelete = await Dialog.confirm({
+          title: 'Remove Container',
+          message: `Are you sure you want to permanently remove container ${id.substring(0, 12)}?`
+        });
+        if (confirmDelete) {
           this.triggerAction(id, id, 'remove');
         }
       });

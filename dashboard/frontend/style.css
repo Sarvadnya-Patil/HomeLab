@@ -1341,4 +1341,125 @@ body {
   pointer-events: none;
 }
 
+/* Hide number input spinners (make incrementers custom/clean) */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+input[type=number] {
+  -moz-appearance: textfield; /* Firefox */
+}
+
+/* Custom Dialog Overlay Styles */
+.custom-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  transition: opacity 0.15s ease;
+}
+
+.custom-dialog-overlay.fade-out {
+  opacity: 0;
+}
+
+.custom-dialog-box {
+  background: #0f1115;
+  border: 1px solid var(--border-slate);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  transform: scale(0.95);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.custom-dialog-box.scale-out {
+  transform: scale(0.9);
+}
+
+.animate-modal {
+  animation: modalEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modalEnter {
+  to {
+    transform: scale(1);
+  }
+}
+
+.custom-dialog-header {
+  font-size: 0.95rem;
+  font-weight: bold;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.custom-dialog-body {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+  line-height: 1.4;
+}
+
+.custom-dialog-input-wrapper {
+  margin-bottom: 1.25rem;
+}
+
+.custom-dialog-input {
+  width: 100%;
+  background: #161a22;
+  border: 1px solid var(--border-slate);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.custom-dialog-input:focus {
+  border-color: var(--border-focus);
+}
+
+.custom-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.btn-dialog-cancel {
+  background: transparent;
+  border: 1px solid var(--border-slate);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  padding: 0.4rem 0.9rem;
+}
+
+.btn-dialog-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-dialog-ok {
+  background: var(--text-primary);
+  color: #000;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 0.4rem 0.9rem;
+}
+
+.btn-dialog-ok:hover {
+  opacity: 0.9;
+}
+
 
