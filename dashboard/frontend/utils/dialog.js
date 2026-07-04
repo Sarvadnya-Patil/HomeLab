@@ -13,8 +13,8 @@ export const Dialog = {
             <input type="text" class="custom-dialog-input" placeholder="${placeholder}" value="${defaultValue}" />
           </div>
           <div class="custom-dialog-actions">
-            <button class="btn btn-dialog-cancel">Cancel</button>
-            <button class="btn btn-dialog-ok">OK</button>
+            <button class="btn-dialog-cancel">Cancel</button>
+            <button class="btn-dialog-ok">OK</button>
           </div>
         </div>
       `;
@@ -62,8 +62,8 @@ export const Dialog = {
           <div class="custom-dialog-header">${title}</div>
           <div class="custom-dialog-body">${message}</div>
           <div class="custom-dialog-actions">
-            <button class="btn btn-dialog-cancel">Cancel</button>
-            <button class="btn btn-dialog-ok">Confirm</button>
+            <button class="btn-dialog-cancel">Cancel</button>
+            <button class="btn-dialog-ok">Confirm</button>
           </div>
         </div>
       `;
@@ -177,8 +177,8 @@ export const Dialog = {
           </div>
 
           <div class="custom-dialog-actions">
-            <button class="btn btn-dialog-cancel">Cancel</button>
-            <button class="btn btn-dialog-ok">Select</button>
+            <button class="btn-dialog-cancel">Cancel</button>
+            <button class="btn-dialog-ok">Select</button>
           </div>
         </div>
       `;
@@ -210,10 +210,8 @@ export const Dialog = {
       const updateColorUI = () => {
         sbContainer.style.backgroundColor = `hsl(${currentH}, 100%, 50%)`;
         
-        const x = (currentS / 100) * sbContainer.clientWidth;
-        const y = ((100 - currentV) / 100) * sbContainer.clientHeight;
-        cursor.style.left = `${x}px`;
-        cursor.style.top = `${y}px`;
+        cursor.style.left = `${currentS}%`;
+        cursor.style.top = `${100 - currentV}%`;
 
         const rgb = hsvToRgb(currentH, currentS, currentV);
         const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
