@@ -167,9 +167,21 @@ export default {
     const capabilities = service.capabilities || (service.ports && service.ports.http ? ['open', 'start', 'stop', 'restart', 'logs'] : ['start', 'stop', 'restart', 'logs']);
     let actionButtons = '';
     
+    // Check if the dashboard is accessed remotely
+    const localHostnames = ['localhost', '127.0.0.1', '::1'];
+    const isLocalAccess = localHostnames.includes(window.location.hostname) || 
+                          window.location.hostname.startsWith('192.168.') || 
+                          window.location.hostname.startsWith('10.') || 
+                          window.location.hostname.startsWith('172.16.') || 
+                          window.location.hostname.endsWith('.local');
+    const isRemoteAccess = !isLocalAccess;
+
     if (service.status !== 'Not Installed') {
       if (capabilities.includes('open')) {
-        actionButtons += `<button class="btn-card-act btn-open" onclick="window.open('${href}')">Open</button>`;
+        const shouldHideOpen = isRemoteAccess && !isPublic;
+        if (!shouldHideOpen) {
+          actionButtons += `<button class="btn-card-act btn-open" onclick="window.open('${href}')">Open</button>`;
+        }
       }
       if (capabilities.includes('restart') && isOnline) {
         actionButtons += `<button class="btn-card-act" data-action="restart" data-service-id="${service.id}">Restart</button>`;
@@ -349,9 +361,8 @@ export default {
   },
 
   async promptAccentCategory(categoryId, currentAccent) {
-    const accent = await Dialog.prompt({
+    const accent = await Dialog.color({
       title: 'Category Accent Color',
-      message: 'Enter a HEX color code for the border accent:',
       defaultValue: currentAccent || '#3b82f6'
     });
     if (!accent || accent === currentAccent) return;
