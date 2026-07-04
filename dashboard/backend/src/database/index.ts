@@ -29,6 +29,23 @@ export class DatabaseManager {
       const ddl = fs.readFileSync(schemaPath, 'utf8');
       this.adapter.exec(ddl);
 
+      // Perform auto-migrations for existing sqlite database files
+      const migrations = [
+        "ALTER TABLE categories ADD COLUMN server_id TEXT DEFAULT 'local' REFERENCES servers(id) ON DELETE SET DEFAULT",
+        "ALTER TABLE categories ADD COLUMN collapsed INTEGER DEFAULT 0",
+        "ALTER TABLE categories ADD COLUMN visible INTEGER DEFAULT 1",
+        "ALTER TABLE widgets ADD COLUMN server_id TEXT DEFAULT 'local' REFERENCES servers(id) ON DELETE SET DEFAULT",
+        "ALTER TABLE widgets ADD COLUMN pinned INTEGER DEFAULT 0",
+        "ALTER TABLE widgets ADD COLUMN visible INTEGER DEFAULT 1"
+      ];
+      for (const sql of migrations) {
+        try {
+          this.adapter.exec(sql);
+        } catch {
+          // Gracefully ignore if the column already exists
+        }
+      }
+
       // Seed default system models
       seedDatabase(this.adapter);
     } catch (err: any) {
