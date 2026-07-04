@@ -850,7 +850,7 @@ body {
   stroke: var(--text-primary);
 }
 
-/* Modal Overlay (Ctrl+K Command Palette) */
+/* Modal Overlay */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -860,9 +860,14 @@ body {
   background-color: rgba(0, 0, 0, 0.85);
   display: flex;
   justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* Command Palette Overlay overrides (top-aligned) */
+#cmd-palette-modal {
   align-items: flex-start;
   padding-top: 15vh;
-  z-index: 1000;
 }
 
 .cmd-palette-box {
