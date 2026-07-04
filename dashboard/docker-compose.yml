@@ -28,9 +28,10 @@ services:
     volumes:
       - ../services:/services:ro
       - /proc:/host/proc:ro
-      - /etc/cloudflared:/etc/cloudflared:ro
-      - ~/.cloudflared:/root/.cloudflared:ro
-      - /home:/host/home:ro
+      # Mount ONLY the Cloudflared config.yml file (Safe: does NOT expose JSON credentials or home directory keys)
+      - /etc/cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      # Alternate: if config is in user's home directory:
+      # - ~/.cloudflared/config.yml:/etc/cloudflared/config.yml:ro
     env_file:
       - ./backend/.env
     environment:
