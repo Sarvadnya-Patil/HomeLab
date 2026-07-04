@@ -34,11 +34,19 @@ export const Dialog = {
         }, 150);
       };
 
-      overlay.querySelector('.btn-dialog-ok').addEventListener('click', () => {
-        cleanup(input.value.trim());
+      overlay.querySelector('.btn-dialog-ok').addEventListener('click', (e) => {
+        console.log('[Dialog.prompt] OK button click event triggered', e);
+        try {
+          const val = input.value.trim();
+          console.log('[Dialog.prompt] input value:', val);
+          cleanup(val);
+        } catch (err) {
+          console.error('[Dialog.prompt] error in click handler:', err);
+        }
       });
 
       overlay.querySelector('.btn-dialog-cancel').addEventListener('click', () => {
+        console.log('[Dialog.prompt] Cancel button clicked');
         cleanup(null);
       });
 
@@ -79,8 +87,14 @@ export const Dialog = {
         }, 150);
       };
 
-      overlay.querySelector('.btn-dialog-ok').addEventListener('click', () => cleanup(true));
-      overlay.querySelector('.btn-dialog-cancel').addEventListener('click', () => cleanup(false));
+      overlay.querySelector('.btn-dialog-ok').addEventListener('click', () => {
+        console.log('[Dialog.confirm] Confirm clicked, resolving true');
+        cleanup(true);
+      });
+      overlay.querySelector('.btn-dialog-cancel').addEventListener('click', () => {
+        console.log('[Dialog.confirm] Cancel clicked, resolving false');
+        cleanup(false);
+      });
 
       const escHandler = (e) => {
         if (e.key === 'Escape') {
@@ -126,6 +140,9 @@ export const Dialog = {
       };
 
       const hsvToRgb = (h, s, v) => {
+        h = parseFloat(h) || 0;
+        s = parseFloat(s) || 0;
+        v = parseFloat(v) || 0;
         s /= 100;
         v /= 100;
         let c = v * s;
@@ -145,7 +162,12 @@ export const Dialog = {
       };
 
       const rgbToHex = (r, g, b) => {
-        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+        const toHex = (c) => {
+          const val = Math.max(0, Math.min(255, Math.round(c) || 0));
+          const hex = val.toString(16);
+          return hex.length === 1 ? "0" + hex : hex;
+        };
+        return "#" + toHex(r) + toHex(g) + toHex(b);
       };
 
       const overlay = document.createElement('div');
@@ -310,10 +332,14 @@ export const Dialog = {
       okBtn.addEventListener('click', () => {
         const rgb = hsvToRgb(currentH, currentS, currentV);
         const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+        console.log(`[Dialog.color] Select clicked. HSV: (${currentH}, ${currentS}, ${currentV}), RGB: (${rgb.r}, ${rgb.g}, ${rgb.b}) -> HEX: ${hex}`);
         cleanup(hex);
       });
 
-      cancelBtn.addEventListener('click', () => cleanup(null));
+      cancelBtn.addEventListener('click', () => {
+        console.log(`[Dialog.color] Cancel clicked. Resolving null`);
+        cleanup(null);
+      });
 
       const escHandler = (e) => {
         if (e.key === 'Escape') {
