@@ -389,7 +389,7 @@ export class InfrastructureService {
           serviceCopy.permissions.tunnelExposed = true;
         } else {
           if (serviceCopy.domain) {
-            serviceCopy.domain.public = undefined;
+            serviceCopy.domain.public = '';
           }
           if (serviceCopy.permissions) {
             serviceCopy.permissions.tunnelExposed = false;
