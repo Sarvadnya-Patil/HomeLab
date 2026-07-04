@@ -41,6 +41,20 @@ export class CategoriesRepository extends BaseRepository<Category> {
   }
 
   update(id: string, partial: Partial<Category>): Category | undefined {
+    if (!this.findById(id)) {
+      this.create({
+        id,
+        workspaceId: partial.workspaceId || 'overview',
+        name: partial.name || (id.charAt(0).toUpperCase() + id.slice(1)),
+        icon: partial.icon || 'server',
+        description: partial.description || 'Auto-discovered services',
+        accent: partial.accent || '#8b8b8b',
+        displayOrder: partial.displayOrder !== undefined ? partial.displayOrder : 10,
+        collapsed: partial.collapsed || false,
+        visible: partial.visible || true
+      });
+    }
+
     const fields = Object.keys(partial).filter(
       (k) => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt'
     );
