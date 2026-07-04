@@ -266,6 +266,8 @@ export class InfrastructureService {
       const locations = [
         path.join(process.cwd(), '..', 'services', 'cloudflared', 'config', 'config.yml'),
         path.join(process.cwd(), '..', 'services', 'cloudflared', 'config', 'config.yaml'),
+        '/services/cloudflared/config/config.yml',
+        '/services/cloudflared/config/config.yaml',
         '/etc/cloudflared/config.yml',
         '/etc/cloudflared/config.yaml'
       ];

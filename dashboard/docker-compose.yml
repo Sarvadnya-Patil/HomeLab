@@ -28,6 +28,7 @@ services:
     volumes:
       - ../services:/services:ro
       - /proc:/host/proc:ro
+      - /etc/cloudflared:/etc/cloudflared:ro
     env_file:
       - ./backend/.env
     environment:
