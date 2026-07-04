@@ -141,10 +141,10 @@ export default {
 
     if (tunnelOnline && service.domain && service.domain.public) {
       href = `http://${service.domain.public}`;
-    } else if (service.domain && service.domain.local) {
-      href = `http://${service.domain.local}`;
     } else if (service.ports && service.ports.http) {
-      href = `http://${location.hostname}:${service.ports.http}`;
+      href = `http://127.0.0.1:${service.ports.http}`;
+    } else if (service.domain && service.domain.local) {
+      href = service.domain.local.startsWith('http') ? service.domain.local : `http://${service.domain.local}`;
     }
 
     const isPublic = service.permissions && service.permissions.tunnelExposed;
