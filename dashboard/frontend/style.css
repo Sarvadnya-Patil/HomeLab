@@ -1372,13 +1372,13 @@ input[type=number] {
 }
 
 .custom-dialog-box {
-  background: #0f1115;
-  border: 1px solid var(--border-slate);
+  background: #11141c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  width: 90%;
-  max-width: 400px;
-  padding: 1.5rem;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  width: 92%;
+  max-width: 420px;
+  padding: 1.75rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.6);
   transform: scale(0.95);
   transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1398,37 +1398,40 @@ input[type=number] {
 }
 
 .custom-dialog-header {
-  font-size: 0.95rem;
-  font-weight: bold;
+  font-size: 1.05rem;
+  font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.6rem;
+  letter-spacing: -0.01em;
 }
 
 .custom-dialog-body {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
-  margin-bottom: 1.25rem;
-  line-height: 1.4;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
 }
 
 .custom-dialog-input-wrapper {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .custom-dialog-input {
   width: 100%;
-  background: #161a22;
-  border: 1px solid var(--border-slate);
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
+  background: #171b26;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
   color: var(--text-primary);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: all 0.15s ease;
 }
 
 .custom-dialog-input:focus {
   border-color: var(--border-focus);
+  background: #191e2b;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
 }
 
 .custom-dialog-actions {
@@ -1439,27 +1442,37 @@ input[type=number] {
 
 .btn-dialog-cancel {
   background: transparent;
-  border: 1px solid var(--border-slate);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
   color: var(--text-secondary);
-  font-size: 0.75rem;
-  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .btn-dialog-cancel:hover {
   background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .btn-dialog-ok {
   background: var(--text-primary);
   color: #000;
   border: none;
-  font-size: 0.75rem;
-  font-weight: bold;
-  padding: 0.4rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.5rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .btn-dialog-ok:hover {
-  opacity: 0.9;
+  opacity: 0.95;
+  transform: translateY(-1px);
 }
 
 
