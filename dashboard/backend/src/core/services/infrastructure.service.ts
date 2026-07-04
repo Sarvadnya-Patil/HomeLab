@@ -263,13 +263,18 @@ export class InfrastructureService {
     try {
       const fs = require('fs');
       const path = require('path');
+      const os = require('os');
       const locations = [
         path.join(process.cwd(), '..', 'services', 'cloudflared', 'config', 'config.yml'),
         path.join(process.cwd(), '..', 'services', 'cloudflared', 'config', 'config.yaml'),
         '/services/cloudflared/config/config.yml',
         '/services/cloudflared/config/config.yaml',
+        path.join(os.homedir(), '.cloudflared', 'config.yml'),
+        path.join(os.homedir(), '.cloudflared', 'config.yaml'),
         '/etc/cloudflared/config.yml',
-        '/etc/cloudflared/config.yaml'
+        '/etc/cloudflared/config.yaml',
+        '/root/.cloudflared/config.yml',
+        '/root/.cloudflared/config.yaml'
       ];
       
       let fileContent = '';

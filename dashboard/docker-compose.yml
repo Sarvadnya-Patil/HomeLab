@@ -29,6 +29,7 @@ services:
       - ../services:/services:ro
       - /proc:/host/proc:ro
       - /etc/cloudflared:/etc/cloudflared:ro
+      - ~/.cloudflared:/root/.cloudflared:ro
     env_file:
       - ./backend/.env
     environment:
