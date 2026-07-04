@@ -1475,4 +1475,9 @@ input[type=number] {
   transform: translateY(-1px);
 }
 
+.terminal-expand-modal {
+  align-items: center !important;
+  padding-top: 0 !important;
+}
+
 
