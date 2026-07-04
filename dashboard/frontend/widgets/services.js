@@ -41,7 +41,6 @@ export default {
 
     const services = store.get('services') || [];
     const categories = store.get('categories') || [];
-    console.log('[ServicesWidget] update() running. Categories accents:', categories.map(c => `${c.name}: ${c.accent}`));
     const filterQuery = (document.getElementById("cmd-palette")?.value || '').toLowerCase();
 
 
@@ -361,31 +360,18 @@ export default {
   },
 
   async promptAccentCategory(categoryId, currentAccent) {
-    console.log(`[ColorPicker] Opening color picker for category: ${categoryId}, currentAccent: ${currentAccent}`);
     const accent = await Dialog.color({
       title: 'Category Accent Color',
       defaultValue: currentAccent || '#3b82f6'
     });
-    console.log(`[ColorPicker] Resolved accent selection: ${accent}`);
-    if (!accent) {
-      console.log(`[ColorPicker] Accent picker cancelled or null`);
-      return;
-    }
-    if (accent.toUpperCase() === (currentAccent || '').toUpperCase()) {
-      console.log(`[ColorPicker] Color selection matches current accent, ignoring update`);
-      return;
-    }
+    if (!accent || accent.toUpperCase() === (currentAccent || '').toUpperCase()) return;
 
     try {
-      console.log(`[ColorPicker] Sending PUT request for category: ${categoryId} with accent: ${accent}`);
       const updated = await api.put(`/api/v1/categories/${categoryId}`, { accent });
-      console.log(`[ColorPicker] API category update success response:`, updated);
-      
       const current = store.get('categories') || [];
       store.set('categories', current.map(c => c.id === categoryId ? updated : c));
-      console.log(`[ColorPicker] Store categories list successfully updated`);
     } catch (err) {
-      console.error(`[ColorPicker] Failed to update category color: ${err.message}`, err);
+      console.error(`Failed to update category color: ${err.message}`);
     }
   },
 

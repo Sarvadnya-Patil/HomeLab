@@ -34,19 +34,11 @@ export const Dialog = {
         }, 150);
       };
 
-      overlay.querySelector('.btn-dialog-ok').addEventListener('click', (e) => {
-        console.log('[Dialog.prompt] OK button click event triggered', e);
-        try {
-          const val = input.value.trim();
-          console.log('[Dialog.prompt] input value:', val);
-          cleanup(val);
-        } catch (err) {
-          console.error('[Dialog.prompt] error in click handler:', err);
-        }
+      overlay.querySelector('.btn-dialog-ok').addEventListener('click', () => {
+        cleanup(input.value.trim());
       });
 
       overlay.querySelector('.btn-dialog-cancel').addEventListener('click', () => {
-        console.log('[Dialog.prompt] Cancel button clicked');
         cleanup(null);
       });
 
@@ -87,14 +79,8 @@ export const Dialog = {
         }, 150);
       };
 
-      overlay.querySelector('.btn-dialog-ok').addEventListener('click', () => {
-        console.log('[Dialog.confirm] Confirm clicked, resolving true');
-        cleanup(true);
-      });
-      overlay.querySelector('.btn-dialog-cancel').addEventListener('click', () => {
-        console.log('[Dialog.confirm] Cancel clicked, resolving false');
-        cleanup(false);
-      });
+      overlay.querySelector('.btn-dialog-ok').addEventListener('click', () => cleanup(true));
+      overlay.querySelector('.btn-dialog-cancel').addEventListener('click', () => cleanup(false));
 
       const escHandler = (e) => {
         if (e.key === 'Escape') {
@@ -332,12 +318,10 @@ export const Dialog = {
       okBtn.addEventListener('click', () => {
         const rgb = hsvToRgb(currentH, currentS, currentV);
         const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
-        console.log(`[Dialog.color] Select clicked. HSV: (${currentH}, ${currentS}, ${currentV}), RGB: (${rgb.r}, ${rgb.g}, ${rgb.b}) -> HEX: ${hex}`);
         cleanup(hex);
       });
 
       cancelBtn.addEventListener('click', () => {
-        console.log(`[Dialog.color] Cancel clicked. Resolving null`);
         cleanup(null);
       });
 
