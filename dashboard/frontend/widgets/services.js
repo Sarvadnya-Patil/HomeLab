@@ -323,6 +323,13 @@ export default {
       placeholder: 'Management, Home, Databases...'
     });
     if (!name) return;
+
+    // Prompt for the accent color during creation, defaulting to a premium blue
+    const accent = await Dialog.color({
+      title: `Accent Color for "${name}"`,
+      defaultValue: '#3b82f6'
+    }) || '#3b82f6';
+
     const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
     const workspaceId = store.get('activeWorkspace');
 
@@ -331,6 +338,7 @@ export default {
         id,
         workspaceId,
         name,
+        accent,
         displayOrder: 10,
         collapsed: false,
         visible: true
