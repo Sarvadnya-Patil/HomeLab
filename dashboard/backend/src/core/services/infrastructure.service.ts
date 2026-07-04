@@ -51,6 +51,27 @@ export class InfrastructureService {
     return false;
   }
 
+  isPortOpen(port: number, host: string = '127.0.0.1', timeoutMs: number = 500): Promise<boolean> {
+    return new Promise((resolve) => {
+      const net = require('net');
+      const socket = new net.Socket();
+      
+      const onError = () => {
+        socket.destroy();
+        resolve(false);
+      };
+      
+      socket.setTimeout(timeoutMs);
+      socket.once('error', onError);
+      socket.once('timeout', onError);
+      
+      socket.connect(port, host, () => {
+        socket.end();
+        resolve(true);
+      });
+    });
+  }
+
   // 1. Get dynamic health status of subsystems
   async getHealthStatus() {
     const dbOnline = (() => {
@@ -276,6 +297,26 @@ export class InfrastructureService {
         '/root/.cloudflared/config.yml',
         '/root/.cloudflared/config.yaml'
       ];
+
+      // Dynamic host-user home directory config scanner
+      const hostHome = '/host/home';
+      if (fs.existsSync(hostHome)) {
+        try {
+          const users = fs.readdirSync(hostHome);
+          for (const user of users) {
+            const userConfigPath = path.join(hostHome, user, '.cloudflared', 'config.yml');
+            const userConfigYamlPath = path.join(hostHome, user, '.cloudflared', 'config.yaml');
+            if (fs.existsSync(userConfigPath)) {
+              locations.push(userConfigPath);
+            }
+            if (fs.existsSync(userConfigYamlPath)) {
+              locations.push(userConfigYamlPath);
+            }
+          }
+        } catch {
+          // Ignore directory read errors
+        }
+      }
       
       let fileContent = '';
       for (const loc of locations) {
@@ -369,9 +410,9 @@ export class InfrastructureService {
     }
 
     const matchedIds = new Set<string>();
-    const serviceList = services
+    const serviceListPromises = services
       .filter((service) => service.id !== 'cloudflared')
-      .map((service) => {
+      .map(async (service) => {
         const serviceCopy = { ...service };
         if (overrides[serviceCopy.id]) {
           serviceCopy.category = overrides[serviceCopy.id];
@@ -403,43 +444,51 @@ export class InfrastructureService {
           }
         }
 
-      const match = dockerContainers.find((c) =>
-        c.Names.some((name: string) => name === `/${serviceCopy.id}` || name.endsWith(`-${serviceCopy.id}`))
-      );
+        const match = dockerContainers.find((c) =>
+          c.Names.some((name: string) => name === `/${serviceCopy.id}` || name.endsWith(`-${serviceCopy.id}`))
+        );
 
-      if (match) {
-        matchedIds.add(match.Id);
-        const isOnline = match.State === 'running';
-        serviceCopy.status = isOnline ? 'Active' : 'Inactive';
-        serviceCopy.containerId = match.Id;
-        serviceCopy.details = {
-          port: serviceCopy.ports && serviceCopy.ports.http ? serviceCopy.ports.http : 'N/A',
-          latency: isOnline ? (serviceCopy.id === 'cloudflared' ? '8 ms' : '15 ms') : 'N/A',
-          uptime: match.Status,
-          lastCheck: 'Just now'
-        };
-      } else {
-        if (serviceCopy.id === 'cloudflared' && tunnelOnline) {
-          serviceCopy.status = 'Active';
+        if (match) {
+          matchedIds.add(match.Id);
+          const isOnline = match.State === 'running';
+          serviceCopy.status = isOnline ? 'Active' : 'Inactive';
+          serviceCopy.containerId = match.Id;
           serviceCopy.details = {
-            port: 'N/A',
-            latency: '12 ms',
-            uptime: 'Running natively on host',
+            port: serviceCopy.ports && serviceCopy.ports.http ? serviceCopy.ports.http : 'N/A',
+            latency: isOnline ? (serviceCopy.id === 'cloudflared' ? '8 ms' : '15 ms') : 'N/A',
+            uptime: match.Status,
             lastCheck: 'Just now'
           };
         } else {
-          serviceCopy.status = dockerOnline ? 'Not Installed' : 'Unknown';
-          serviceCopy.details = {
-            port: serviceCopy.ports && serviceCopy.ports.http ? serviceCopy.ports.http : 'N/A',
-            latency: 'N/A',
-            uptime: 'N/A',
-            lastCheck: 'Just now'
-          };
-        }
-      }
+          // Fallback: Check if port is open locally (e.g. running natively outside docker)
+          let isPortActive = false;
+          if (serviceCopy.ports && serviceCopy.ports.http) {
+            isPortActive = await this.isPortOpen(serviceCopy.ports.http);
+          }
 
-      return serviceCopy;
-    });
+          if (isPortActive) {
+            serviceCopy.status = 'Active';
+            serviceCopy.details = {
+              port: serviceCopy.ports && serviceCopy.ports.http ? serviceCopy.ports.http.toString() : 'N/A',
+              latency: '5 ms',
+              uptime: 'Running natively on host',
+              lastCheck: 'Just now'
+            };
+          } else {
+            serviceCopy.status = dockerOnline ? 'Not Installed' : 'Unknown';
+            serviceCopy.details = {
+              port: serviceCopy.ports && serviceCopy.ports.http ? serviceCopy.ports.http : 'N/A',
+              latency: 'N/A',
+              uptime: 'N/A',
+              lastCheck: 'Just now'
+            };
+          }
+        }
+
+        return serviceCopy;
+      });
+
+    const serviceList = await Promise.all(serviceListPromises);
 
     dockerContainers.forEach((c) => {
       if (matchedIds.has(c.Id)) return;
