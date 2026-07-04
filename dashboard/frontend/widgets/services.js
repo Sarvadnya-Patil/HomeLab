@@ -64,7 +64,7 @@ export default {
         return matchesCategory && matchesFilter && isInstalled;
       });
 
-      if (catServices.length === 0) return;
+      if (catServices.length === 0 && filterQuery) return;
 
       // Renders collapsed state
       const isCollapsed = cat.collapsed;
