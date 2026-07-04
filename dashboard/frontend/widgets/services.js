@@ -64,7 +64,8 @@ export default {
         return matchesCategory && matchesFilter && isInstalled;
       });
 
-      if (catServices.length === 0 && filterQuery) return;
+      const isDefault = ['infrastructure', 'monitoring', 'automation', 'ai', 'networking', 'storage'].includes(cat.id.toLowerCase());
+      if (catServices.length === 0 && (filterQuery || isDefault)) return;
 
       // Renders collapsed state
       const isCollapsed = cat.collapsed;
@@ -85,6 +86,8 @@ export default {
             <span style="font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono);">(${catServices.length})</span>
           </div>
           <div class="category-header-actions" style="display: flex; gap: 0.25rem;">
+            <button class="btn btn-panel btn-cat-move-up" style="font-size: 0.6rem; padding: 0.15rem 0.35rem;" title="Move Up">▲</button>
+            <button class="btn btn-panel btn-cat-move-down" style="font-size: 0.6rem; padding: 0.15rem 0.35rem;" title="Move Down">▼</button>
             <button class="btn btn-panel btn-cat-rename" style="font-size: 0.6rem; padding: 0.15rem 0.35rem;">Rename</button>
             <button class="btn btn-panel btn-cat-accent" style="font-size: 0.6rem; padding: 0.15rem 0.35rem;">Color</button>
             <button class="btn btn-panel btn-cat-delete" style="font-size: 0.6rem; padding: 0.15rem 0.35rem; color: var(--border-focus);">Delete</button>
@@ -103,6 +106,8 @@ export default {
       });
 
       // Bind category specific actions
+      catSection.querySelector('.btn-cat-move-up').addEventListener('click', () => this.moveCategoryOrder(cat.id, -1));
+      catSection.querySelector('.btn-cat-move-down').addEventListener('click', () => this.moveCategoryOrder(cat.id, 1));
       catSection.querySelector('.btn-cat-rename').addEventListener('click', () => this.promptRenameCategory(cat.id, cat.name));
       catSection.querySelector('.btn-cat-accent').addEventListener('click', () => this.promptAccentCategory(cat.id, cat.accent));
       catSection.querySelector('.btn-cat-delete').addEventListener('click', () => this.promptDeleteCategory(cat.id, cat.name));
@@ -396,6 +401,23 @@ export default {
       store.set('categories', current.filter(c => c.id !== categoryId));
     } catch (err) {
       console.error(`Failed to delete category: ${err.message}`);
+    }
+  },
+
+  async moveCategoryOrder(categoryId, direction) {
+    const categories = store.get('categories') || [];
+    const cat = categories.find(c => c.id === categoryId);
+    if (!cat) return;
+
+    const currentOrder = cat.displayOrder !== undefined ? cat.displayOrder : 10;
+    const newOrder = Math.max(0, currentOrder + direction);
+
+    try {
+      const updated = await api.put(`/api/v1/categories/${categoryId}`, { displayOrder: newOrder });
+      const current = store.get('categories') || [];
+      store.set('categories', current.map(c => c.id === categoryId ? updated : c));
+    } catch (err) {
+      console.error(`Failed to move category: ${err.message}`);
     }
   },
 
