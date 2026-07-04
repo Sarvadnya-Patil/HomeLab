@@ -521,7 +521,29 @@ export class InfrastructureService {
       const isOnline = c.State === 'running';
 
       // Check if there is an explicit port binding exposed
-      const port = c.Ports && c.Ports.length > 0 ? c.Ports[0].PublicPort : null;
+      // Scan all ports (PublicPort or PrivatePort) to match ingress mapping
+      let port = null;
+      let mappedPublicDomain = ingressMap[name.toLowerCase()];
+
+      if (c.Ports && c.Ports.length > 0) {
+        for (const p of c.Ports) {
+          const pub = p.PublicPort;
+          const priv = p.PrivatePort;
+          if (pub && ingressMap[pub.toString()]) {
+            mappedPublicDomain = ingressMap[pub.toString()];
+            port = pub;
+            break;
+          }
+          if (priv && ingressMap[priv.toString()]) {
+            mappedPublicDomain = ingressMap[priv.toString()];
+            port = priv;
+            break;
+          }
+        }
+        if (!port) {
+          port = c.Ports[0].PublicPort || c.Ports[0].PrivatePort || null;
+        }
+      }
 
       // Apply category overrides to synthesized docker containers too!
       const category = overrides[name] || 'Containers';
@@ -544,12 +566,6 @@ export class InfrastructureService {
           lastCheck: 'Just now'
         }
       } as any;
-
-      // Apply dynamic ingress config.yml URL mapping if available (match by name or port)
-      let mappedPublicDomain = ingressMap[name.toLowerCase()];
-      if (!mappedPublicDomain && port) {
-        mappedPublicDomain = ingressMap[port.toString()];
-      }
 
       if (mappedPublicDomain) {
         serviceCopy.domain = { public: mappedPublicDomain };

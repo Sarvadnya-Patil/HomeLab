@@ -171,7 +171,12 @@ export const WidgetGrid = {
     let draggedWrapper = null;
 
     this.container.querySelectorAll('.widget-wrapper').forEach(wrapper => {
-      wrapper.addEventListener('dragstart', () => {
+      wrapper.addEventListener('dragstart', (e) => {
+        const isInteractive = e.target.closest('input, textarea, button, pre, code, [contenteditable="true"]');
+        if (isInteractive) {
+          e.preventDefault();
+          return;
+        }
         draggedWrapper = wrapper;
         wrapper.classList.add('dragging');
       });
