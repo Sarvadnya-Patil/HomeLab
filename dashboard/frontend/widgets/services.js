@@ -36,12 +36,12 @@ export default {
   },
 
   update(container, data) {
-    // Note: The widget-grid updater passes the full catalog of enriched services
     const wrapper = container.querySelector('#w-services-categories-container');
     if (!wrapper) return;
 
     const services = store.get('services') || [];
     const categories = store.get('categories') || [];
+    console.log('[ServicesWidget] update() running. Categories accents:', categories.map(c => `${c.name}: ${c.accent}`));
     const filterQuery = (document.getElementById("cmd-palette")?.value || '').toLowerCase();
 
 

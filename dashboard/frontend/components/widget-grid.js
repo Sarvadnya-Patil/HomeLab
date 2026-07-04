@@ -48,8 +48,11 @@ export const WidgetGrid = {
 
     // Listen to categories and update matching widget modules
     store.on('categories', ({ value }) => {
+      console.log('[WidgetGrid] categories store event emitted. Value:', value);
       this.activeWidgets.forEach(item => {
+        console.log(`[WidgetGrid] Checking widget [${item.id}], wsEvents:`, item.widgetObj.wsEvents);
         if (item.widgetObj.wsEvents.includes('categories')) {
+          console.log(`[WidgetGrid] Triggering update on widget [${item.id}]`);
           item.widgetObj.update(item.wrapperEl, value);
         }
       });
