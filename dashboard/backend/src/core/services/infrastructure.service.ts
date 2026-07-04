@@ -295,11 +295,22 @@ export class InfrastructureService {
           const parts = trimmed.split(':');
           if (parts.length >= 2 && currentHostname) {
             const serviceVal = parts.slice(1).join(':').trim();
+            
+            // 1. Map by hostname in URL (if not localhost)
             const urlMatch = serviceVal.match(/https?:\/\/([^:/\s]+)/);
             if (urlMatch && urlMatch[1]) {
               const serviceHost = urlMatch[1].toLowerCase();
-              map[serviceHost] = currentHostname;
+              if (serviceHost !== 'localhost' && serviceHost !== '127.0.0.1') {
+                map[serviceHost] = currentHostname;
+              }
             }
+            
+            // 2. Map by port number in URL
+            const portMatch = serviceVal.match(/:(\d+)/);
+            if (portMatch && portMatch[1]) {
+              map[portMatch[1]] = currentHostname;
+            }
+            
             currentHostname = '';
           }
         }
@@ -351,20 +362,39 @@ export class InfrastructureService {
     }
 
     const matchedIds = new Set<string>();
-    const serviceList = services.map((service) => {
-      const serviceCopy = { ...service };
-      if (overrides[serviceCopy.id]) {
-        serviceCopy.category = overrides[serviceCopy.id];
-      }
+    const serviceList = services
+      .filter((service) => service.id !== 'cloudflared')
+      .map((service) => {
+        const serviceCopy = { ...service };
+        if (overrides[serviceCopy.id]) {
+          serviceCopy.category = overrides[serviceCopy.id];
+        }
 
-      // Apply dynamic ingress config.yml URL mapping if available
-      const mappedPublicDomain = ingressMap[serviceCopy.id.toLowerCase()] || ingressMap[serviceCopy.name.toLowerCase()];
-      if (mappedPublicDomain) {
-        if (!serviceCopy.domain) serviceCopy.domain = {} as any;
-        serviceCopy.domain.public = mappedPublicDomain;
-        if (!serviceCopy.permissions) serviceCopy.permissions = {} as any;
-        serviceCopy.permissions.tunnelExposed = true;
-      }
+        // Apply dynamic ingress config.yml URL mapping if available (match by host or port)
+        let mappedPublicDomain = ingressMap[serviceCopy.id.toLowerCase()] || ingressMap[serviceCopy.name.toLowerCase()];
+        if (!mappedPublicDomain && serviceCopy.ports) {
+          for (const pKey of Object.keys(serviceCopy.ports)) {
+            const portVal = serviceCopy.ports[pKey];
+            if (portVal && ingressMap[portVal.toString()]) {
+              mappedPublicDomain = ingressMap[portVal.toString()];
+              break;
+            }
+          }
+        }
+
+        if (mappedPublicDomain) {
+          if (!serviceCopy.domain) serviceCopy.domain = {} as any;
+          serviceCopy.domain.public = mappedPublicDomain;
+          if (!serviceCopy.permissions) serviceCopy.permissions = {} as any;
+          serviceCopy.permissions.tunnelExposed = true;
+        } else {
+          if (serviceCopy.domain) {
+            serviceCopy.domain.public = undefined;
+          }
+          if (serviceCopy.permissions) {
+            serviceCopy.permissions.tunnelExposed = false;
+          }
+        }
 
       const match = dockerContainers.find((c) =>
         c.Names.some((name: string) => name === `/${serviceCopy.id}` || name.endsWith(`-${serviceCopy.id}`))
@@ -408,6 +438,9 @@ export class InfrastructureService {
       if (matchedIds.has(c.Id)) return;
 
       const name = c.Names[0] ? c.Names[0].replace('/', '') : c.Id.substring(0, 12);
+      // Filter out cloudflared/tunnel dynamic containers entirely as they run on the host natively
+      if (name.toLowerCase().includes('cloudflared') || name.toLowerCase().includes('tunnel')) return;
+
       const isOnline = c.State === 'running';
 
       // Check if there is an explicit port binding exposed
@@ -435,8 +468,12 @@ export class InfrastructureService {
         }
       } as any;
 
-      // Apply dynamic ingress config.yml URL mapping if available
-      const mappedPublicDomain = ingressMap[name.toLowerCase()];
+      // Apply dynamic ingress config.yml URL mapping if available (match by name or port)
+      let mappedPublicDomain = ingressMap[name.toLowerCase()];
+      if (!mappedPublicDomain && port) {
+        mappedPublicDomain = ingressMap[port.toString()];
+      }
+
       if (mappedPublicDomain) {
         serviceCopy.domain = { public: mappedPublicDomain };
         serviceCopy.permissions = { tunnelExposed: true } as any;

@@ -43,15 +43,7 @@ export default {
     const categories = store.get('categories') || [];
     const filterQuery = (document.getElementById("cmd-palette")?.value || '').toLowerCase();
 
-    // Find base domain dynamically from the first service that has a public domain configured
-    let baseDomain = '';
-    const serviceWithPublicDomain = services.find(s => s.domain && s.domain.public);
-    if (serviceWithPublicDomain) {
-      const parts = serviceWithPublicDomain.domain.public.split('.');
-      if (parts.length >= 2) {
-        baseDomain = parts.slice(1).join('.');
-      }
-    }
+
 
     wrapper.innerHTML = '';
 
@@ -127,7 +119,7 @@ export default {
         });
       } else {
         catServices.forEach(service => {
-          const card = this.createServiceCard(service, baseDomain);
+          const card = this.createServiceCard(service);
           cardsGrid.appendChild(card);
         });
       }
@@ -140,27 +132,19 @@ export default {
   },
 
   // Renders dynamic service card using Capabilities whitelisting
-  createServiceCard(service, baseDomain) {
+  createServiceCard(service) {
     const isOnline = service.status === "Active" || service.status === "Online";
     const statusClass = service.status.toLowerCase().replace(' ', '-');
 
     let href = '#';
     const tunnelOnline = store.get('tunnelOnline') || false;
 
-    if (tunnelOnline) {
-      if (service.domain && service.domain.public) {
-        href = `http://${service.domain.public}`;
-      } else if (baseDomain) {
-        href = `http://${service.id.toLowerCase()}.${baseDomain}`;
-      } else if (service.ports && service.ports.http) {
-        href = `http://${location.hostname}:${service.ports.http}`;
-      }
-    } else {
-      if (service.domain && service.domain.local) {
-        href = `http://${service.domain.local}`;
-      } else if (service.ports && service.ports.http) {
-        href = `http://${location.hostname}:${service.ports.http}`;
-      }
+    if (tunnelOnline && service.domain && service.domain.public) {
+      href = `http://${service.domain.public}`;
+    } else if (service.domain && service.domain.local) {
+      href = `http://${service.domain.local}`;
+    } else if (service.ports && service.ports.http) {
+      href = `http://${location.hostname}:${service.ports.http}`;
     }
 
     const isPublic = service.permissions && service.permissions.tunnelExposed;
