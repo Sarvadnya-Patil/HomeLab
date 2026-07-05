@@ -374,8 +374,8 @@ export const Dialog = {
           ${swatchColors.map((color, index) => `
             <button class="btn-swatch-item ${index === 0 ? 'active' : ''}" data-color="${color}" style="width: 24px; height: 24px; border-radius: 50%; background-color: ${color}; border: 2px solid transparent; cursor: pointer; outline: none; transition: transform 0.15s ease, box-shadow 0.15s ease; box-shadow: ${index === 0 ? '0 0 0 2px var(--text-primary)' : 'none'}; transform: ${index === 0 ? 'scale(1.1)' : 'none'};"></button>
           `).join('')}
-          <div class="custom-swatch-picker-container" style="position: relative; width: 24px; height: 24px; border-radius: 50%; overflow: hidden; border: 2px solid transparent; cursor: pointer; background: conic-gradient(red, yellow, green, cyan, blue, magenta, red); transition: transform 0.15s ease, box-shadow 0.15s ease;">
-            <input type="color" class="custom-dialog-color-picker" style="position: absolute; top: -5px; left: -5px; width: 34px; height: 34px; opacity: 0; cursor: pointer;" value="#3b82f6" />
+          <div class="custom-swatch-picker-container" style="position: relative; width: 24px; height: 24px; border-radius: 50%; overflow: hidden; cursor: pointer; background: conic-gradient(red, yellow, green, cyan, blue, magenta, red); transition: transform 0.15s ease, box-shadow 0.15s ease; border: 1px solid var(--border-slate);">
+            <input type="color" class="custom-dialog-color-picker" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border-radius: 50%; border: none; padding: 0; margin: 0; background: none;" value="#3b82f6" />
           </div>
         </div>
       `;

@@ -64,8 +64,7 @@ export default {
         return matchesCategory && matchesFilter && isInstalled;
       });
 
-      const isDefault = ['infrastructure', 'monitoring', 'automation', 'ai', 'networking', 'storage'].includes(cat.id.toLowerCase());
-      if (catServices.length === 0 && (filterQuery || isDefault)) return;
+      if (catServices.length === 0 && filterQuery) return;
 
       // Renders collapsed state
       const isCollapsed = cat.collapsed;
