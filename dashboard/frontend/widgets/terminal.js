@@ -41,16 +41,31 @@ export default {
     this.logCallback = (output) => {
       const outputEl = container.querySelector('#w-term-output');
       if (!outputEl) return;
+      
+      const threshold = 50; // pixels from bottom threshold to trigger auto-scroll
+      const body = container.querySelector('.terminal-body');
+      
+      let bodyScrolledToBottom = true;
+      if (body) {
+        bodyScrolledToBottom = (body.scrollHeight - body.scrollTop - body.clientHeight) <= threshold;
+      }
+
+      let modalScrolledToBottom = true;
+      if (this.modalActive && this.modalOutputEl) {
+        modalScrolledToBottom = (this.modalOutputEl.scrollHeight - this.modalOutputEl.scrollTop - this.modalOutputEl.clientHeight) <= threshold;
+      }
+
       const formatted = output.replace(/\n/g, '<br>');
       outputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>`;
       
       if (this.modalActive && this.modalOutputEl) {
         this.modalOutputEl.innerHTML = `<span class="white-text">${formatted}</span>`;
-        this.modalOutputEl.scrollTop = this.modalOutputEl.scrollHeight;
+        if (modalScrolledToBottom) {
+          this.modalOutputEl.scrollTop = this.modalOutputEl.scrollHeight;
+        }
       }
 
-      const body = container.querySelector('.terminal-body');
-      if (body) {
+      if (body && bodyScrolledToBottom) {
         body.scrollTop = body.scrollHeight;
       }
     };
