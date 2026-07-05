@@ -15,6 +15,8 @@ export default {
 
   render(container) {
     container.className = 'grid-terminal widget-item';
+    container.style.position = 'relative';
+    container.style.minHeight = '220px';
     container.innerHTML = `
       <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
         <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -26,7 +28,7 @@ export default {
         </div>
         <span class="console-host" id="w-term-host-label" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);">root@homelab-os</span>
       </div>
-      <div class="terminal-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.75rem; height: auto; flex: 1; overflow-y: auto; line-height: 1.45; display: flex; flex-direction: column; justify-content: space-between;">
+      <div class="terminal-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.45; display: flex; flex-direction: column; justify-content: space-between; position: absolute; top: 3.25rem; left: 1rem; right: 1rem; bottom: 1rem; overflow-y: auto;">
         <div class="terminal-content" id="w-term-output" style="flex: 1; overflow-y: auto; margin-bottom: 0.5rem; white-space: pre-wrap;"><span class="cyan-text">root@homelab:~$</span> OS control console active. Type 'help' for commands.<br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span></div>
         <div class="terminal-input-row" style="display: flex; align-items: center; border-top: 1px solid var(--border-slate); padding-top: 0.5rem; margin-top: auto;">
           <span class="cyan-text" style="margin-right: 0.5rem; user-select: none;">root@homelab:~$</span>
@@ -51,7 +53,6 @@ export default {
       if (body) {
         body.scrollTop = body.scrollHeight;
       }
-      this.syncHeight(container);
     };
 
     const expandBtn = container.querySelector('.btn-expand-terminal');
@@ -104,27 +105,11 @@ export default {
           }
         }
       });
-      this.syncHeight(container);
     }
   },
 
   update(container, data) {
     // Note: ws-client streams console updates directly into registered subscribers
-  },
-
-  syncHeight(container) {
-    setTimeout(() => {
-      const asciiEl = document.querySelector('#w-ingress-ascii');
-      const ingressBody = document.querySelector('.grid-network-map .network-map-body');
-      const terminalBody = container.querySelector('.terminal-body');
-      if (asciiEl && ingressBody && terminalBody) {
-        const linesCount = asciiEl.textContent.trim().split('\n').length;
-        const calculatedHeight = Math.ceil(linesCount * 15.68) + 18; // 15.68px per line + 18px padding/borders
-        const lockedHeight = Math.max(220, calculatedHeight);
-        ingressBody.style.height = `${lockedHeight}px`;
-        terminalBody.style.height = `${lockedHeight}px`;
-      }
-    }, 50);
   },
 
   appendOutput(container, text) {
@@ -168,7 +153,6 @@ export default {
     if (body && bodyScrolledToBottom) {
       body.scrollTop = body.scrollHeight;
     }
-    this.syncHeight(container);
   },
 
   // Log streaming handler from service lifecycle triggers

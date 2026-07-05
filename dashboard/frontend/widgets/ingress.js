@@ -51,18 +51,6 @@ Detecting networks...
 
     asciiEl.textContent = ascii;
 
-    // Dynamically align the terminal body height to match the Ingress Routing Tree
-    setTimeout(() => {
-      const ingressBody = container.querySelector('.network-map-body');
-      const terminalBody = document.querySelector('.grid-terminal .terminal-body');
-      if (ingressBody && terminalBody) {
-        const linesCount = ascii.trim().split('\n').length;
-        const calculatedHeight = Math.ceil(linesCount * 15.68) + 18; // 15.68px per line + 18px padding/borders
-        const lockedHeight = Math.max(220, calculatedHeight);
-        ingressBody.style.height = `${lockedHeight}px`;
-        terminalBody.style.height = `${lockedHeight}px`;
-      }
-    }, 50);
   },
 
   resize(container, size) { },
