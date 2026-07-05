@@ -27,10 +27,7 @@ export default {
         <span class="console-host" id="w-term-host-label" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);">root@homelab-os</span>
       </div>
       <div class="terminal-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.75rem; height: 260px; overflow-y: auto; line-height: 1.45; display: flex; flex-direction: column; justify-content: space-between;">
-        <div class="terminal-content" id="w-term-output" style="flex: 1; overflow-y: auto; margin-bottom: 0.5rem; white-space: pre-wrap;">
-          <span class="cyan-text">root@homelab:~$</span> OS control console active. Type 'help' for commands.<br><br>
-          <span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>
-        </div>
+        <div class="terminal-content" id="w-term-output" style="flex: 1; overflow-y: auto; margin-bottom: 0.5rem; white-space: pre-wrap;"><span class="cyan-text">root@homelab:~$</span> OS control console active. Type 'help' for commands.<br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span></div>
         <div class="terminal-input-row" style="display: flex; align-items: center; border-top: 1px solid var(--border-slate); padding-top: 0.5rem; margin-top: auto;">
           <span class="cyan-text" style="margin-right: 0.5rem; user-select: none;">root@homelab:~$</span>
           <input type="text" id="w-term-input" style="flex: 1; background: transparent; border: none; outline: none; color: var(--text-white); font-family: var(--font-mono); font-size: 0.75rem;" placeholder="Type command..." />
