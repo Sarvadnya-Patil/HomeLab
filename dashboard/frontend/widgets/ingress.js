@@ -13,7 +13,7 @@ export default {
       <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem;">
         <span class="panel-title">Ingress Routing Tree</span>
       </div>
-      <div class="network-map-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.5rem; height: 180px; overflow: auto;">
+      <div class="network-map-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.5rem; height: auto; overflow: hidden;">
         <pre class="network-tree-ascii" id="w-ingress-ascii" style="font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.4; color: var(--text-secondary);">
 Detecting networks...
         </pre>
