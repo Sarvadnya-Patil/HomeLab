@@ -50,6 +50,15 @@ Detecting networks...
     });
 
     asciiEl.textContent = ascii;
+
+    // Dynamically align the terminal body height to match the Ingress Routing Tree
+    setTimeout(() => {
+      const ingressBody = container.querySelector('.network-map-body');
+      const terminalBody = document.querySelector('.grid-terminal .terminal-body');
+      if (ingressBody && terminalBody) {
+        terminalBody.style.height = `${ingressBody.clientHeight}px`;
+      }
+    }, 50);
   },
 
   resize(container, size) { },
