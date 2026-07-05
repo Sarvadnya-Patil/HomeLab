@@ -125,18 +125,30 @@ export default {
       output.innerHTML += `<br><span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>`;
     }
 
+    const body = container.querySelector('.terminal-body');
+    const threshold = 50; // pixels from bottom threshold to trigger auto-scroll
+    
+    let bodyScrolledToBottom = true;
+    if (body) {
+      bodyScrolledToBottom = (body.scrollHeight - body.scrollTop - body.clientHeight) <= threshold;
+    }
+
     if (this.modalActive && this.modalOutputEl) {
+      const modalScrolledToBottom = (this.modalOutputEl.scrollHeight - this.modalOutputEl.scrollTop - this.modalOutputEl.clientHeight) <= threshold;
+
       if (text === '__CLEAR__') {
         this.modalOutputEl.innerHTML = '';
       } else {
         const formatted = text.replace(/\n/g, '<br>');
         this.modalOutputEl.innerHTML += `<br><span class="white-text">${formatted}</span>`;
       }
-      this.modalOutputEl.scrollTop = this.modalOutputEl.scrollHeight;
+      
+      if (modalScrolledToBottom) {
+        this.modalOutputEl.scrollTop = this.modalOutputEl.scrollHeight;
+      }
     }
 
-    const body = container.querySelector('.terminal-body');
-    if (body) {
+    if (body && bodyScrolledToBottom) {
       body.scrollTop = body.scrollHeight;
     }
   },
@@ -178,6 +190,10 @@ export default {
         </div>
         <div class="modal-body" style="flex: 1; display: flex; flex-direction: column; background: var(--bg-shell); padding: 1rem; overflow: hidden; position: relative;">
           <div class="terminal-content" id="m-term-output" style="flex: 1; overflow-y: auto; font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.45; white-space: pre-wrap; margin-bottom: 0.5rem; color: var(--text-primary);">${currentLogs}</div>
+          <div class="terminal-input-row" style="display: flex; align-items: center; border-top: 1px solid var(--border-slate); padding-top: 0.5rem; margin-top: auto; background: var(--bg-shell);">
+            <span class="cyan-text" style="margin-right: 0.5rem; user-select: none; font-family: var(--font-mono); font-size: 0.8rem;">root@homelab:~$</span>
+            <input type="text" id="m-term-input" style="flex: 1; background: transparent; border: none; outline: none; color: var(--text-white); font-family: var(--font-mono); font-size: 0.8rem;" placeholder="Type command..." autocomplete="off" />
+          </div>
         </div>
       </div>
     `;
@@ -186,6 +202,47 @@ export default {
     
     const modalOutput = modal.querySelector('#m-term-output');
     if (modalOutput) modalOutput.scrollTop = modalOutput.scrollHeight;
+    
+    const modalInput = modal.querySelector('#m-term-input');
+    if (modalInput) {
+      modalInput.focus();
+      modalInput.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') {
+          const command = modalInput.value.trim();
+          if (!command) return;
+          modalInput.value = '';
+
+          // If streaming logs, stop streaming on manual command execution
+          if (this.activeLogsServiceId) {
+            WsClient.unsubscribeLogs(this.activeLogsServiceId, this.logCallback);
+            this.activeLogsServiceId = null;
+            const hostLabel = container.querySelector('#w-term-host-label');
+            if (hostLabel) hostLabel.textContent = `root@homelab-os`;
+            
+            // Clear screen of logs first to show fresh command
+            const outputEl = container.querySelector('#w-term-output');
+            if (outputEl) outputEl.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>`;
+            modalOutput.innerHTML = '';
+          }
+
+          // Display command in output
+          this.appendOutput(container, `> ${command}`);
+
+          try {
+            const res = await api.post('/api/v1/terminal', { command });
+            if (res && res.output) {
+              this.appendOutput(container, res.output);
+            }
+          } catch (err) {
+            this.appendOutput(container, `Execution error: ${err.message}`);
+          }
+        }
+      });
+      
+      modal.querySelector('.modal-body').addEventListener('click', () => {
+        modalInput.focus();
+      });
+    }
     
     const closeBtn = modal.querySelector('.btn-close-modal');
     closeBtn.addEventListener('click', () => {

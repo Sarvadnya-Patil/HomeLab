@@ -641,6 +641,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  min-height: 0;
 }
 
 .console-host {
@@ -657,6 +658,7 @@ body {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   line-height: 1.45;
 }
