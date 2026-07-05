@@ -55,8 +55,10 @@ Detecting networks...
     setTimeout(() => {
       const ingressBody = container.querySelector('.network-map-body');
       const terminalBody = document.querySelector('.grid-terminal .terminal-body');
-      if (ingressBody && terminalBody) {
-        terminalBody.style.height = `${ingressBody.clientHeight}px`;
+      if (asciiEl && ingressBody && terminalBody) {
+        const naturalHeight = Math.max(220, asciiEl.scrollHeight + 16);
+        ingressBody.style.height = `${naturalHeight}px`;
+        terminalBody.style.height = `${naturalHeight}px`;
       }
     }, 50);
   },
