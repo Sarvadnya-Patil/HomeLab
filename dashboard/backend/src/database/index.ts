@@ -46,6 +46,8 @@ export class DatabaseManager {
         }
       }
 
+
+
       // Seed default system models
       seedDatabase(this.adapter);
     } catch (err: any) {

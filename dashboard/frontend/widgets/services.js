@@ -322,20 +322,45 @@ export default {
   },
 
   async promptAddCategory() {
-    const name = await Dialog.prompt({
-      title: 'New Category',
-      message: 'Enter a name for the new services category:',
-      placeholder: 'Management, Home, Databases...'
-    });
-    if (!name) return;
+    const categories = store.get('categories') || [];
+    
+    // Default pre-seeded category templates
+    const defaultTemplates = [
+      { id: 'infrastructure', name: 'Infrastructure', accent: '#3b82f6' },
+      { id: 'monitoring', name: 'Monitoring', accent: '#10b981' },
+      { id: 'automation', name: 'Automation', accent: '#a855f7' },
+      { id: 'ai', name: 'AI Stack', accent: '#f59e0b' },
+      { id: 'networking', name: 'Networking', accent: '#06b6d4' },
+      { id: 'storage', name: 'Storage', accent: '#eab308' }
+    ];
 
-    // Prompt for the accent color during creation, defaulting to a premium blue
-    const accent = await Dialog.color({
-      title: `Accent Color for "${name}"`,
-      defaultValue: '#3b82f6'
-    }) || '#3b82f6';
+    // Filter to find templates that are NOT already added to the store categories list
+    const availableTemplates = defaultTemplates.filter(t => 
+      !categories.some(c => c.id.toLowerCase() === t.id.toLowerCase() || c.name.toLowerCase() === t.name.toLowerCase())
+    );
 
-    const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    const result = await Dialog.promptCategory({ templates: availableTemplates });
+    if (!result) return;
+
+    let id, name, accent;
+
+    if (result.type === 'template') {
+      id = result.id;
+      name = result.name;
+      accent = result.accent;
+    } else {
+      name = result.name;
+      const matchedTemplate = defaultTemplates.find(t => t.name.toLowerCase() === name.toLowerCase() || t.id.toLowerCase() === name.toLowerCase());
+      if (matchedTemplate) {
+        id = matchedTemplate.id;
+        name = matchedTemplate.name;
+        accent = matchedTemplate.accent;
+      } else {
+        id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        accent = result.accent || '#3b82f6';
+      }
+    }
+
     const workspaceId = store.get('activeWorkspace');
 
     try {

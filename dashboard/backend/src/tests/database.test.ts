@@ -13,7 +13,7 @@ test('Database Subsystem Tests', async (t) => {
     assert.ok(workspaces.length > 0, 'Seeder must populate workspaces table');
 
     const categories = adapter.all<any>('SELECT * FROM categories');
-    assert.ok(categories.length > 0, 'Seeder must populate categories table');
+    assert.strictEqual(categories.length, 0, 'Categories table should be empty by default');
   });
 
   await t.test('UsersRepository CRUD queries', () => {

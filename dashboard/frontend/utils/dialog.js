@@ -333,5 +333,161 @@ export const Dialog = {
       };
       window.addEventListener('keydown', escHandler);
     });
+  },
+
+  promptCategory({ templates }) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'custom-dialog-overlay';
+      overlay.style.userSelect = 'none';
+      
+      let templatesHtml = '';
+      if (templates && templates.length > 0) {
+        templatesHtml = `
+          <div class="custom-dialog-body" style="margin-bottom: 0.5rem; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Quick Add Defaults</div>
+          <div class="dialog-templates-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-bottom: 1.25rem;">
+            ${templates.map(t => `
+              <button class="btn-template-item" data-id="${t.id}" data-name="${t.name}" data-accent="${t.accent}" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--bg-panel); border: 1px solid var(--border-slate); border-radius: 6px; color: var(--text-primary); cursor: pointer; text-align: left; transition: all 0.15s ease;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: ${t.accent};"></span>
+                <span style="font-size: 0.75rem; font-weight: 500;">${t.name}</span>
+              </button>
+            `).join('')}
+          </div>
+          <div style="border-top: 1px solid var(--border-slate); margin-bottom: 1rem; opacity: 0.5;"></div>
+        `;
+      }
+
+      const swatchColors = [
+        '#3b82f6', // Blue
+        '#10b981', // Green
+        '#a855f7', // Purple
+        '#f59e0b', // Orange
+        '#06b6d4', // Cyan
+        '#eab308', // Yellow
+        '#ef4444', // Red
+        '#ec4899'  // Pink
+      ];
+
+      const swatchesHtml = `
+        <div class="custom-dialog-body" style="margin-top: 1rem; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Accent Color</div>
+        <div class="dialog-color-swatches" style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 1rem;">
+          ${swatchColors.map((color, index) => `
+            <button class="btn-swatch-item ${index === 0 ? 'active' : ''}" data-color="${color}" style="width: 24px; height: 24px; border-radius: 50%; background-color: ${color}; border: 2px solid transparent; cursor: pointer; outline: none; transition: transform 0.15s ease, box-shadow 0.15s ease; box-shadow: ${index === 0 ? '0 0 0 2px var(--text-primary)' : 'none'}; transform: ${index === 0 ? 'scale(1.1)' : 'none'};"></button>
+          `).join('')}
+          <div class="custom-swatch-picker-container" style="position: relative; width: 24px; height: 24px; border-radius: 50%; overflow: hidden; border: 2px solid transparent; cursor: pointer; background: conic-gradient(red, yellow, green, cyan, blue, magenta, red); transition: transform 0.15s ease, box-shadow 0.15s ease;">
+            <input type="color" class="custom-dialog-color-picker" style="position: absolute; top: -5px; left: -5px; width: 34px; height: 34px; opacity: 0; cursor: pointer;" value="#3b82f6" />
+          </div>
+        </div>
+      `;
+
+      overlay.innerHTML = `
+        <div class="custom-dialog-box animate-modal" style="max-width: 400px; width: 90%;">
+          <div class="custom-dialog-header">Add Services Category</div>
+          
+          ${templatesHtml}
+
+          <div class="custom-dialog-body" style="margin-bottom: 0.5rem; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Custom Category</div>
+          <div class="custom-dialog-input-wrapper">
+            <input type="text" class="custom-dialog-input" placeholder="Enter custom name..." />
+          </div>
+          
+          ${swatchesHtml}
+
+          <div class="custom-dialog-actions" style="margin-top: 1.25rem;">
+            <button class="btn-dialog-cancel">Cancel</button>
+            <button class="btn-dialog-ok">Create Custom</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      const input = overlay.querySelector('.custom-dialog-input');
+      input.focus();
+
+      const cleanup = (val) => {
+        overlay.classList.add('fade-out');
+        overlay.querySelector('.custom-dialog-box').classList.add('scale-out');
+        setTimeout(() => {
+          overlay.remove();
+          resolve(val);
+        }, 150);
+      };
+
+      overlay.querySelectorAll('.btn-template-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          cleanup({
+            type: 'template',
+            id: btn.getAttribute('data-id'),
+            name: btn.getAttribute('data-name'),
+            accent: btn.getAttribute('data-accent')
+          });
+        });
+        btn.addEventListener('mouseenter', () => {
+          btn.style.borderColor = btn.getAttribute('data-accent');
+          btn.style.background = 'var(--bg-shell)';
+        });
+        btn.addEventListener('mouseleave', () => {
+          btn.style.borderColor = 'var(--border-slate)';
+          btn.style.background = 'var(--bg-panel)';
+        });
+      });
+
+      let selectedColor = '#3b82f6';
+      
+      const selectSwatch = (color, targetElement) => {
+        selectedColor = color;
+        overlay.querySelectorAll('.btn-swatch-item').forEach(el => {
+          el.style.boxShadow = 'none';
+          el.style.transform = 'none';
+        });
+        const customContainer = overlay.querySelector('.custom-swatch-picker-container');
+        customContainer.style.boxShadow = 'none';
+        customContainer.style.transform = 'none';
+
+        targetElement.style.boxShadow = '0 0 0 2px var(--text-primary)';
+        targetElement.style.transform = 'scale(1.1)';
+      };
+
+      overlay.querySelectorAll('.btn-swatch-item').forEach(swatch => {
+        swatch.addEventListener('click', () => {
+          selectSwatch(swatch.getAttribute('data-color'), swatch);
+        });
+      });
+
+      const colorPicker = overlay.querySelector('.custom-dialog-color-picker');
+      const customContainer = overlay.querySelector('.custom-swatch-picker-container');
+      
+      colorPicker.addEventListener('input', (e) => {
+        const val = e.target.value;
+        customContainer.style.background = val;
+        selectSwatch(val, customContainer);
+      });
+      colorPicker.addEventListener('change', (e) => {
+        const val = e.target.value;
+        customContainer.style.background = val;
+        selectSwatch(val, customContainer);
+      });
+
+      overlay.querySelector('.btn-dialog-ok').addEventListener('click', () => {
+        const val = input.value.trim();
+        if (val) {
+          cleanup({ type: 'custom', name: val, accent: selectedColor });
+        }
+      });
+
+      overlay.querySelector('.btn-dialog-cancel').addEventListener('click', () => {
+        cleanup(null);
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const val = input.value.trim();
+          if (val) cleanup({ type: 'custom', name: val, accent: selectedColor });
+        } else if (e.key === 'Escape') {
+          cleanup(null);
+        }
+      });
+    });
   }
 };
