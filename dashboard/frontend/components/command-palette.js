@@ -24,23 +24,22 @@ export const CommandPalette = {
       }
     });
 
-    // Redirect standard search bar input clicks and typing to open the global command palette overlay
+    // Standard search bar filters containers on input, runs command on Enter
     const mainSearchBar = document.getElementById("cmd-palette");
     if (mainSearchBar) {
-      const openPaletteWithText = () => {
-        const val = mainSearchBar.value;
-        store.set('commandPaletteOpen', true);
-        if (this.input) {
-          this.input.value = val;
-          this.querySearch();
-        }
-        mainSearchBar.value = '';
-        mainSearchBar.blur();
-      };
+      mainSearchBar.addEventListener('input', () => {
+        store.emit('services', { value: store.get('services') || [] });
+      });
 
-      mainSearchBar.addEventListener('focus', openPaletteWithText);
-      mainSearchBar.addEventListener('input', openPaletteWithText);
-      mainSearchBar.addEventListener('click', openPaletteWithText);
+      mainSearchBar.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const val = mainSearchBar.value.trim();
+          if (val) {
+            store.emit('terminal_run_command', val);
+            mainSearchBar.value = '';
+          }
+        }
+      });
     }
   },
 
