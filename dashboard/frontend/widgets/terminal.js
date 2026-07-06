@@ -70,10 +70,10 @@ function ansiToHtml(text) {
     openSpanCount--;
   }
   
-  // Strip out remaining raw non-printable control characters
-  html = html.replace(/[\x00-\x1F\x7F]/g, '');
+  // Strip out remaining raw non-printable control characters, preserving \n and \r
+  html = html.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, '');
   
-  return html.replace(/\n/g, '<br>');
+  return html.replace(/\r\n/g, '<br>').replace(/\r/g, '<br>').replace(/\n/g, '<br>');
 }
 
 export default {
