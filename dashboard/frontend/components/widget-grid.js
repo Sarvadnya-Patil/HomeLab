@@ -162,8 +162,6 @@ export const WidgetGrid = {
     } catch (err) {
       this.container.innerHTML = `<div style="color: var(--term-amber); padding: 2rem;">Failed to load widgets: ${err.message}</div>`;
     }
-  },
-
   }
 };
 
