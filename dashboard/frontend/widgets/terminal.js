@@ -2,6 +2,80 @@
 import { WsClient } from '../core/ws-client.js';
 import { api } from '../core/api.js';
 
+// Premium ANSI escape-code parsing and color conversion utility
+function ansiToHtml(text) {
+  if (!text) return '';
+  
+  const ansiColors = {
+    '0': 'reset',
+    '1': 'font-weight: bold;',
+    '4': 'text-decoration: underline;',
+    
+    // Foreground colors (Catppuccin Macchiato based styling)
+    '30': 'color: #11111b;', // black
+    '31': 'color: #f38ba8;', // red
+    '32': 'color: #a6e3a1;', // green
+    '33': 'color: #f9e2af;', // yellow
+    '34': 'color: #89b4fa;', // blue
+    '35': 'color: #cba6f7;', // magenta
+    '36': 'color: #89dceb;', // cyan
+    '37': 'color: #cdd6f4;', // white
+    
+    // Bright/High-intensity foreground colors
+    '90': 'color: #585b70;', // gray/bright black
+    '91': 'color: #f38ba8; font-weight: bold;',
+    '92': 'color: #a6e3a1; font-weight: bold;',
+    '93': 'color: #f9e2af; font-weight: bold;',
+    '94': 'color: #89b4fa; font-weight: bold;',
+    '95': 'color: #cba6f7; font-weight: bold;',
+    '96': 'color: #89dceb; font-weight: bold;',
+    '97': 'color: #cdd6f4; font-weight: bold;'
+  };
+
+  // Match escape sequences (ESC codes, string escapes, control chars) followed by codes and 'm'
+  const regex = /(?:\x1b|\u001b|\\u001b|\\x1b||[\x00-\x1F\x7F])\[([0-9;]*)m/g;
+  
+  let openSpanCount = 0;
+  let html = text.replace(regex, (match, codesRaw) => {
+    const codes = codesRaw.split(';');
+    
+    // Reset or blank styles
+    if (codes.includes('0') || codesRaw === '') {
+      let closeSpans = '';
+      while (openSpanCount > 0) {
+        closeSpans += '</span>';
+        openSpanCount--;
+      }
+      return closeSpans;
+    }
+    
+    let styles = '';
+    codes.forEach(code => {
+      if (ansiColors[code]) {
+        styles += ansiColors[code] + ' ';
+      }
+    });
+    
+    if (styles) {
+      openSpanCount++;
+      return `<span style="${styles.trim()}">`;
+    }
+    
+    return '';
+  });
+  
+  // Close any unclosed span elements
+  while (openSpanCount > 0) {
+    html += '</span>';
+    openSpanCount--;
+  }
+  
+  // Strip out remaining raw non-printable control characters
+  html = html.replace(/[\x00-\x1F\x7F]/g, '');
+  
+  return html.replace(/\n/g, '<br>');
+}
+
 export default {
   id: 'terminal',
   title: 'Terminal Console',
@@ -55,7 +129,7 @@ export default {
       const inputEl = container.querySelector('#w-term-input');
       const currentInputValue = inputEl ? inputEl.value : '';
 
-      const formatted = output.replace(/\n/g, '<br>');
+      const formatted = ansiToHtml(output);
       outputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;">${currentInputValue}</span><span id="w-term-cursor" class="cursor"></span>`;
       
       if (this.modalActive && this.modalOutputEl) {
@@ -154,7 +228,7 @@ export default {
     if (text === '__CLEAR__') {
       output.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span>`;
     } else {
-      const formatted = text.replace(/\n/g, '<br>');
+      const formatted = ansiToHtml(text);
       output.innerHTML += `<br><span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span>`;
     }
 
