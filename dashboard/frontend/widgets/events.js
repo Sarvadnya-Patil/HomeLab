@@ -25,13 +25,22 @@ export default {
     const feed = container.querySelector('#w-events-feed');
     if (!feed || !Array.isArray(data)) return;
 
+    const filterQuery = (document.getElementById("cmd-palette")?.value || '').toLowerCase();
+
     feed.innerHTML = '';
-    if (data.length === 0) {
-      feed.innerHTML = '<div style="color: var(--text-muted);">No log events recorded.</div>';
+    
+    const filtered = data.filter(evt => {
+      return !filterQuery || 
+             (evt.message && evt.message.toLowerCase().includes(filterQuery)) || 
+             (evt.origin && evt.origin.toLowerCase().includes(filterQuery));
+    });
+
+    if (filtered.length === 0) {
+      feed.innerHTML = `<div style="color: var(--text-muted);">${filterQuery ? 'No matching log events found.' : 'No log events recorded.'}</div>`;
       return;
     }
 
-    data.forEach(evt => {
+    filtered.forEach(evt => {
       const line = document.createElement("div");
       line.className = `event-line level-${evt.level || 'info'}`;
       

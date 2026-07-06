@@ -29,6 +29,7 @@ export const CommandPalette = {
     if (mainSearchBar) {
       mainSearchBar.addEventListener('input', () => {
         store.emit('services', { value: store.get('services') || [] });
+        store.emit('notifications', { value: store.get('notifications') || [] });
       });
 
       mainSearchBar.addEventListener('keydown', (e) => {

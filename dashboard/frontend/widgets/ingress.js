@@ -25,11 +25,14 @@ Detecting networks...
     const asciiEl = container.querySelector('#w-ingress-ascii');
     if (!asciiEl || !Array.isArray(data)) return;
 
+    const filterQuery = (document.getElementById("cmd-palette")?.value || '').toLowerCase();
+
     let ascii = `Internet (Cloudflare Ingress Tunnel)\n`;
     ascii += `  │\n`;
 
     // Filter active services exposed via public domain tunnel
-    const routingServices = data.filter(s => s.domain && s.domain.public && s.status === 'Active');
+    const routingServices = data.filter(s => s.domain && s.domain.public && s.status === 'Active' && 
+      (!filterQuery || s.name.toLowerCase().includes(filterQuery) || s.domain.public.toLowerCase().includes(filterQuery)));
     
     if (routingServices.length === 0) {
       ascii += `  └── [No active public routing tunnels detected]\n`;
@@ -42,12 +45,17 @@ Detecting networks...
     }
 
     ascii += `\nLocal Bridge Interface [homelab-network]\n`;
-    data.forEach((s, idx) => {
-      const isLast = idx === data.length - 1;
-      const branch = isLast ? `  └── ` : `  ├── `;
-      const statusMark = s.status === 'Active' ? '▲' : '▼';
-      ascii += `${branch}${s.name.padEnd(16)} [Port: ${(s.ports.http || 'N/A').toString().padEnd(5)}] [Status: ${statusMark} ${s.status}]\n`;
-    });
+    const localServices = data.filter(s => !filterQuery || s.name.toLowerCase().includes(filterQuery));
+    if (localServices.length === 0) {
+      ascii += `  └── [No matching bridge services found]\n`;
+    } else {
+      localServices.forEach((s, idx) => {
+        const isLast = idx === localServices.length - 1;
+        const branch = isLast ? `  └── ` : `  ├── `;
+        const statusMark = s.status === 'Active' ? '▲' : '▼';
+        ascii += `${branch}${s.name.padEnd(16)} [Port: ${(s.ports.http || 'N/A').toString().padEnd(5)}] [Status: ${statusMark} ${s.status}]\n`;
+      });
+    }
 
     asciiEl.textContent = ascii;
 
