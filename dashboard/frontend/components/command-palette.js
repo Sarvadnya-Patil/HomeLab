@@ -24,19 +24,23 @@ export const CommandPalette = {
       }
     });
 
-    // Also support standard search bar input filtering as fallback mapping
+    // Redirect standard search bar input clicks and typing to open the global command palette overlay
     const mainSearchBar = document.getElementById("cmd-palette");
     if (mainSearchBar) {
-      mainSearchBar.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          const val = mainSearchBar.value.trim();
-          if (val) {
-            // Trigger console command executing
-            store.emit('terminal_run_command', val);
-            mainSearchBar.value = '';
-          }
+      const openPaletteWithText = () => {
+        const val = mainSearchBar.value;
+        store.set('commandPaletteOpen', true);
+        if (this.input) {
+          this.input.value = val;
+          this.querySearch();
         }
-      });
+        mainSearchBar.value = '';
+        mainSearchBar.blur();
+      };
+
+      mainSearchBar.addEventListener('focus', openPaletteWithText);
+      mainSearchBar.addEventListener('input', openPaletteWithText);
+      mainSearchBar.addEventListener('click', openPaletteWithText);
     }
   },
 

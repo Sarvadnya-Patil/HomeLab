@@ -333,6 +333,8 @@ export default {
       const draggingCard = document.querySelector(`.service-card[data-service-id="${serviceId}"]`);
       if (!draggingCard) return;
 
+      const sourceGrid = draggingCard.parentElement;
+
       const currentServices = store.get('services') || [];
       const service = currentServices.find(s => s.id === serviceId);
 
@@ -370,6 +372,12 @@ export default {
           cardsGrid.insertBefore(draggingCard, targetItem);
         }
 
+        // Update empty state placeholders instantly
+        if (sourceGrid) {
+          this.checkAndTogglePlaceholder(sourceGrid, sourceGrid.closest('.category-section-container')?.getAttribute('data-category-id'));
+        }
+        this.checkAndTogglePlaceholder(cardsGrid, categoryId);
+
         // 2. Immediately update localStorage for old category
         const oldOrderRaw = localStorage.getItem(`homelab.service_order.${oldCategory}`);
         if (oldOrderRaw) {
@@ -404,6 +412,12 @@ export default {
 
           // 1. Immediately update DOM
           cardsGrid.appendChild(draggingCard);
+
+          // Update empty state placeholders instantly
+          if (sourceGrid) {
+            this.checkAndTogglePlaceholder(sourceGrid, sourceGrid.closest('.category-section-container')?.getAttribute('data-category-id'));
+          }
+          this.checkAndTogglePlaceholder(cardsGrid, categoryId);
 
           // 2. Immediately update localStorage for old category
           const oldOrderRaw = localStorage.getItem(`homelab.service_order.${oldCategory}`);
@@ -536,6 +550,29 @@ export default {
         }
       }
     });
+  },
+
+  checkAndTogglePlaceholder(grid, catId) {
+    const serviceCards = grid.querySelectorAll('.service-card');
+    const placeholder = grid.querySelector('.empty-category-placeholder');
+    
+    if (serviceCards.length === 0) {
+      if (!placeholder) {
+        grid.innerHTML = `
+          <div class="col-span-6 empty-category-placeholder" style="border: 1px dashed var(--border-slate); border-radius: 6px; padding: 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.75rem; width: 100%; grid-column: 1 / -1;">
+            No services registered in this category. <a href="#" class="add-service-link" style="color: var(--text-primary); text-decoration: underline;">+ Add Service</a>
+          </div>
+        `;
+        grid.querySelector('.add-service-link').addEventListener('click', (e) => {
+          e.preventDefault();
+          this.promptAddServiceToCategory(catId);
+        });
+      }
+    } else {
+      if (placeholder) {
+        placeholder.remove();
+      }
+    }
   },
 
   async triggerServiceAction(serviceId, action) {
