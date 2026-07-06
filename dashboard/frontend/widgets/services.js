@@ -205,9 +205,12 @@ export default {
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-service-id', service.id);
 
-    const hasLatency = service.details && service.details.latency && service.details.latency !== 'N/A';
+    const isTunneled = service.permissions && service.permissions.tunnelExposed;
     let detailsHtml = '';
-    if (hasLatency) {
+    if (isTunneled) {
+      const latVal = (service.details && service.details.latency && service.details.latency !== 'N/A') 
+        ? service.details.latency 
+        : '--';
       detailsHtml = `
         <div class="detail-item">
           <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Exposed Port</span>
@@ -215,7 +218,7 @@ export default {
         </div>
         <div class="detail-item">
           <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Latency</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.details.latency}</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${latVal}</span>
         </div>
         <div class="detail-item" style="grid-column: span 2;">
           <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Uptime</span>

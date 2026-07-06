@@ -72,7 +72,7 @@ export class InfrastructureService {
     });
   }
 
-  measurePortLatency(port: number, host: string = '127.0.0.1', timeoutMs: number = 200): Promise<string> {
+  measurePortLatency(port: number, host: string = '127.0.0.1', timeoutMs: number = 1000): Promise<string> {
     return new Promise((resolve) => {
       const net = require('net');
       const { performance } = require('perf_hooks');
