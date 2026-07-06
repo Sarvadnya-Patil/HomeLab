@@ -1051,8 +1051,19 @@ body {
 }
 
 /* Dynamic Categories Drag Zones */
+.category-drag-handle {
+  transition: transform 0.15s ease;
+}
+.category-drag-handle:hover {
+  transform: scaleX(1.75);
+}
+.category-section-container.dragging-category {
+  opacity: 0.25;
+}
+.category-section-container.cat-drag-over {
+  border-bottom: 2px dashed var(--border-focus) !important;
+}
 .category-section-container.drag-over {
-  border-left-style: dashed !important;
   background-color: rgba(255,255,255,0.01);
 }
 

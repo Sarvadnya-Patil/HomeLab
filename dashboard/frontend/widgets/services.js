@@ -92,28 +92,32 @@ export default {
       const catSection = document.createElement('div');
       catSection.className = `category-section-container ${isCollapsed ? 'collapsed' : ''}`;
       catSection.setAttribute('data-category-id', cat.id);
-      catSection.style.borderLeft = `3px solid ${cat.accent || '#8b8b8b'}`;
-      catSection.style.paddingLeft = '0.75rem';
-      catSection.style.marginBottom = '0.5rem';
+      catSection.style.display = 'flex';
+      catSection.style.gap = '0.75rem';
+      catSection.style.marginBottom = '1.25rem';
+      catSection.style.position = 'relative';
 
       // Header row with details
       catSection.innerHTML = `
-        <div class="category-section-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 0.25rem 0; margin-bottom: 0.5rem;">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <span class="cat-toggle-arrow" style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); transform: ${isCollapsed ? 'rotate(-90deg)' : 'rotate(0)'}; transition: transform 0.15s ease;">▼</span>
-            <span class="category-title" style="font-size: 0.8rem; font-weight: bold; text-transform: uppercase; color: var(--text-primary);">${cat.name}</span>
-            <span style="font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono);">(${catServices.length})</span>
+        <div class="category-drag-handle" draggable="true" style="width: 4px; background-color: ${cat.accent || '#8b8b8b'}; border-radius: 2px; cursor: move; flex-shrink: 0; align-self: stretch;" title="Drag colored line to reorder category"></div>
+        <div class="category-section-content" style="flex: 1; display: flex; flex-direction: column;">
+          <div class="category-section-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 0.25rem 0; margin-bottom: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span class="cat-toggle-arrow" style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); transform: ${isCollapsed ? 'rotate(-90deg)' : 'rotate(0)'}; transition: transform 0.15s ease;">▼</span>
+              <span class="category-title" style="font-size: 0.8rem; font-weight: bold; text-transform: uppercase; color: var(--text-primary);">${cat.name}</span>
+              <span style="font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono);">(${catServices.length})</span>
+            </div>
+            <div class="category-header-actions" style="display: flex; gap: 0.25rem;">
+              <button class="btn btn-panel btn-cat-move-up" style="font-size: 0.6rem; padding: 0.15rem 0.35rem;" title="Move Up">▲</button>
+              <button class="btn btn-panel btn-cat-move-down" style="font-size: 0.6rem; padding: 0.15rem 0.35rem;" title="Move Down">▼</button>
+              <button class="btn btn-panel btn-cat-rename" style="font-size: 0.6rem; padding: 0.15rem 0.35rem;">Rename</button>
+              <button class="btn btn-panel btn-cat-accent" style="font-size: 0.6rem; padding: 0.15rem 0.35rem;">Color</button>
+              <button class="btn btn-panel btn-cat-delete" style="font-size: 0.6rem; padding: 0.15rem 0.35rem; color: var(--border-focus);">Delete</button>
+            </div>
           </div>
-          <div class="category-header-actions" style="display: flex; gap: 0.25rem;">
-            <button class="btn btn-panel btn-cat-move-up" style="font-size: 0.6rem; padding: 0.15rem 0.35rem;" title="Move Up">▲</button>
-            <button class="btn btn-panel btn-cat-move-down" style="font-size: 0.6rem; padding: 0.15rem 0.35rem;" title="Move Down">▼</button>
-            <button class="btn btn-panel btn-cat-rename" style="font-size: 0.6rem; padding: 0.15rem 0.35rem;">Rename</button>
-            <button class="btn btn-panel btn-cat-accent" style="font-size: 0.6rem; padding: 0.15rem 0.35rem;">Color</button>
-            <button class="btn btn-panel btn-cat-delete" style="font-size: 0.6rem; padding: 0.15rem 0.35rem; color: var(--border-focus);">Delete</button>
+          <div class="services-cards-grid-row" style="display: ${isCollapsed ? 'none' : 'grid'}; gap: 0.75rem; min-height: 50px; padding: 0.25rem 0;">
+            <!-- Cards go here -->
           </div>
-        </div>
-        <div class="services-cards-grid-row" style="display: ${isCollapsed ? 'none' : 'grid'}; gap: 0.75rem; min-height: 50px; padding: 0.25rem 0;">
-          <!-- Cards go here -->
         </div>
       `;
 
@@ -155,6 +159,8 @@ export default {
 
       wrapper.appendChild(catSection);
     });
+
+    this.bindCategoryDragDrop(wrapper);
   },
 
   // Renders dynamic service card using Capabilities whitelisting
@@ -421,6 +427,97 @@ export default {
             } else {
               alert(`Failed to move service: ${err.message}`);
             }
+          }
+        }
+    });
+  },
+
+  bindCategoryDragDrop(wrapper) {
+    if (wrapper.dataset.dragBound === 'true') return;
+    wrapper.dataset.dragBound = 'true';
+    let draggedCat = null;
+    
+    wrapper.addEventListener('dragstart', (e) => {
+      const handle = e.target.closest('.category-drag-handle');
+      if (handle) {
+        draggedCat = handle.closest('.category-section-container');
+        if (draggedCat) {
+          draggedCat.classList.add('dragging-category');
+          this.isDragging = true;
+        }
+      }
+    });
+
+    wrapper.addEventListener('dragend', (e) => {
+      if (draggedCat) {
+        draggedCat.classList.remove('dragging-category');
+      }
+      this.isDragging = false;
+      draggedCat = null;
+      wrapper.querySelectorAll('.category-section-container').forEach(c => {
+        c.classList.remove('cat-drag-over');
+      });
+    });
+
+    wrapper.addEventListener('dragover', (e) => {
+      if (draggedCat) {
+        e.preventDefault();
+        const cat = e.target.closest('.category-section-container');
+        if (cat && cat !== draggedCat) {
+          cat.classList.add('cat-drag-over');
+        }
+      }
+    });
+
+    wrapper.addEventListener('dragleave', (e) => {
+      const cat = e.target.closest('.category-section-container');
+      if (cat) {
+        cat.classList.remove('cat-drag-over');
+      }
+    });
+
+    wrapper.addEventListener('drop', async (e) => {
+      if (!draggedCat) return;
+      e.preventDefault();
+      
+      const targetCat = e.target.closest('.category-section-container');
+      wrapper.querySelectorAll('.category-section-container').forEach(c => {
+        c.classList.remove('cat-drag-over');
+      });
+
+      if (targetCat && targetCat !== draggedCat) {
+        const draggedIndex = [...wrapper.children].indexOf(draggedCat);
+        const targetIndex = [...wrapper.children].indexOf(targetCat);
+
+        // Swap order in the DOM immediately
+        if (draggedIndex < targetIndex) {
+          wrapper.insertBefore(draggedCat, targetCat.nextSibling);
+        } else {
+          wrapper.insertBefore(draggedCat, targetCat);
+        }
+
+        // Save order to backend
+        const orderedCatIds = [...wrapper.children]
+          .map(el => el.getAttribute('data-category-id'))
+          .filter(Boolean);
+
+        try {
+          await Promise.all(orderedCatIds.map((id, index) => {
+            return api.put(`/api/v1/categories/${id}`, { displayOrder: index });
+          }));
+
+          // Optimistically update categories in store
+          const categories = store.get('categories') || [];
+          const updatedCategories = categories.map(c => {
+            const idx = orderedCatIds.indexOf(c.id);
+            return idx !== -1 ? { ...c, displayOrder: idx } : c;
+          });
+          store.set('categories', updatedCategories);
+        } catch (err) {
+          if (window.showToast) {
+            window.showToast(`Failed to update category order: ${err.message}`, 'error');
+          } else {
+            alert(`Failed to update category order: ${err.message}`);
           }
         }
       }

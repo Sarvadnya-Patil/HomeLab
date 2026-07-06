@@ -86,16 +86,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const initializeConsole = async () => {
     // 3. Load active apps on boot and establish socket streams
     try {
-      const [apps, categories, services, workspaces] = await Promise.all([
+      const [apps, categories, services, workspaces, notifications] = await Promise.all([
         api.get('/api/v1/apps'),
         api.get('/api/v1/categories'),
         api.get('/api/v1/services'),
-        api.get('/api/v1/workspaces')
+        api.get('/api/v1/workspaces'),
+        api.get('/api/v1/notifications')
       ]);
       store.set('apps', apps);
       store.set('categories', categories);
       store.set('services', services);
       store.set('workspaces', workspaces);
+      store.set('notifications', notifications);
       
       // Switch to initial app from local storage
       const activeApp = store.get('activeApp') || 'dashboard';
