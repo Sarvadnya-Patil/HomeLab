@@ -103,7 +103,7 @@ export default {
         <span class="console-host" id="w-term-host-label" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);">root@homelab-os</span>
       </div>
       <div class="terminal-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.45; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; box-sizing: border-box; flex: 1; min-height: 0;">
-        <div class="terminal-content" id="w-term-output" style="flex: 1; overflow-y: auto; margin-bottom: 0.5rem; white-space: pre-wrap;"><span class="cyan-text">root@homelab:~$</span> OS control console active. Type 'help' for commands.<br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span></div>
+        <div class="terminal-content" id="w-term-output" style="flex: 1; overflow-y: auto; padding-bottom: 1.5rem; white-space: pre-wrap;"><span class="cyan-text">root@homelab:~$</span> OS control console active. Type 'help' for commands.<br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span></div>
         <input type="text" id="w-term-input" style="opacity: 0; position: absolute; width: 0; height: 0; pointer-events: none;" autocomplete="off" />
       </div>
     `;
@@ -328,7 +328,7 @@ export default {
           <button class="btn btn-close-modal" style="font-size: 1.5rem; background: transparent; border: none; color: var(--text-muted); cursor: pointer; line-height: 1;">&times;</button>
         </div>
         <div class="modal-body" style="flex: 1; display: flex; flex-direction: column; background: var(--bg-shell); padding: 1rem; overflow: hidden; position: relative;">
-          <div class="terminal-content" id="m-term-output" style="flex: 1; overflow-y: auto; font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.45; white-space: pre-wrap; margin-bottom: 0.5rem; color: var(--text-primary);">${currentLogs}</div>
+          <div class="terminal-content" id="m-term-output" style="flex: 1; overflow-y: auto; font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.45; white-space: pre-wrap; padding-bottom: 1.5rem; color: var(--text-primary);">${currentLogs}</div>
           <input type="text" id="m-term-input" style="opacity: 0; position: absolute; width: 0; height: 0; pointer-events: none;" autocomplete="off" />
         </div>
       </div>
