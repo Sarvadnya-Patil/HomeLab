@@ -500,15 +500,10 @@ export class InfrastructureService {
           serviceCopy.containerId = match.Id;
 
           let latency = 'N/A';
-          if (isOnline) {
-            const portVal = serviceCopy.ports && serviceCopy.ports.http;
-            if (portVal) {
-              latency = await this.measurePortLatency(portVal);
-            }
+          if (isOnline && mappedPublicDomain) {
+            latency = await this.measurePortLatency(443, mappedPublicDomain);
             if (latency === 'N/A') {
-              const baseVal = (serviceCopy.id.charCodeAt(0) % 5) * 0.3 + 0.8;
-              const drift = (Math.sin(Date.now() / 10000) * 0.1);
-              latency = `${(baseVal + drift).toFixed(1)} ms`;
+              latency = await this.measurePortLatency(80, mappedPublicDomain);
             }
           }
 
@@ -527,9 +522,18 @@ export class InfrastructureService {
 
           if (isPortActive) {
             serviceCopy.status = 'Active';
+            
+            let latency = 'N/A';
+            if (mappedPublicDomain) {
+              latency = await this.measurePortLatency(443, mappedPublicDomain);
+              if (latency === 'N/A') {
+                latency = await this.measurePortLatency(80, mappedPublicDomain);
+              }
+            }
+
             serviceCopy.details = {
               port: serviceCopy.ports && serviceCopy.ports.http ? serviceCopy.ports.http.toString() : 'N/A',
-              latency: '5 ms',
+              latency,
               uptime: 'Running natively on host',
               lastCheck: 'Just now'
             };
@@ -587,14 +591,10 @@ export class InfrastructureService {
       const category = overrides[name] || 'Containers';
 
       let latency = 'N/A';
-      if (isOnline) {
-        if (port) {
-          latency = await this.measurePortLatency(port);
-        }
+      if (isOnline && mappedPublicDomain) {
+        latency = await this.measurePortLatency(443, mappedPublicDomain);
         if (latency === 'N/A') {
-          const baseVal = (name.charCodeAt(0) % 5) * 0.3 + 0.8;
-          const drift = (Math.sin(Date.now() / 10000) * 0.1);
-          latency = `${(baseVal + drift).toFixed(1)} ms`;
+          latency = await this.measurePortLatency(80, mappedPublicDomain);
         }
       }
 

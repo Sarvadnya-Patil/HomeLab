@@ -205,12 +205,44 @@ export default {
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-service-id', service.id);
 
+    const hasLatency = service.details && service.details.latency && service.details.latency !== 'N/A';
+    let detailsHtml = '';
+    if (hasLatency) {
+      detailsHtml = `
+        <div class="detail-item">
+          <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Exposed Port</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.ports && service.ports.http ? service.ports.http : 'N/A'}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Latency</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.details.latency}</span>
+        </div>
+        <div class="detail-item" style="grid-column: span 2;">
+          <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Uptime</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.details ? service.details.uptime : 'N/A'}</span>
+        </div>
+      `;
+    } else {
+      detailsHtml = `
+        <div class="detail-item">
+          <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Exposed Port</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.ports && service.ports.http ? service.ports.http : 'N/A'}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Uptime</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.details ? service.details.uptime : 'N/A'}</span>
+        </div>
+      `;
+    }
+
     card.innerHTML = `
-      <div class="card-header-row" style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; width: 100%; min-width: 0;">
-        <div class="card-title-group" style="display: flex; align-items: center; gap: 0.4rem; min-width: 0; flex: 1;">
+      <div class="service-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">
           <span class="card-icon" style="flex-shrink: 0; display: flex; align-items: center;">${getIcon(service.id)}</span>
-          <span class="card-name" style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 100%;" title="${service.name}">${service.name}</span>
-          <span class="card-version" style="font-size: 0.65rem; font-family: var(--font-mono); color: var(--text-muted); flex-shrink: 0;">v${service.version}</span>
+          <div style="overflow: hidden;">
+            <h4 class="service-name" style="margin: 0; font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">${service.name}</h4>
+            <span style="font-size: 0.6rem; color: var(--text-muted); font-family: var(--font-mono);">${service.version}</span>
+          </div>
         </div>
         <span class="card-status ${isOnline ? 'online' : 'offline'}" style="flex-shrink: 0; font-size: 0.7rem; font-family: var(--font-mono); display: flex; align-items: center; padding: 0.15rem 0.35rem; border-radius: 3px;">${service.status}</span>
       </div>
@@ -221,18 +253,7 @@ export default {
       </div>
 
       <div class="card-grid-details" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; border-top: 1px dashed var(--border-slate); border-bottom: 1px dashed var(--border-slate); padding: 0.5rem 0; font-size: 0.7rem; margin-top: 0.5rem; margin-bottom: 0.5rem;">
-        <div class="detail-item">
-          <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Exposed Port</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.ports && service.ports.http ? service.ports.http : 'N/A'}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Latency</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.details ? service.details.latency : 'N/A'}</span>
-        </div>
-        <div class="detail-item" style="grid-column: span 2;">
-          <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Uptime</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.details ? service.details.uptime : 'N/A'}</span>
-        </div>
+        ${detailsHtml}
       </div>
 
       <div class="card-actions-row" style="display: flex; gap: 0.3rem; margin-top: auto;">
