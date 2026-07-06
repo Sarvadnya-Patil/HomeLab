@@ -70,6 +70,7 @@ export default {
       if (body && bodyScrolledToBottom) {
         body.scrollTop = body.scrollHeight;
       }
+      this.syncHeight(container);
     };
 
     const expandBtn = container.querySelector('.btn-expand-terminal');
@@ -132,6 +133,7 @@ export default {
         }
       });
     }
+    this.syncHeight(container);
   },
 
   update(container, data) {
@@ -202,6 +204,7 @@ export default {
     if (body && bodyScrolledToBottom) {
       body.scrollTop = body.scrollHeight;
     }
+    this.syncHeight(container);
   },
 
   // Log streaming handler from service lifecycle triggers
@@ -224,6 +227,19 @@ export default {
     if (body) {
       body.style.height = size === '2x2' ? '400px' : '260px';
     }
+  },
+
+  syncHeight(container) {
+    setTimeout(() => {
+      const asciiEl = document.querySelector('#w-ingress-ascii');
+      const ingressBody = document.querySelector('.grid-network-map .network-map-body');
+      const terminalBody = container.querySelector('.terminal-body');
+      if (asciiEl && ingressBody && terminalBody) {
+        const naturalHeight = Math.max(220, asciiEl.scrollHeight + 16);
+        ingressBody.style.height = `${naturalHeight}px`;
+        terminalBody.style.height = `${naturalHeight}px`;
+      }
+    }, 50);
   },
 
   openExpandModal(container) {

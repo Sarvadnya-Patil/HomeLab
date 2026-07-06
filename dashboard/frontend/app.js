@@ -288,3 +288,193 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 });
+
+// Global reusable premium custom alert dialog utility
+window.showCustomAlert = function(title, message, type = 'error') {
+  let overlay = document.getElementById('custom-alert-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'custom-alert-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
+    overlay.style.backdropFilter = 'blur(4px)';
+    overlay.style.zIndex = '99999';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.opacity = '0';
+    overlay.style.transition = 'opacity 0.2s ease-in-out';
+    document.body.appendChild(overlay);
+  }
+
+  const accentColor = type === 'error' ? 'var(--border-focus, #ff4b4b)' : 'var(--term-green, #10b981)';
+  overlay.innerHTML = `
+    <div class="custom-alert-box" style="
+      background-color: var(--bg-panel, #121214);
+      border: 1px solid ${accentColor};
+      border-radius: 6px;
+      padding: 1.5rem;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      transform: scale(0.9);
+      transition: transform 0.2s ease-in-out;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    ">
+      <div style="display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-slate, #2d2d30); padding-bottom: 0.5rem;">
+        <span style="color: ${accentColor}; font-weight: bold; font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase;">
+          ${type === 'error' ? '⚠ System Alert' : '✓ Success'}
+        </span>
+      </div>
+      <div style="font-size: 0.85rem; font-weight: bold; color: var(--text-primary); margin-top: 0.25rem;">
+        ${title}
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; font-family: var(--font-sans);">
+        ${message}
+      </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+        <button id="custom-alert-ok-btn" style="
+          padding: 0.4rem 1.2rem;
+          background-color: var(--bg-shell, #000);
+          border: 1px solid ${accentColor};
+          color: var(--text-primary);
+          border-radius: 4px;
+          cursor: pointer;
+          font-family: var(--font-mono);
+          font-size: 0.7rem;
+          text-transform: uppercase;
+          transition: background-color 0.15s ease;
+        ">OK</button>
+      </div>
+    </div>
+  `;
+
+  overlay.style.display = 'flex';
+  overlay.offsetHeight; // force reflow
+  overlay.style.opacity = '1';
+  const alertBox = overlay.querySelector('.custom-alert-box');
+  alertBox.style.transform = 'scale(1)';
+
+  const closeAlert = () => {
+    overlay.style.opacity = '0';
+    alertBox.style.transform = 'scale(0.9)';
+    setTimeout(() => {
+      overlay.style.display = 'none';
+    }, 200);
+  };
+
+  const okBtn = overlay.querySelector('#custom-alert-ok-btn');
+  okBtn.addEventListener('click', closeAlert);
+  okBtn.focus();
+
+  // Allow hover state on custom button
+  okBtn.addEventListener('mouseenter', () => {
+    okBtn.style.backgroundColor = accentColor;
+    okBtn.style.color = '#000';
+  });
+  okBtn.addEventListener('mouseleave', () => {
+    okBtn.style.backgroundColor = 'var(--bg-shell, #000)';
+    okBtn.style.color = 'var(--text-primary)';
+  });
+
+  const handleKeydown = (e) => {
+    if (e.key === 'Enter' || e.key === 'Escape') {
+      e.preventDefault();
+      closeAlert();
+      window.removeEventListener('keydown', handleKeydown);
+    }
+  };
+  window.addEventListener('keydown', handleKeydown);
+};
+
+// Override standard browser alert globally to route to custom toast notification
+window.alert = function(message) {
+  const isSuccess = message.toLowerCase().includes('success') || message.toLowerCase().includes('saved');
+  window.showToast(message, isSuccess ? 'success' : 'error');
+};
+
+// Global reusable premium custom toast notification utility
+window.showToast = function(message, type = 'error') {
+  let container = document.getElementById('custom-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'custom-toast-container';
+    container.style.position = 'fixed';
+    container.style.bottom = '2rem';
+    container.style.right = '2rem';
+    container.style.display = 'flex';
+    container.style.flexDirection = 'column';
+    container.style.gap = '0.5rem';
+    container.style.zIndex = '100000';
+    container.style.pointerEvents = 'none';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `custom-toast level-${type}`;
+  toast.style.pointerEvents = 'auto';
+  toast.style.backgroundColor = 'var(--bg-panel, #121214)';
+  toast.style.border = '1px solid var(--border-slate, #2d2d30)';
+  
+  const accentColor = type === 'error' ? 'var(--border-focus, #ff4b4b)' : 'var(--term-green, #10b981)';
+  toast.style.borderLeft = `3px solid ${accentColor}`;
+  toast.style.borderRadius = '4px';
+  toast.style.padding = '0.75rem 1rem';
+  toast.style.minWidth = '280px';
+  toast.style.maxWidth = '360px';
+  toast.style.display = 'flex';
+  toast.style.justifyContent = 'space-between';
+  toast.style.alignItems = 'center';
+  toast.style.gap = '0.75rem';
+  toast.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
+  
+  // Slide in animation styles
+  toast.style.opacity = '0';
+  toast.style.transform = 'translateY(1rem) scale(0.95)';
+  toast.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+
+  toast.innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 0.15rem; flex: 1;">
+      <span style="font-family: var(--font-mono); font-size: 0.65rem; color: ${accentColor}; font-weight: bold; text-transform: uppercase;">
+        ${type === 'error' ? 'SYSTEM ERROR' : 'SYSTEM SUCCESS'}
+      </span>
+      <span style="font-size: 0.75rem; color: var(--text-primary); line-height: 1.4;">${message}</span>
+    </div>
+    <button class="toast-close-btn" style="
+      background: none;
+      border: none;
+      color: var(--text-muted, #7c7c82);
+      cursor: pointer;
+      font-size: 0.75rem;
+      padding: 0.25rem;
+      font-family: var(--font-mono);
+      outline: none;
+    ">×</button>
+  `;
+
+  container.appendChild(toast);
+  
+  // Trigger entry animation
+  toast.offsetHeight; // force reflow
+  toast.style.opacity = '1';
+  toast.style.transform = 'translateY(0) scale(1)';
+
+  const dismissToast = () => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-0.5rem) scale(0.95)';
+    setTimeout(() => {
+      toast.remove();
+    }, 200);
+  };
+
+  toast.querySelector('.toast-close-btn').addEventListener('click', dismissToast);
+
+  // Auto-dismiss after 4 seconds
+  setTimeout(dismissToast, 4000);
+};

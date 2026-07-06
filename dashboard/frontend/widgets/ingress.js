@@ -51,6 +51,15 @@ Detecting networks...
 
     asciiEl.textContent = ascii;
 
+    // Mutually assured height sync: Align terminal panel to match routing tree
+    const termContainer = document.querySelector('.grid-terminal');
+    const ingressBody = container.querySelector('.network-map-body');
+    const terminalBody = termContainer ? termContainer.querySelector('.terminal-body') : null;
+    if (ingressBody && terminalBody) {
+      const naturalHeight = Math.max(220, asciiEl.scrollHeight + 16);
+      ingressBody.style.height = `${naturalHeight}px`;
+      terminalBody.style.height = `${naturalHeight}px`;
+    }
   },
 
   resize(container, size) { },

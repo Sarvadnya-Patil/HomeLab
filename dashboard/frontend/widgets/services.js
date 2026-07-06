@@ -290,6 +290,17 @@ export default {
     cardsGrid.addEventListener('dragover', (e) => {
       e.preventDefault();
       cardsGrid.classList.add('drag-over');
+
+      // Card reordering logic within the same grid container
+      const draggingCard = document.querySelector('.service-card.dragging');
+      if (!draggingCard) return;
+
+      const afterElement = this.getDragAfterElement(cardsGrid, e.clientX, e.clientY);
+      if (afterElement == null) {
+        cardsGrid.appendChild(draggingCard);
+      } else {
+        cardsGrid.insertBefore(draggingCard, afterElement);
+      }
     });
 
     cardsGrid.addEventListener('dragleave', () => {
@@ -302,17 +313,46 @@ export default {
       const serviceId = e.dataTransfer.getData('text/plain');
       if (!serviceId) return;
 
+      const currentServices = store.get('services') || [];
+      const service = currentServices.find(s => s.id === serviceId);
+
+      // If dragged/dropped in the same category, ignore backend call and retain local visual adjustment
+      if (service && (service.category.toLowerCase() === categoryId.toLowerCase() || service.category === categoryId)) {
+        console.log(`Service [${serviceId}] was reordered locally inside category [${categoryId}]`);
+        return;
+      }
+
       console.log(`Reassigning service [${serviceId}] to category [${categoryId}]`);
       try {
         await api.put(`/api/v1/services/${serviceId}/category`, { categoryId });
         
         // Optimistically update store
-        const currentServices = store.get('services') || [];
         store.set('services', currentServices.map(s => s.id === serviceId ? { ...s, category: categoryId } : s));
       } catch (err) {
-        alert(`Failed to move service: ${err.message}`);
+        if (window.showCustomAlert) {
+          window.showCustomAlert('Failed to Move Container', err.message, 'error');
+        } else {
+          alert(`Failed to move service: ${err.message}`);
+        }
       }
     });
+  },
+
+  getDragAfterElement(container, x, y) {
+    const draggableElements = [...container.querySelectorAll('.service-card:not(.dragging)')];
+
+    return draggableElements.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offsetX = x - (box.left + box.width / 2);
+      const offsetY = y - (box.top + box.height / 2);
+      const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+
+      if (distance < closest.distance) {
+        return { distance: distance, element: child };
+      } else {
+        return closest;
+      }
+    }, { distance: Number.POSITIVE_INFINITY }).element;
   },
 
   async triggerServiceAction(serviceId, action) {
@@ -326,7 +366,11 @@ export default {
       // Call engine post lifecycle action
       await api.post(`/api/v1/services/${serviceId}/action`, { action });
     } catch (err) {
-      alert(`Action failed: ${err.message}`);
+      if (window.showCustomAlert) {
+        window.showCustomAlert('Action Failed', err.message, 'error');
+      } else {
+        alert(`Action failed: ${err.message}`);
+      }
     }
   },
 
