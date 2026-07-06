@@ -18,7 +18,7 @@ export default {
     container.style.position = 'relative';
     container.style.minHeight = '220px';
     container.innerHTML = `
-      <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+      <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; min-height: 28px; box-sizing: border-box;">
         <div style="display: flex; align-items: center; gap: 0.5rem;">
           <span class="panel-title">Server Console Terminal</span>
           <button class="btn btn-panel btn-expand-terminal" style="font-size: 0.6rem; padding: 0.15rem 0.35rem; display: flex; align-items: center; gap: 0.2rem;" title="Expand Terminal Log Viewer">
@@ -28,7 +28,7 @@ export default {
         </div>
         <span class="console-host" id="w-term-host-label" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);">root@homelab-os</span>
       </div>
-      <div class="terminal-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.45; display: flex; flex-direction: column; justify-content: space-between; position: absolute; top: 3.25rem; left: 1rem; right: 1rem; bottom: 1rem; overflow-y: auto;">
+      <div class="terminal-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.45; display: flex; flex-direction: column; justify-content: space-between; overflow-y: auto; box-sizing: border-box; flex: 1; min-height: 0;">
         <div class="terminal-content" id="w-term-output" style="flex: 1; overflow-y: auto; margin-bottom: 0.5rem; white-space: pre-wrap;"><span class="cyan-text">root@homelab:~$</span> OS control console active. Type 'help' for commands.<br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span></div>
         <input type="text" id="w-term-input" style="opacity: 0; position: absolute; width: 0; height: 0; pointer-events: none;" autocomplete="off" />
       </div>

@@ -10,7 +10,7 @@ export default {
   render(container) {
     container.className = 'grid-network-map widget-item';
     container.innerHTML = `
-      <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem;">
+      <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; align-items: center; min-height: 28px; box-sizing: border-box;">
         <span class="panel-title">Ingress Routing Tree</span>
       </div>
       <div class="network-map-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.5rem; height: auto; overflow: hidden;">

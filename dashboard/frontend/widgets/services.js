@@ -57,12 +57,30 @@ export default {
 
     sortedCategories.forEach(cat => {
       // Find services matching this category
-      const catServices = services.filter(s => {
+      let catServices = services.filter(s => {
         const matchesCategory = s.category.toLowerCase() === cat.id.toLowerCase() || s.category === cat.name;
         const matchesFilter = !filterQuery || s.name.toLowerCase().includes(filterQuery) || s.description.toLowerCase().includes(filterQuery);
         const isInstalled = s.status !== 'Not Installed';
         return matchesCategory && matchesFilter && isInstalled;
       });
+
+      // Apply persistent custom reordering from localStorage to prevent WebSocket overrides and blinking
+      const savedOrderRaw = localStorage.getItem(`homelab.service_order.${cat.id}`);
+      if (savedOrderRaw) {
+        try {
+          const savedOrder = JSON.parse(savedOrderRaw);
+          catServices.sort((a, b) => {
+            const idxA = savedOrder.indexOf(a.id);
+            const idxB = savedOrder.indexOf(b.id);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.name.localeCompare(b.name);
+          });
+        } catch (e) {
+          console.error('Failed to parse service order cache', e);
+        }
+      }
 
       if (catServices.length === 0 && filterQuery) return;
 
@@ -272,6 +290,10 @@ export default {
 
     card.addEventListener('dragend', () => {
       card.classList.remove('dragging');
+      // Remove drag-over class from any active grid rows to clean up
+      document.querySelectorAll('.services-cards-grid-row').forEach(row => {
+        row.classList.remove('drag-over');
+      });
     });
 
     // Bind card actions click
@@ -303,10 +325,7 @@ export default {
       }
     });
 
-    cardsGrid.addEventListener('dragleave', () => {
-      cardsGrid.classList.remove('drag-over');
-    });
-
+    // Remove dragleave toggle to completely prevent blinking/flashing background grids
     cardsGrid.addEventListener('drop', async (e) => {
       e.preventDefault();
       cardsGrid.classList.remove('drag-over');
@@ -316,20 +335,41 @@ export default {
       const currentServices = store.get('services') || [];
       const service = currentServices.find(s => s.id === serviceId);
 
+      // Save custom ordering locally within the category grid
+      const cardElements = [...cardsGrid.querySelectorAll('.service-card')];
+      const orderedIds = cardElements.map(el => el.getAttribute('data-service-id')).filter(Boolean);
+      localStorage.setItem(`homelab.service_order.${categoryId}`, JSON.stringify(orderedIds));
+
       // If dragged/dropped in the same category, ignore backend call and retain local visual adjustment
       if (service && (service.category.toLowerCase() === categoryId.toLowerCase() || service.category === categoryId)) {
         console.log(`Service [${serviceId}] was reordered locally inside category [${categoryId}]`);
+        store.set('services', [...currentServices]); // Rerender matching the new local order
         return;
       }
 
       console.log(`Reassigning service [${serviceId}] to category [${categoryId}]`);
+
+      // Remove from old category's local storage order
+      if (service) {
+        const oldCategory = service.category;
+        const oldOrderRaw = localStorage.getItem(`homelab.service_order.${oldCategory}`);
+        if (oldOrderRaw) {
+          try {
+            const oldOrder = JSON.parse(oldOrderRaw);
+            localStorage.setItem(`homelab.service_order.${oldCategory}`, JSON.stringify(oldOrder.filter(id => id !== serviceId)));
+          } catch (err) {}
+        }
+      }
+
       try {
         await api.put(`/api/v1/services/${serviceId}/category`, { categoryId });
         
         // Optimistically update store
         store.set('services', currentServices.map(s => s.id === serviceId ? { ...s, category: categoryId } : s));
       } catch (err) {
-        if (window.showCustomAlert) {
+        if (window.showToast) {
+          window.showToast(`Failed to move service: ${err.message}`, 'error');
+        } else if (window.showCustomAlert) {
           window.showCustomAlert('Failed to Move Container', err.message, 'error');
         } else {
           alert(`Failed to move service: ${err.message}`);
