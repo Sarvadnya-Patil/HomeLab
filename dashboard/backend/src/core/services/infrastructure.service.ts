@@ -1,4 +1,12 @@
 // Centralized Infrastructure Service Subsystem (DI container)
+import fs from 'fs';
+import path from 'path';
+import net from 'net';
+import dns from 'dns';
+import { performance } from 'perf_hooks';
+import { execSync } from 'child_process';
+import os from 'os';
+
 import { DatabaseManager } from '../../database';
 import { DockerService } from './docker.service';
 import { MetricsService } from './metrics.service';
@@ -20,8 +28,6 @@ export class InfrastructureService {
 
   isProcessRunningOnHost(processName: string): boolean {
     try {
-      const fs = require('fs');
-      const path = require('path');
       const procPath = '/host/proc';
       
       if (!fs.existsSync(procPath)) {
@@ -53,7 +59,6 @@ export class InfrastructureService {
 
   isPortOpen(port: number, host: string = '127.0.0.1', timeoutMs: number = 500): Promise<boolean> {
     return new Promise((resolve) => {
-      const net = require('net');
       const socket = new net.Socket();
       
       const onError = () => {
@@ -74,9 +79,6 @@ export class InfrastructureService {
 
   measurePortLatency(port: number, host: string = '127.0.0.1', timeoutMs: number = 1000): Promise<string> {
     return new Promise((resolve) => {
-      const net = require('net');
-      const dns = require('dns');
-      const { performance } = require('perf_hooks');
       const socket = new net.Socket();
       
       const onError = () => {
@@ -149,7 +151,6 @@ export class InfrastructureService {
         tunnelOnline = true;
       } else {
         try {
-          const { execSync } = require('child_process');
           execSync('pgrep cloudflared || pidof cloudflared || pgrep -f cloudflared', { stdio: 'ignore' });
           tunnelOnline = true;
         } catch {
@@ -316,9 +317,6 @@ export class InfrastructureService {
   parseCloudflareIngressConfig(): Record<string, string> {
     const map: Record<string, string> = {};
     try {
-      const fs = require('fs');
-      const path = require('path');
-      const os = require('os');
       // 1. Host system locations (priority)
       const locations = [
         '/etc/cloudflared/config.yml',
@@ -455,7 +453,6 @@ export class InfrastructureService {
         tunnelOnline = true;
       } else {
         try {
-          const { execSync } = require('child_process');
           execSync('pgrep cloudflared || pidof cloudflared || pgrep -f cloudflared', { stdio: 'ignore' });
           tunnelOnline = true;
         } catch {
