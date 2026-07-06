@@ -245,7 +245,7 @@ export default {
       if (mCursor) mCursor.remove();
 
       if (text === '__CLEAR__') {
-        this.modalOutputEl.innerHTML = '';
+        this.modalOutputEl.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span id="m-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="m-term-cursor" class="cursor"></span>`;
       } else {
         const formatted = text.replace(/\n/g, '<br>');
         this.modalOutputEl.innerHTML += `<br><span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="m-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="m-term-cursor" class="cursor"></span>`;
@@ -370,7 +370,7 @@ export default {
             // Clear screen of logs first to show fresh command
             const outputEl = container.querySelector('#w-term-output');
             if (outputEl) outputEl.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span>`;
-            modalOutput.innerHTML = '';
+            modalOutput.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span id="m-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="m-term-cursor" class="cursor"></span>`;
           }
 
           // Display command in output
