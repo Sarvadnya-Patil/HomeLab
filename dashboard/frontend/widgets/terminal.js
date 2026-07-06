@@ -234,7 +234,6 @@ export default {
     const inputField = container.querySelector('#w-term-input');
     if (inputField) {
       inputField.value = '';
-      inputField.focus();
     }
 
     const body = container.querySelector('.terminal-body');
