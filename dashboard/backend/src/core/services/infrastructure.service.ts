@@ -75,8 +75,8 @@ export class InfrastructureService {
   measurePortLatency(port: number, host: string = '127.0.0.1', timeoutMs: number = 1000): Promise<string> {
     return new Promise((resolve) => {
       const net = require('net');
+      const dns = require('dns');
       const { performance } = require('perf_hooks');
-      const startTime = performance.now();
       const socket = new net.Socket();
       
       const onError = () => {
@@ -88,10 +88,20 @@ export class InfrastructureService {
       socket.once('error', onError);
       socket.once('timeout', onError);
       
-      socket.connect(port, host, () => {
-        const elapsed = performance.now() - startTime;
-        socket.end();
-        resolve(`${elapsed.toFixed(1)} ms`);
+      // Perform DNS resolution first to isolate lookup delay from connection latency
+      dns.lookup(host, (err: any, ip: string) => {
+        if (err || !ip) {
+          socket.destroy();
+          resolve('N/A');
+          return;
+        }
+
+        const startTime = performance.now();
+        socket.connect(port, ip, () => {
+          const elapsed = performance.now() - startTime;
+          socket.end();
+          resolve(`${elapsed.toFixed(1)} ms`);
+        });
       });
     });
   }
