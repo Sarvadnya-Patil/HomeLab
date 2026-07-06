@@ -1060,7 +1060,10 @@ body {
 .category-section-container.dragging-category {
   opacity: 0.25;
 }
-.category-section-container.cat-drag-over {
+.category-section-container.cat-drag-over-top {
+  border-top: 2px dashed var(--border-focus) !important;
+}
+.category-section-container.cat-drag-over-bottom {
   border-bottom: 2px dashed var(--border-focus) !important;
 }
 .category-section-container.drag-over {

@@ -361,11 +361,51 @@ export default {
 
         // Dragged to a different category!
         console.log(`Reassigning service [${serviceId}] to category [${categoryId}]`);
-        try {
-          await api.put(`/api/v1/services/${serviceId}/category`, { categoryId });
+        const oldCategory = service.category;
 
-          // Remove from old category's local storage order
+        // 1. Immediately update DOM
+        if (draggedIndex < targetIndex) {
+          cardsGrid.insertBefore(draggingCard, targetItem.nextSibling);
+        } else {
+          cardsGrid.insertBefore(draggingCard, targetItem);
+        }
+
+        // 2. Immediately update localStorage for old category
+        const oldOrderRaw = localStorage.getItem(`homelab.service_order.${oldCategory}`);
+        if (oldOrderRaw) {
+          try {
+            const oldOrder = JSON.parse(oldOrderRaw);
+            localStorage.setItem(`homelab.service_order.${oldCategory}`, JSON.stringify(oldOrder.filter(id => id !== serviceId)));
+          } catch (err) {}
+        }
+
+        // 3. Immediately update localStorage for new category
+        const cardElements = [...cardsGrid.querySelectorAll('.service-card')];
+        const orderedIds = cardElements.map(el => el.getAttribute('data-service-id')).filter(Boolean);
+        localStorage.setItem(`homelab.service_order.${categoryId}`, JSON.stringify(orderedIds));
+
+        // 4. Immediately update store state
+        store.set('services', currentServices.map(s => s.id === serviceId ? { ...s, category: categoryId } : s));
+
+        // 5. Fire network call in the background
+        api.put(`/api/v1/services/${serviceId}/category`, { categoryId })
+          .catch(err => {
+            console.error(`Failed to persist service move on server: ${err.message}`);
+            if (window.showToast) {
+              window.showToast(`Failed to persist move: ${err.message}. Reverting...`, 'error');
+            }
+            store.set('services', currentServices);
+          });
+      } else if (!targetItem) {
+        // Dropped on empty category background
+        if (service && (service.category.toLowerCase() !== categoryId.toLowerCase() && service.category !== categoryId)) {
+          console.log(`Reassigning service [${serviceId}] to empty category [${categoryId}]`);
           const oldCategory = service.category;
+
+          // 1. Immediately update DOM
+          cardsGrid.appendChild(draggingCard);
+
+          // 2. Immediately update localStorage for old category
           const oldOrderRaw = localStorage.getItem(`homelab.service_order.${oldCategory}`);
           if (oldOrderRaw) {
             try {
@@ -374,60 +414,23 @@ export default {
             } catch (err) {}
           }
 
-          // Insert into new category DOM
-          if (draggedIndex < targetIndex) {
-            cardsGrid.insertBefore(draggingCard, targetItem.nextSibling);
-          } else {
-            cardsGrid.insertBefore(draggingCard, targetItem);
-          }
-
-          // Save custom ordering locally within the new category grid
+          // 3. Immediately update localStorage for new category
           const cardElements = [...cardsGrid.querySelectorAll('.service-card')];
           const orderedIds = cardElements.map(el => el.getAttribute('data-service-id')).filter(Boolean);
           localStorage.setItem(`homelab.service_order.${categoryId}`, JSON.stringify(orderedIds));
 
-          // Optimistically update store
+          // 4. Immediately update store state
           store.set('services', currentServices.map(s => s.id === serviceId ? { ...s, category: categoryId } : s));
-        } catch (err) {
-          if (window.showToast) {
-            window.showToast(`Failed to move service: ${err.message}`, 'error');
-          } else {
-            alert(`Failed to move service: ${err.message}`);
-          }
-        }
-      } else if (!targetItem) {
-        // Dropped on empty category background
-        if (service && (service.category.toLowerCase() !== categoryId.toLowerCase() && service.category !== categoryId)) {
-          console.log(`Reassigning service [${serviceId}] to empty category [${categoryId}]`);
-          try {
-            await api.put(`/api/v1/services/${serviceId}/category`, { categoryId });
 
-            // Remove from old category's local storage order
-            const oldCategory = service.category;
-            const oldOrderRaw = localStorage.getItem(`homelab.service_order.${oldCategory}`);
-            if (oldOrderRaw) {
-              try {
-                const oldOrder = JSON.parse(oldOrderRaw);
-                localStorage.setItem(`homelab.service_order.${oldCategory}`, JSON.stringify(oldOrder.filter(id => id !== serviceId)));
-              } catch (err) {}
-            }
-
-            cardsGrid.appendChild(draggingCard);
-
-            // Save custom ordering locally within the new category grid
-            const cardElements = [...cardsGrid.querySelectorAll('.service-card')];
-            const orderedIds = cardElements.map(el => el.getAttribute('data-service-id')).filter(Boolean);
-            localStorage.setItem(`homelab.service_order.${categoryId}`, JSON.stringify(orderedIds));
-
-            // Optimistically update store
-            store.set('services', currentServices.map(s => s.id === serviceId ? { ...s, category: categoryId } : s));
-          } catch (err) {
-            if (window.showToast) {
-              window.showToast(`Failed to move service: ${err.message}`, 'error');
-            } else {
-              alert(`Failed to move service: ${err.message}`);
-            }
-          }
+          // 5. Fire network call in the background
+          api.put(`/api/v1/services/${serviceId}/category`, { categoryId })
+            .catch(err => {
+              console.error(`Failed to persist service move to empty category: ${err.message}`);
+              if (window.showToast) {
+                window.showToast(`Failed to persist move: ${err.message}. Reverting...`, 'error');
+              }
+              store.set('services', currentServices);
+            });
         }
       }
     });
@@ -456,7 +459,7 @@ export default {
       this.isDragging = false;
       draggedCat = null;
       wrapper.querySelectorAll('.category-section-container').forEach(c => {
-        c.classList.remove('cat-drag-over');
+        c.classList.remove('cat-drag-over-top', 'cat-drag-over-bottom');
       });
     });
 
@@ -465,7 +468,16 @@ export default {
         e.preventDefault();
         const cat = e.target.closest('.category-section-container');
         if (cat && cat !== draggedCat) {
-          cat.classList.add('cat-drag-over');
+          const rect = cat.getBoundingClientRect();
+          const mouseY = e.clientY - rect.top;
+          
+          if (mouseY < rect.height / 2) {
+            cat.classList.add('cat-drag-over-top');
+            cat.classList.remove('cat-drag-over-bottom');
+          } else {
+            cat.classList.add('cat-drag-over-bottom');
+            cat.classList.remove('cat-drag-over-top');
+          }
         }
       }
     });
@@ -473,7 +485,7 @@ export default {
     wrapper.addEventListener('dragleave', (e) => {
       const cat = e.target.closest('.category-section-container');
       if (cat) {
-        cat.classList.remove('cat-drag-over');
+        cat.classList.remove('cat-drag-over-top', 'cat-drag-over-bottom');
       }
     });
 
@@ -483,18 +495,19 @@ export default {
       
       const targetCat = e.target.closest('.category-section-container');
       wrapper.querySelectorAll('.category-section-container').forEach(c => {
-        c.classList.remove('cat-drag-over');
+        c.classList.remove('cat-drag-over-top', 'cat-drag-over-bottom');
       });
 
       if (targetCat && targetCat !== draggedCat) {
-        const draggedIndex = [...wrapper.children].indexOf(draggedCat);
-        const targetIndex = [...wrapper.children].indexOf(targetCat);
+        const rect = targetCat.getBoundingClientRect();
+        const mouseY = e.clientY - rect.top;
+        const placeBefore = mouseY < rect.height / 2;
 
         // Swap order in the DOM immediately
-        if (draggedIndex < targetIndex) {
-          wrapper.insertBefore(draggedCat, targetCat.nextSibling);
-        } else {
+        if (placeBefore) {
           wrapper.insertBefore(draggedCat, targetCat);
+        } else {
+          wrapper.insertBefore(draggedCat, targetCat.nextSibling);
         }
 
         // Save order to backend

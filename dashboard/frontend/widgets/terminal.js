@@ -161,8 +161,6 @@ export default {
       body.addEventListener('click', () => {
         inputField.focus();
       });
-      // Auto-focus on render
-      setTimeout(() => inputField.focus(), 100);
     }
 
     if (inputField) {

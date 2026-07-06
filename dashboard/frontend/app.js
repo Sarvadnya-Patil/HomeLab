@@ -102,6 +102,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Switch to initial app from local storage
       const activeApp = store.get('activeApp') || 'dashboard';
       store.set('activeApp', activeApp);
+
+      // Search and filter container cards in real time
+      const cmdPalette = document.getElementById('cmd-palette');
+      if (cmdPalette) {
+        cmdPalette.addEventListener('input', () => {
+          store.emit('services', { value: store.get('services') || [] });
+        });
+      }
     } catch (err) {
       console.error('Failed to pre-load essential console data:', err);
     }
