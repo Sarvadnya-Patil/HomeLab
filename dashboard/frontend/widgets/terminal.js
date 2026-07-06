@@ -52,11 +52,16 @@ export default {
         modalScrolledToBottom = (this.modalOutputEl.scrollHeight - this.modalOutputEl.scrollTop - this.modalOutputEl.clientHeight) <= threshold;
       }
 
+      const inputEl = container.querySelector('#w-term-input');
+      const currentInputValue = inputEl ? inputEl.value : '';
+
       const formatted = output.replace(/\n/g, '<br>');
-      outputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span>`;
+      outputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;">${currentInputValue}</span><span id="w-term-cursor" class="cursor"></span>`;
       
       if (this.modalActive && this.modalOutputEl) {
-        this.modalOutputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="m-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="m-term-cursor" class="cursor"></span>`;
+        const mInput = document.querySelector('#m-term-input');
+        const currentModalInputValue = mInput ? mInput.value : '';
+        this.modalOutputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="m-term-input-text" style="color: var(--text-white); white-space: pre-wrap;">${currentModalInputValue}</span><span id="m-term-cursor" class="cursor"></span>`;
         if (modalScrolledToBottom) {
           this.modalOutputEl.scrollTop = this.modalOutputEl.scrollHeight;
         }
