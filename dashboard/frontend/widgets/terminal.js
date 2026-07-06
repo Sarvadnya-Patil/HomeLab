@@ -29,11 +29,8 @@ export default {
         <span class="console-host" id="w-term-host-label" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);">root@homelab-os</span>
       </div>
       <div class="terminal-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.45; display: flex; flex-direction: column; justify-content: space-between; position: absolute; top: 3.25rem; left: 1rem; right: 1rem; bottom: 1rem; overflow-y: auto;">
-        <div class="terminal-content" id="w-term-output" style="flex: 1; overflow-y: auto; margin-bottom: 0.5rem; white-space: pre-wrap;"><span class="cyan-text">root@homelab:~$</span> OS control console active. Type 'help' for commands.<br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span></div>
-        <div class="terminal-input-row" style="display: flex; align-items: center; border-top: 1px solid var(--border-slate); padding-top: 0.5rem; margin-top: auto;">
-          <span class="cyan-text" style="margin-right: 0.5rem; user-select: none;">root@homelab:~$</span>
-          <input type="text" id="w-term-input" style="flex: 1; background: transparent; border: none; outline: none; color: var(--text-white); font-family: var(--font-mono); font-size: 0.75rem;" placeholder="Type command..." />
-        </div>
+        <div class="terminal-content" id="w-term-output" style="flex: 1; overflow-y: auto; margin-bottom: 0.5rem; white-space: pre-wrap;"><span class="cyan-text">root@homelab:~$</span> OS control console active. Type 'help' for commands.<br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span></div>
+        <input type="text" id="w-term-input" style="opacity: 0; position: absolute; width: 0; height: 0; pointer-events: none;" autocomplete="off" />
       </div>
     `;
 
@@ -56,10 +53,10 @@ export default {
       }
 
       const formatted = output.replace(/\n/g, '<br>');
-      outputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>`;
+      outputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span>`;
       
       if (this.modalActive && this.modalOutputEl) {
-        this.modalOutputEl.innerHTML = `<span class="white-text">${formatted}</span>`;
+        this.modalOutputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="m-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="m-term-cursor" class="cursor"></span>`;
         if (modalScrolledToBottom) {
           this.modalOutputEl.scrollTop = this.modalOutputEl.scrollHeight;
         }
@@ -84,9 +81,18 @@ export default {
       body.addEventListener('click', () => {
         inputField.focus();
       });
+      // Auto-focus on render
+      setTimeout(() => inputField.focus(), 100);
     }
 
     if (inputField) {
+      inputField.addEventListener('input', () => {
+        const inputText = container.querySelector('#w-term-input-text');
+        if (inputText) {
+          inputText.textContent = inputField.value;
+        }
+      });
+
       inputField.addEventListener('keydown', async (e) => {
         if (e.key === 'Enter') {
           const command = inputField.value.trim();
@@ -102,7 +108,7 @@ export default {
             
             // Clear screen of logs first to show fresh command
             const outputEl = container.querySelector('#w-term-output');
-            if (outputEl) outputEl.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>`;
+            if (outputEl) outputEl.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span>`;
           }
 
           // Display command in output
@@ -132,14 +138,24 @@ export default {
     if (!output) return;
 
     // Remove cursor temp
-    const cursor = output.querySelector('#w-term-cursor');
-    if (cursor) cursor.remove();
+    // Clean up current active prompt elements
+    const oldInputText = output.querySelector('#w-term-input-text');
+    if (oldInputText) oldInputText.remove();
+    const oldCursor = output.querySelector('#w-term-cursor');
+    if (oldCursor) oldCursor.remove();
 
     if (text === '__CLEAR__') {
-      output.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>`;
+      output.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span>`;
     } else {
       const formatted = text.replace(/\n/g, '<br>');
-      output.innerHTML += `<br><span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>`;
+      output.innerHTML += `<br><span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span>`;
+    }
+
+    // Reset hidden input value
+    const inputField = container.querySelector('#w-term-input');
+    if (inputField) {
+      inputField.value = '';
+      inputField.focus();
     }
 
     const body = container.querySelector('.terminal-body');
@@ -153,15 +169,28 @@ export default {
     if (this.modalActive && this.modalOutputEl) {
       const modalScrolledToBottom = (this.modalOutputEl.scrollHeight - this.modalOutputEl.scrollTop - this.modalOutputEl.clientHeight) <= threshold;
 
+      // Clean up modal prompt elements
+      const mInputText = this.modalOutputEl.querySelector('#m-term-input-text');
+      if (mInputText) mInputText.remove();
+      const mCursor = this.modalOutputEl.querySelector('#m-term-cursor');
+      if (mCursor) mCursor.remove();
+
       if (text === '__CLEAR__') {
         this.modalOutputEl.innerHTML = '';
       } else {
         const formatted = text.replace(/\n/g, '<br>');
-        this.modalOutputEl.innerHTML += `<br><span class="white-text">${formatted}</span>`;
+        this.modalOutputEl.innerHTML += `<br><span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="m-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="m-term-cursor" class="cursor"></span>`;
       }
       
       if (modalScrolledToBottom) {
         this.modalOutputEl.scrollTop = this.modalOutputEl.scrollHeight;
+      }
+
+      // Reset modal hidden input value
+      const mInput = document.querySelector('#m-term-input');
+      if (mInput) {
+        mInput.value = '';
+        mInput.focus();
       }
     }
 
@@ -197,8 +226,12 @@ export default {
     modal.className = 'modal-overlay terminal-expand-modal';
     modal.style.zIndex = '20000';
     
-    const currentLogs = container.querySelector('#w-term-output').innerHTML;
-    
+    let currentLogs = container.querySelector('#w-term-output').innerHTML;
+    // Replace small terminal IDs with modal IDs to avoid duplication
+    currentLogs = currentLogs
+      .replace('id="w-term-input-text"', 'id="m-term-input-text"')
+      .replace('id="w-term-cursor"', 'id="m-term-cursor"');
+
     modal.innerHTML = `
       <div class="modal-content" style="max-width: 1000px; width: 95%; height: 80vh; display: flex; flex-direction: column; background-color: var(--bg-panel); border: 1px solid var(--border-slate); border-radius: 8px;">
         <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border-slate);">
@@ -207,10 +240,7 @@ export default {
         </div>
         <div class="modal-body" style="flex: 1; display: flex; flex-direction: column; background: var(--bg-shell); padding: 1rem; overflow: hidden; position: relative;">
           <div class="terminal-content" id="m-term-output" style="flex: 1; overflow-y: auto; font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.45; white-space: pre-wrap; margin-bottom: 0.5rem; color: var(--text-primary);">${currentLogs}</div>
-          <div class="terminal-input-row" style="display: flex; align-items: center; border-top: 1px solid var(--border-slate); padding-top: 0.5rem; margin-top: auto; background: var(--bg-shell);">
-            <span class="cyan-text" style="margin-right: 0.5rem; user-select: none; font-family: var(--font-mono); font-size: 0.8rem;">root@homelab:~$</span>
-            <input type="text" id="m-term-input" style="flex: 1; background: transparent; border: none; outline: none; color: var(--text-white); font-family: var(--font-mono); font-size: 0.8rem;" placeholder="Type command..." autocomplete="off" />
-          </div>
+          <input type="text" id="m-term-input" style="opacity: 0; position: absolute; width: 0; height: 0; pointer-events: none;" autocomplete="off" />
         </div>
       </div>
     `;
@@ -223,11 +253,23 @@ export default {
     const modalInput = modal.querySelector('#m-term-input');
     if (modalInput) {
       modalInput.focus();
+      
+      modalInput.addEventListener('input', () => {
+        const inputText = modal.querySelector('#m-term-input-text');
+        if (inputText) {
+          inputText.textContent = modalInput.value;
+        }
+      });
+
       modalInput.addEventListener('keydown', async (e) => {
         if (e.key === 'Enter') {
           const command = modalInput.value.trim();
           if (!command) return;
           modalInput.value = '';
+
+          // Clear modal prompt text display immediately
+          const inputText = modal.querySelector('#m-term-input-text');
+          if (inputText) inputText.textContent = '';
 
           // If streaming logs, stop streaming on manual command execution
           if (this.activeLogsServiceId) {
@@ -238,7 +280,7 @@ export default {
             
             // Clear screen of logs first to show fresh command
             const outputEl = container.querySelector('#w-term-output');
-            if (outputEl) outputEl.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span id="w-term-cursor" class="cursor"></span>`;
+            if (outputEl) outputEl.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span>`;
             modalOutput.innerHTML = '';
           }
 
