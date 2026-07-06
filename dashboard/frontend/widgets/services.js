@@ -61,7 +61,7 @@ export default {
       // Find services matching this category
       let catServices = services.filter(s => {
         const matchesCategory = s.category.toLowerCase() === cat.id.toLowerCase() || s.category === cat.name;
-        const matchesFilter = !filterQuery || s.name.toLowerCase().includes(filterQuery) || s.description.toLowerCase().includes(filterQuery);
+        const matchesFilter = !filterQuery || s.name.toLowerCase().includes(filterQuery) || s.id.toLowerCase().includes(filterQuery);
         const isInstalled = s.status !== 'Not Installed';
         return matchesCategory && matchesFilter && isInstalled;
       });
