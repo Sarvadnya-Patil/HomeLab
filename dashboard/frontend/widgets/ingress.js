@@ -53,12 +53,17 @@ Detecting networks...
 
     // Mutually assured height sync: Align terminal panel to match routing tree
     const termContainer = document.querySelector('.grid-terminal');
-    const ingressBody = container.querySelector('.network-map-body');
-    const terminalBody = termContainer ? termContainer.querySelector('.terminal-body') : null;
-    if (ingressBody && terminalBody) {
-      const naturalHeight = Math.max(220, asciiEl.scrollHeight + 16);
-      ingressBody.style.height = `${naturalHeight}px`;
-      terminalBody.style.height = `${naturalHeight}px`;
+    if (termContainer) {
+      // Temporarily collapse the terminal container to measure ingress naturally
+      termContainer.style.height = '0px';
+      termContainer.style.overflow = 'hidden';
+
+      const naturalHeight = container.offsetHeight;
+
+      // Lock both containers to this natural height
+      termContainer.style.height = `${naturalHeight}px`;
+      termContainer.style.overflow = '';
+      container.style.height = `${naturalHeight}px`;
     }
   },
 

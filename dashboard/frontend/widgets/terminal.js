@@ -231,13 +231,19 @@ export default {
 
   syncHeight(container) {
     setTimeout(() => {
-      const asciiEl = document.querySelector('#w-ingress-ascii');
-      const ingressBody = document.querySelector('.grid-network-map .network-map-body');
-      const terminalBody = container.querySelector('.terminal-body');
-      if (asciiEl && ingressBody && terminalBody) {
-        const naturalHeight = Math.max(220, asciiEl.scrollHeight + 16);
-        ingressBody.style.height = `${naturalHeight}px`;
-        terminalBody.style.height = `${naturalHeight}px`;
+      const ingressCard = document.querySelector('.grid-network-map');
+      const terminalCard = container;
+      if (ingressCard && terminalCard) {
+        // Temporarily collapse terminalCard to measure ingress naturally without layout stretching
+        terminalCard.style.height = '0px';
+        terminalCard.style.overflow = 'hidden';
+
+        const naturalHeight = ingressCard.offsetHeight;
+
+        // Lock both containers to this exact natural height
+        terminalCard.style.height = `${naturalHeight}px`;
+        terminalCard.style.overflow = '';
+        ingressCard.style.height = `${naturalHeight}px`;
       }
     }, 50);
   },

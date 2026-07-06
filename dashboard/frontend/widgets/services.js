@@ -10,6 +10,7 @@ export default {
   icon: 'server',
   supportedSizes: ['full'],
   wsEvents: ['services', 'categories'],
+  isDragging: false,
 
   render(container) {
     container.className = 'grid-services widget-item';
@@ -36,6 +37,7 @@ export default {
   },
 
   update(container, data) {
+    if (this.isDragging) return;
     const wrapper = container.querySelector('#w-services-categories-container');
     if (!wrapper) return;
 
@@ -284,11 +286,13 @@ export default {
 
     // Drag start handler
     card.addEventListener('dragstart', (e) => {
+      this.isDragging = true;
       e.dataTransfer.setData('text/plain', service.id);
       card.classList.add('dragging');
     });
 
     card.addEventListener('dragend', () => {
+      this.isDragging = false;
       card.classList.remove('dragging');
       // Remove drag-over class from any active grid rows to clean up
       document.querySelectorAll('.services-cards-grid-row').forEach(row => {
@@ -318,6 +322,11 @@ export default {
       if (!draggingCard) return;
 
       const afterElement = this.getDragAfterElement(cardsGrid, e.clientX, e.clientY);
+      
+      // Prevent redundant DOM reflow calls if card is already in position
+      if (draggingCard.nextElementSibling === afterElement) return;
+      if (afterElement == null && cardsGrid.lastElementChild === draggingCard) return;
+
       if (afterElement == null) {
         cardsGrid.appendChild(draggingCard);
       } else {
