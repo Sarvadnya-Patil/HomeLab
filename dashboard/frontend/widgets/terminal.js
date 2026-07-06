@@ -102,7 +102,7 @@ export default {
         </div>
         <span class="console-host" id="w-term-host-label" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);">root@homelab-os</span>
       </div>
-      <div class="terminal-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.45; display: flex; flex-direction: column; justify-content: space-between; overflow-y: auto; box-sizing: border-box; flex: 1; min-height: 0;">
+      <div class="terminal-body" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.45; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; box-sizing: border-box; flex: 1; min-height: 0;">
         <div class="terminal-content" id="w-term-output" style="flex: 1; overflow-y: auto; margin-bottom: 0.5rem; white-space: pre-wrap;"><span class="cyan-text">root@homelab:~$</span> OS control console active. Type 'help' for commands.<br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span></div>
         <input type="text" id="w-term-input" style="opacity: 0; position: absolute; width: 0; height: 0; pointer-events: none;" autocomplete="off" />
       </div>
@@ -114,12 +114,8 @@ export default {
       if (!outputEl) return;
       
       const threshold = 50; // pixels from bottom threshold to trigger auto-scroll
-      const body = container.querySelector('.terminal-body');
       
-      let bodyScrolledToBottom = true;
-      if (body) {
-        bodyScrolledToBottom = (body.scrollHeight - body.scrollTop - body.clientHeight) <= threshold;
-      }
+      const outputScrolledToBottom = (outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight) <= threshold;
 
       let modalScrolledToBottom = true;
       if (this.modalActive && this.modalOutputEl) {
@@ -141,8 +137,8 @@ export default {
         }
       }
 
-      if (body && bodyScrolledToBottom) {
-        body.scrollTop = body.scrollHeight;
+      if (outputScrolledToBottom) {
+        outputEl.scrollTop = outputEl.scrollHeight;
       }
       this.syncHeight(container);
     };
@@ -159,7 +155,7 @@ export default {
 
     if (body && inputField) {
       body.addEventListener('click', () => {
-        inputField.focus();
+        inputField.focus({ preventScroll: true });
       });
     }
 
@@ -236,13 +232,8 @@ export default {
       inputField.value = '';
     }
 
-    const body = container.querySelector('.terminal-body');
     const threshold = 50; // pixels from bottom threshold to trigger auto-scroll
-    
-    let bodyScrolledToBottom = true;
-    if (body) {
-      bodyScrolledToBottom = (body.scrollHeight - body.scrollTop - body.clientHeight) <= threshold;
-    }
+    const outputScrolledToBottom = (output.scrollHeight - output.scrollTop - output.clientHeight) <= threshold;
 
     if (this.modalActive && this.modalOutputEl) {
       const modalScrolledToBottom = (this.modalOutputEl.scrollHeight - this.modalOutputEl.scrollTop - this.modalOutputEl.clientHeight) <= threshold;
@@ -268,12 +259,12 @@ export default {
       const mInput = document.querySelector('#m-term-input');
       if (mInput) {
         mInput.value = '';
-        mInput.focus();
+        mInput.focus({ preventScroll: true });
       }
     }
 
-    if (body && bodyScrolledToBottom) {
-      body.scrollTop = body.scrollHeight;
+    if (outputScrolledToBottom) {
+      output.scrollTop = output.scrollHeight;
     }
     this.syncHeight(container);
   },
@@ -350,7 +341,7 @@ export default {
     
     const modalInput = modal.querySelector('#m-term-input');
     if (modalInput) {
-      modalInput.focus();
+      modalInput.focus({ preventScroll: true });
       
       modalInput.addEventListener('input', () => {
         const inputText = modal.querySelector('#m-term-input-text');
@@ -397,7 +388,7 @@ export default {
       });
       
       modal.querySelector('.modal-body').addEventListener('click', () => {
-        modalInput.focus();
+        modalInput.focus({ preventScroll: true });
       });
     }
     
