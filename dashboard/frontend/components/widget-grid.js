@@ -11,6 +11,7 @@ export const WidgetGrid = {
 
   init(containerEl) {
     this.container = containerEl;
+    this.activeWorkspaceId = store.get('activeWorkspace') || 'overview';
     
     // Rerender grid whenever active workspace changes
     store.on('activeWorkspace', ({ value }) => {
@@ -40,6 +41,15 @@ export const WidgetGrid = {
     store.on('notifications', ({ value }) => {
       this.activeWidgets.forEach(item => {
         if (item.widgetObj.wsEvents.includes('events')) {
+          item.widgetObj.update(item.wrapperEl, value);
+        }
+      });
+    });
+
+    // Listen to categories and update matching widget modules
+    store.on('categories', ({ value }) => {
+      this.activeWidgets.forEach(item => {
+        if (item.widgetObj.wsEvents.includes('categories')) {
           item.widgetObj.update(item.wrapperEl, value);
         }
       });
@@ -90,6 +100,8 @@ export const WidgetGrid = {
       // Sort widgets by displayOrder
       const sorted = [...widgets].sort((a, b) => a.displayOrder - b.displayOrder);
 
+      let statsRow = null;
+
       sorted.forEach(w => {
         if (!w.visible) return;
 
@@ -103,11 +115,22 @@ export const WidgetGrid = {
         wrapper.className = 'widget-wrapper';
         wrapper.setAttribute('data-widget-id', w.id);
         wrapper.setAttribute('data-size', w.size);
-        wrapper.setAttribute('draggable', 'true');
         
         // Render widget markup
         widgetObj.render(wrapper);
-        this.container.appendChild(wrapper);
+        wrapper.classList.add('widget-wrapper');
+
+        const isResource = ['cpu', 'ram', 'gpu', 'disk'].includes(w.type);
+        if (isResource) {
+          if (!statsRow) {
+            statsRow = document.createElement('div');
+            statsRow.className = 'resource-stats-row';
+            this.container.appendChild(statsRow);
+          }
+          statsRow.appendChild(wrapper);
+        } else {
+          this.container.appendChild(wrapper);
+        }
 
         // Map initial state updates
         if (widgetObj.wsEvents.includes('metrics')) {
@@ -127,8 +150,6 @@ export const WidgetGrid = {
         });
       });
 
-      this.bindDragReorder();
-
       // Compile active widget events subscriptions
       const events = new Set(['events', 'alert']); // Always subscribe to alerts
       this.activeWidgets.forEach(item => {
@@ -140,72 +161,6 @@ export const WidgetGrid = {
 
     } catch (err) {
       this.container.innerHTML = `<div style="color: var(--term-amber); padding: 2rem;">Failed to load widgets: ${err.message}</div>`;
-    }
-  },
-
-  // Implement HTML5 drag and drop layout reorder persistence
-  bindDragReorder() {
-    let draggedWrapper = null;
-
-    this.container.querySelectorAll('.widget-wrapper').forEach(wrapper => {
-      wrapper.addEventListener('dragstart', () => {
-        draggedWrapper = wrapper;
-        wrapper.classList.add('dragging');
-      });
-
-      wrapper.addEventListener('dragend', () => {
-        wrapper.classList.remove('dragging');
-        this.saveCurrentLayout();
-      });
-
-      wrapper.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        const afterElement = this.getDragAfterElement(e.clientX, e.clientY);
-        if (afterElement == null) {
-          this.container.appendChild(draggedWrapper);
-        } else {
-          this.container.insertBefore(draggedWrapper, afterElement);
-        }
-      });
-    });
-  },
-
-  getDragAfterElement(x, y) {
-    const draggableElements = [...this.container.querySelectorAll('.widget-wrapper:not(.dragging)')];
-
-    return draggableElements.reduce((closest, child) => {
-      const box = child.getBoundingClientRect();
-      const offset = x - box.left - box.width / 2; // Simple horizontal ordering offset
-      if (offset < 0 && offset > closest.offset) {
-        return { offset: offset, element: child };
-      } else {
-        return closest;
-      }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
-  },
-
-  async saveCurrentLayout() {
-    const list = [...this.container.querySelectorAll('.widget-wrapper')];
-    const layouts = list.map((el, idx) => {
-      const id = el.getAttribute('data-widget-id');
-      const size = el.getAttribute('data-size');
-      return {
-        id,
-        workspaceId: this.activeWorkspaceId,
-        type: id.replace('w-', ''), // derive type
-        size,
-        displayOrder: idx,
-        pinned: 1,
-        visible: 1,
-        config: {}
-      };
-    });
-
-    try {
-      await api.put(`/api/v1/workspaces/${this.activeWorkspaceId}/widgets`, layouts);
-      console.log('Layout positions persisted successfully.');
-    } catch (err) {
-      console.error('Failed to persist widgets layout reorder:', err);
     }
   }
 };

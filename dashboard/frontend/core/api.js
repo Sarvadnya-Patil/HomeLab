@@ -10,15 +10,24 @@ export const api = {
     return headers;
   },
 
+  async handleResponse(res) {
+    const text = await res.text();
+    try {
+      return text ? JSON.parse(text) : {};
+    } catch {
+      return { error: text || res.statusText };
+    }
+  },
+
   async get(url) {
     const res = await fetch(url, {
       headers: this.getHeaders()
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
+      const err = await this.handleResponse(res).catch(() => ({ error: res.statusText }));
       throw new Error(err.error || `GET request failed: ${res.status}`);
     }
-    return res.json();
+    return this.handleResponse(res);
   },
 
   async post(url, data = {}) {
@@ -31,10 +40,10 @@ export const api = {
       body: JSON.stringify(data)
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
+      const err = await this.handleResponse(res).catch(() => ({ error: res.statusText }));
       throw new Error(err.error || `POST request failed: ${res.status}`);
     }
-    return res.json();
+    return this.handleResponse(res);
   },
 
   async put(url, data = {}) {
@@ -47,10 +56,10 @@ export const api = {
       body: JSON.stringify(data)
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
+      const err = await this.handleResponse(res).catch(() => ({ error: res.statusText }));
       throw new Error(err.error || `PUT request failed: ${res.status}`);
     }
-    return res.json();
+    return this.handleResponse(res);
   },
 
   async delete(url) {
@@ -59,10 +68,10 @@ export const api = {
       headers: this.getHeaders()
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
+      const err = await this.handleResponse(res).catch(() => ({ error: res.statusText }));
       throw new Error(err.error || `DELETE request failed: ${res.status}`);
     }
-    return res.json();
+    return this.handleResponse(res);
   }
 };
 

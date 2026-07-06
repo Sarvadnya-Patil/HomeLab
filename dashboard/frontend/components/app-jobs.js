@@ -1,5 +1,6 @@
 // Centralized Job Execution Manager Component
 import { api } from '../core/api.js';
+import { Dialog } from '../utils/dialog.js';
 
 export const AppJobs = {
   container: null,
@@ -238,12 +239,16 @@ export const AppJobs = {
     const abortBtn = header.querySelector('#btn-job-abort');
     if (abortBtn) {
       abortBtn.addEventListener('click', async () => {
-        if (confirm('Are you sure you want to abort this active operations thread?')) {
+        const confirmAbort = await Dialog.confirm({
+          title: 'Abort Operations Thread',
+          message: 'Are you sure you want to abort this active operations thread?'
+        });
+        if (confirmAbort) {
           try {
             await api.post(`/api/v1/jobs/${job.id}/cancel`);
             this.refreshJobs();
           } catch (err) {
-            alert(`Failed to abort job: ${err.message}`);
+            console.error(`Failed to abort job: ${err.message}`);
           }
         }
       });

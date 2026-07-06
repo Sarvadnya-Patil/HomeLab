@@ -181,6 +181,7 @@ export class PluginsManager {
         local: data.domain && typeof data.domain === 'object' ? data.domain.local : ''
       },
       ports: {
+        ...(data.ports && typeof data.ports === 'object' ? data.ports : {}),
         http: data.ports && typeof data.ports === 'object' ? data.ports.http : data.port || null
       },
       actions: data.actions || ['start', 'stop', 'restart', 'logs'],

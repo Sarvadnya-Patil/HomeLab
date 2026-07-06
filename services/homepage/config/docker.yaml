@@ -1,4 +1,0 @@
-# Docker API Connection settings
-# This allows Homepage to read labels from running containers to populate the dashboard.
-local:
-  socket: /var/run/docker.sock

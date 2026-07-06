@@ -28,9 +28,7 @@ export class MetricsService {
       // Ignore settings lookup failures
     }
 
-    const containers = await this.docker.getContainers().catch(() => []);
-    // Reconcile with collector format
-    return this.collector.collect({ getContainers: () => Promise.resolve(containers) } as any);
+    return this.collector.collect(this.docker);
   }
 
   // 2. Fetch last compiled metrics payload

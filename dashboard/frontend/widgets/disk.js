@@ -18,7 +18,7 @@ export default {
         <span class="res-percentage" id="w-disk-val">--%</span>
         <span class="res-stats" id="w-disk-sub">--</span>
       </div>
-      <div class="res-footer-detail" id="w-disk-model">ZFS/SSD Partitions</div>
+      <div class="res-footer-detail" id="w-disk-model">Storage Partitions</div>
     `;
   },
 
@@ -34,7 +34,7 @@ export default {
       if (bar) bar.style.width = `${data.disk}%`;
       if (val) val.textContent = `${data.disk}%`;
       if (sub) sub.textContent = `${data.diskGbUsed} GB / ${data.diskGbTotal} GB`;
-      if (model) model.textContent = 'SSD Storage Pool';
+      if (model) model.textContent = 'Storage Pool';
     } else {
       if (bar) bar.style.width = '0%';
       if (val) val.textContent = '--%';

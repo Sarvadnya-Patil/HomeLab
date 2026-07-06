@@ -27,6 +27,9 @@ services:
       - "${DASHBOARD_PORT:-8081}:8081"
     volumes:
       - ../services:/services:ro
+      - /proc:/host/proc:ro
+      # Mount ONLY the Cloudflared config.yml file from user home directory (Safe: does NOT expose SSH keys or JSON credentials)
+      - ~/.cloudflared/config.yml:/etc/cloudflared/config.yml:ro
     env_file:
       - ./backend/.env
     environment:

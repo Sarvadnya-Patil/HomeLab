@@ -98,76 +98,7 @@ export function seedDatabase(db: DatabaseAdapter): void {
       );
     }
 
-    // 4. Insert default categories for 'overview' workspace
-    const categories = [
-      {
-        id: 'infrastructure',
-        workspace_id: 'overview',
-        name: 'Infrastructure',
-        icon: 'server',
-        description: 'Discovered services',
-        accent: '#3b82f6',
-        display_order: 0
-      },
-      {
-        id: 'monitoring',
-        workspace_id: 'overview',
-        name: 'Monitoring',
-        icon: 'activity',
-        description: 'Monitoring tools',
-        accent: '#10b981',
-        display_order: 1
-      },
-      {
-        id: 'automation',
-        workspace_id: 'overview',
-        name: 'Automation',
-        icon: 'zap',
-        description: 'Workflow automation',
-        accent: '#a855f7',
-        display_order: 2
-      },
-      {
-        id: 'ai',
-        workspace_id: 'overview',
-        name: 'AI Stack',
-        icon: 'sparkles',
-        description: 'Model orchestrators',
-        accent: '#f59e0b',
-        display_order: 3
-      },
-      {
-        id: 'networking',
-        workspace_id: 'overview',
-        name: 'Networking',
-        icon: 'globe',
-        description: 'Routing targets',
-        accent: '#06b6d4',
-        display_order: 4
-      },
-      {
-        id: 'storage',
-        workspace_id: 'overview',
-        name: 'Storage',
-        icon: 'database',
-        description: 'Disk services',
-        accent: '#eab308',
-        display_order: 5
-      }
-    ];
 
-    for (const cat of categories) {
-      db.run(
-        `INSERT INTO categories (id, workspace_id, name, icon, description, accent, display_order) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        cat.id,
-        cat.workspace_id,
-        cat.name,
-        cat.icon,
-        cat.description,
-        cat.accent,
-        cat.display_order
-      );
-    }
 
     // 5. Insert default widgets layout for 'overview' workspace
     const widgets = [

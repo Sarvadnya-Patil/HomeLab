@@ -256,45 +256,7 @@ actions:
 export default function (fastify: any, engine: CoreEngine): void {
   // 1. GET: /api/v1/automation/platforms (Query all supported platforms with dynamic status)
   fastify.get('/api/v1/automation/platforms', async () => {
-    let dockerContainers: any[] = [];
-    try {
-      dockerContainers = await engine.docker.getContainers();
-    } catch {
-      // Docker daemon may be offline; gracefully fall back to empty containers list
-    }
-
-    const enrichedServices = await engine.getEnrichedServices().catch(() => []);
-
-    return Object.keys(PLATFORMS).map((id) => {
-      const platform = PLATFORMS[id];
-      const service = enrichedServices.find((s) => s.id === id);
-      const container = dockerContainers.find((c) =>
-        c.Names.some((n: string) => n === `/${id}` || n.endsWith(`-${id}`))
-      );
-
-      let status = 'not_installed';
-      let running = false;
-      let containerId = null;
-
-      if (service && service.status !== 'Not Installed') {
-        status = 'installed';
-        if (container) {
-          running = container.State === 'running';
-          containerId = container.Id;
-        }
-      }
-
-      return {
-        id,
-        name: platform.name,
-        description: platform.description,
-        image: platform.image,
-        port: platform.port,
-        status,
-        running,
-        containerId
-      };
-    });
+    return await engine.infrastructure.getAutomationPlatforms(PLATFORMS);
   });
 
   // 2. POST: /api/v1/automation/platforms/:id/install (Launch background deployment job)

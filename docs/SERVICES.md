@@ -1,22 +1,19 @@
 # HomeLab Services Catalog
 
-This document lists all running services inside the HomeLab environment, including repository paths, host ports, endpoints, and category groupings.
+This document describes how services are registered and indexed inside the HomeLab OS environment.
 
-## Active Services Index
+## Dynamic Service Discovery
 
-| ID | Name | Repo Path | Host Port | Target Access URL | Category | Description |
-|---|---|---|---|---|---|---|
-| `homepage` | Homepage | `services/homepage` | `3000` | `http://homepage.local` | Infrastructure | Central navigation landing page dashboard. |
-| `portainer` | Portainer | `services/portainer` | `9443` | `https://portainer.local` | Management | GUI for managing Docker containers and images. |
-| `uptime-kuma` | Uptime Kuma | `services/uptime-kuma` | `3001` | `http://uptime.local` | Monitoring | Uptime and status page monitoring suite. |
-| `dozzle` | Dozzle | `services/dozzle` | `9999` | `http://dozzle.local` | Monitoring | Light real-time container log viewer. |
-| `watchtower` | Watchtower | `services/watchtower` | N/A | N/A | Management | Automatically updates Docker images and containers. |
-| `node-exporter` | Node Exporter | `services/node-exporter` | `9100` | `http://node-exporter.local:9100` | Monitoring | Host OS hardware stats agent. |
-| `cadvisor` | cAdvisor | `services/cadvisor` | `8082` | `http://cadvisor.local:8082` | Monitoring | Container resource statistics agent. |
-| `prometheus` | Prometheus DB | `services/prometheus` | `9090` | `http://prometheus.local:9090` | Monitoring | Scrape engine & time-series database. |
-| `grafana` | Grafana | `services/grafana` | `3003` | `http://grafana.local:3003` | Monitoring | Metric query dashboards web UI. |
+Rather than pre-bundling a static list of catalog templates, HomeLab OS uses a **Dynamic Discovery Engine**. It scans and discovers services in two ways:
+
+1. **User Custom Services**: You can add your own custom services by creating a folder under [services/](file:///D:/My_Projects/HomeLab/services/) with a `service.yaml` manifest. The system will auto-register and present it on the dashboard.
+2. **Running Docker Containers**: All active Docker containers running on the host Docker socket are dynamically auto-discovered and registered in real-time under the **Containers** category.
+
+## Service Manifest Schema
+
+If you wish to create a custom service manifest in your `services/` directory, refer to [PLUGIN_SDK.md](file:///D:/My_Projects/HomeLab/docs/PLUGIN_SDK.md) for details on metadata properties, capabilities (`open`, `start`, `stop`, `restart`, `logs`), ports, and permissions.
 
 ---
 
 > [!NOTE]
-> Services operate inside isolated Docker bridge networks. Public domains are routed via Cloudflare Tunnels to internal Docker bridge endpoints.
+> Public subdomain URLs are dynamically resolved using the active host Cloudflare Tunnel configuration (`config.yml` or `config.yaml` inside `/etc/cloudflared/` or your home directory `~/.cloudflared/`). If a service is not mapped in the tunnel, it safely falls back to local LAN routing (`http://127.0.0.1:port`).

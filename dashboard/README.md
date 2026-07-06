@@ -65,3 +65,17 @@ To deploy the dashboard:
    docker compose up -d --build
    ```
 3. The dashboard is accessible at `http://[host-ip]:8081`.
+
+---
+
+## Technical Specifications Updates
+
+### 1. Terminal Console Inline Prompt Layout
+To maintain a high-fidelity native CLI feel, the Server Console Terminal widget has no separate input box row:
+* **Input Mechanics**: Keyboard inputs are focused onto a hidden `<input>` element and mirrored in real-time in the terminal text block next to the cursor (`#w-term-input-text` and `#m-term-input-text`).
+* **Auto-Focus**: Clicking anywhere inside the terminal body refocusses the hidden input automatically.
+* **Auto-Scroll Behavior**: The terminal stream is equipped with smart scrolling. If the viewport is scrolled up, updates are written in the background to prevent scroll-jacking. Auto-scroll resumes once the user scrolls back to the bottom.
+
+### 2. Exclusively Tunneled Public Latency Timing
+* **Public Domain Timing**: Latency checks are executed exclusively for containers that have a public Cloudflare Tunnel URL configured (`mappedPublicDomain`). The backend attempts a real TCP connection to the domain on port `443` (falling back to `80`) to measure the actual network round-trip latency to the internet.
+* **Local-Only Containers**: For local-only containers (without an ingress tunnel domain mapped), latency timing is bypassed and set to `N/A`. The frontend dynamically hides the Latency row entirely on these cards to preserve layout symmetry.

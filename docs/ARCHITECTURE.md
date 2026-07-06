@@ -47,10 +47,9 @@ homelab-workspace/
 ├── configs/                  # Shared system configuration specs
 ├── docs/                     # Architectural & specification documents
 ├── services/                 # Auto-discovered plugin packages
-│   ├── portainer/
-│   │   ├── service.yaml      # Plugin Manifest Metadata
-│   │   └── docker-compose.yml
-│   └── homepage/
+│   └── <custom-service-name>/
+│       ├── service.yaml      # Plugin Manifest Metadata
+│       └── docker-compose.yml
 └── dashboard/
     ├── frontend/             # SPA assets (HTML, CSS, JS ESM)
     └── backend/              # TypeScript server control plane
