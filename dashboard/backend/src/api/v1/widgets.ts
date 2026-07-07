@@ -27,20 +27,25 @@ export default function (fastify: any, engine: CoreEngine): void {
     return { success: engine.workspacesRepo.delete(id) };
   });
 
-  // 2. Categories CRUD
   fastify.get('/api/v1/categories', async () => {
     const list = engine.categoriesRepo.findAll();
     if (!list.some(c => c.id === 'containers' || c.name.toLowerCase() === 'containers')) {
-      list.push({
-        id: 'containers',
-        workspaceId: 'overview',
-        name: 'Containers',
-        icon: 'server',
-        description: 'Auto-discovered Docker host container instances',
-        displayOrder: 10,
-        collapsed: false,
-        visible: true
-      } as any);
+      const services = await engine.getEnrichedServices().catch(() => []);
+      const hasContainers = services.some(
+        s => !s.category || s.category.toLowerCase() === 'containers'
+      );
+      if (hasContainers) {
+        list.push({
+          id: 'containers',
+          workspaceId: 'overview',
+          name: 'Containers',
+          icon: 'server',
+          description: 'Auto-discovered Docker host container instances',
+          displayOrder: 10,
+          collapsed: false,
+          visible: true
+        } as any);
+      }
     }
     return list;
   });

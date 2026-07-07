@@ -697,13 +697,60 @@ export default {
   },
 
   async promptDeleteCategory(categoryId, categoryName) {
-    const confirmDelete = await Dialog.confirm({
-      title: 'Delete Category',
-      message: `Are you sure you want to delete category "${categoryName}"? Services in it will revert to uncategorized.`
-    });
-    if (!confirmDelete) return;
+    const services = store.get('services') || [];
+    const categories = store.get('categories') || [];
+    
+    const categoryServices = services.filter(s => 
+      s.category && (s.category.toLowerCase() === categoryId.toLowerCase() || s.category === categoryName)
+    );
+    const otherCategories = categories.filter(c => c.id !== categoryId);
+
+    let targetCategoryId = null;
+
+    if (categoryServices.length > 0) {
+      if (otherCategories.length === 0) {
+        await Dialog.confirm({
+          title: 'Cannot Delete Category',
+          message: `Category "${categoryName}" contains active services, and there are no other categories to move them to. Please create another category first.`
+        });
+        return;
+      }
+
+      targetCategoryId = await Dialog.promptReassignCategory({
+        title: 'Delete Category & Move Services',
+        message: `Category "${categoryName}" contains ${categoryServices.length} active service(s). Please choose which category to move these services to before deleting:`,
+        categories: otherCategories
+      });
+
+      if (!targetCategoryId) return; // User cancelled
+    } else {
+      const confirmDelete = await Dialog.confirm({
+        title: 'Delete Category',
+        message: `Are you sure you want to delete empty category "${categoryName}"?`
+      });
+      if (!confirmDelete) return;
+    }
 
     try {
+      if (targetCategoryId) {
+        const targetCatObj = otherCategories.find(c => c.id === targetCategoryId);
+        const targetCatName = targetCatObj ? targetCatObj.name : targetCategoryId;
+
+        const updatedServices = services.map(s => {
+          const matches = s.category && (s.category.toLowerCase() === categoryId.toLowerCase() || s.category === categoryName);
+          return matches ? { ...s, category: targetCatName } : s;
+        });
+        store.set('services', updatedServices);
+
+        await Promise.all(categoryServices.map(async (s) => {
+          try {
+            await api.put(`/api/v1/services/${s.id}/category`, { categoryId: targetCategoryId });
+          } catch (err) {
+            console.error(`Failed to move service ${s.id} to category ${targetCategoryId}: ${err.message}`);
+          }
+        }));
+      }
+
       await api.delete(`/api/v1/categories/${categoryId}`);
       const current = store.get('categories') || [];
       store.set('categories', current.filter(c => c.id !== categoryId));

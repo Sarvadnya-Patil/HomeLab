@@ -486,5 +486,56 @@ export const Dialog = {
         }
       });
     });
+  },
+
+  promptReassignCategory({ title, message, categories }) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'custom-dialog-overlay';
+      overlay.innerHTML = `
+        <div class="custom-dialog-box animate-modal" style="max-width: 400px; width: 90%;">
+          <div class="custom-dialog-header">${title}</div>
+          <div class="custom-dialog-body">${message}</div>
+          <div style="margin: 1rem 0; display: flex; flex-direction: column; gap: 0.5rem;">
+            <label style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Select Destination Category</label>
+            <select class="custom-dialog-select" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 6px; padding: 0.6rem; color: var(--text-primary); font-size: 0.8rem; width: 100%; outline: none; cursor: pointer;">
+              ${categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="custom-dialog-actions">
+            <button class="btn-dialog-cancel">Cancel</button>
+            <button class="btn-dialog-ok">Move & Delete</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      const select = overlay.querySelector('.custom-dialog-select');
+      const cleanup = (val) => {
+        overlay.classList.add('fade-out');
+        overlay.querySelector('.custom-dialog-box').classList.add('scale-out');
+        setTimeout(() => {
+          overlay.remove();
+          resolve(val);
+        }, 150);
+      };
+
+      overlay.querySelector('.btn-dialog-ok').addEventListener('click', () => {
+        cleanup(select.value);
+      });
+
+      overlay.querySelector('.btn-dialog-cancel').addEventListener('click', () => {
+        cleanup(null);
+      });
+
+      const escHandler = (e) => {
+        if (e.key === 'Escape') {
+          window.removeEventListener('keydown', escHandler);
+          cleanup(null);
+        }
+      };
+      window.addEventListener('keydown', escHandler);
+    });
   }
 };
