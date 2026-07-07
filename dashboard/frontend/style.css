@@ -867,95 +867,6 @@ body {
   z-index: 1000;
 }
 
-/* Command Palette Overlay overrides (top-aligned) */
-#cmd-palette-modal {
-  align-items: flex-start;
-  padding-top: 15vh;
-}
-
-.cmd-palette-box {
-  width: 550px;
-  max-width: 90%;
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-slate);
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-}
-
-.cmd-palette-input-row {
-  display: flex;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-slate);
-  gap: 0.75rem;
-}
-
-.cmd-palette-input-row input {
-  width: 100%;
-  background: none;
-  border: none;
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-}
-
-.cmd-palette-input-row input:focus {
-  outline: none;
-}
-
-.cmd-palette-results {
-  max-height: 280px;
-  overflow-y: auto;
-}
-
-.palette-item-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.6rem 1rem;
-  cursor: pointer;
-  border-bottom: 1px solid rgba(255,255,255,0.01);
-}
-
-.palette-item-row:hover, .palette-item-row.selected {
-  background-color: rgba(255,255,255,0.03);
-}
-
-.palette-item-main {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.palette-item-title {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.palette-item-sub {
-  font-size: 0.65rem;
-  color: var(--text-muted);
-}
-
-.palette-item-badge {
-  font-size: 0.55rem;
-  font-family: var(--font-mono);
-  background-color: var(--bg-shell);
-  border: 1px solid var(--border-slate);
-  color: var(--text-secondary);
-  padding: 0.1rem 0.35rem;
-  border-radius: 3px;
-}
-
-.palette-empty-state {
-  padding: 1.5rem;
-  text-align: center;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
 /* Slideout Drawer (Notifications) */
 .slideout-drawer {
   position: fixed;
@@ -1260,35 +1171,6 @@ body {
 
   .btn-expand-terminal {
     display: none !important;
-  }
-
-  /* Command Palette Overlays (Touch Targets) */
-  .modal-overlay {
-    padding-top: 0 !important;
-    align-items: stretch !important;
-  }
-
-  .cmd-palette-box {
-    width: 100vw !important;
-    max-width: 100vw !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    border: none !important;
-    border-radius: 0 !important;
-  }
-
-  .cmd-palette-input-row {
-    padding: 1rem !important;
-    height: 48px !important;
-  }
-
-  .cmd-palette-results {
-    max-height: calc(100vh - 48px) !important;
-  }
-
-  .palette-item-row {
-    padding: 0.85rem 1rem !important;
-    min-height: 48px;
   }
 
   /* Visual Designer Layout Adapters */
