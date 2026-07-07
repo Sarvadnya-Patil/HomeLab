@@ -492,17 +492,32 @@ export const Dialog = {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.className = 'custom-dialog-overlay';
+      
+      const defaultCategory = categories[0] || { id: '', name: 'No other categories' };
+      let selectedValue = defaultCategory.id;
+
       overlay.innerHTML = `
         <div class="custom-dialog-box animate-modal" style="max-width: 400px; width: 90%;">
           <div class="custom-dialog-header">${title}</div>
-          <div class="custom-dialog-body">${message}</div>
-          <div style="margin: 1rem 0; display: flex; flex-direction: column; gap: 0.5rem;">
-            <label style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted);">Select Destination Category</label>
-            <select class="custom-dialog-select" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 6px; padding: 0.6rem; color: var(--text-primary); font-size: 0.8rem; width: 100%; outline: none; cursor: pointer;">
-              ${categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-            </select>
+          <div class="custom-dialog-body" style="margin-bottom: 1.25rem;">${message}</div>
+          <div style="margin: 1rem 0; display: flex; flex-direction: column; gap: 0.5rem; position: relative;">
+            <label style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); user-select: none;">Select Destination Category</label>
+            <div class="custom-dropdown-container">
+              <button class="custom-dropdown-trigger">
+                <span class="selected-text">${defaultCategory.name}</span>
+                <span class="dropdown-arrow">▼</span>
+              </button>
+              <div class="custom-dropdown-menu">
+                ${categories.map((c, index) => `
+                  <div class="custom-dropdown-item ${index === 0 ? 'selected' : ''}" data-value="${c.id}">
+                    <span>${c.name}</span>
+                    ${index === 0 ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><polyline points="20 6 9 17 4 12"></polyline></svg>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
           </div>
-          <div class="custom-dialog-actions">
+          <div class="custom-dialog-actions" style="margin-top: 1.5rem;">
             <button class="btn-dialog-cancel">Cancel</button>
             <button class="btn-dialog-ok">Move & Delete</button>
           </div>
@@ -511,8 +526,63 @@ export const Dialog = {
 
       document.body.appendChild(overlay);
 
-      const select = overlay.querySelector('.custom-dialog-select');
+      const trigger = overlay.querySelector('.custom-dropdown-trigger');
+      const menu = overlay.querySelector('.custom-dropdown-menu');
+      const selectedTextSpan = trigger.querySelector('.selected-text');
+      const items = overlay.querySelectorAll('.custom-dropdown-item');
+
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = menu.style.display === 'block';
+        if (isOpen) {
+          menu.style.display = 'none';
+          trigger.classList.remove('active');
+        } else {
+          menu.style.display = 'block';
+          trigger.classList.add('active');
+        }
+      });
+
+      items.forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const val = item.getAttribute('data-value');
+          const name = item.querySelector('span').textContent;
+          selectedValue = val;
+          selectedTextSpan.textContent = name;
+
+          items.forEach(el => {
+            el.classList.remove('selected');
+            const svg = el.querySelector('svg');
+            if (svg) svg.remove();
+          });
+
+          item.classList.add('selected');
+          const checkmark = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          checkmark.setAttribute('viewBox', '0 0 24 24');
+          checkmark.setAttribute('fill', 'none');
+          checkmark.setAttribute('stroke', 'currentColor');
+          checkmark.setAttribute('stroke-width', '2.5');
+          checkmark.setAttribute('stroke-linecap', 'round');
+          checkmark.setAttribute('stroke-linejoin', 'round');
+          checkmark.style.width = '14px';
+          checkmark.style.height = '14px';
+          checkmark.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>';
+          item.appendChild(checkmark);
+
+          menu.style.display = 'none';
+          trigger.classList.remove('active');
+        });
+      });
+
+      const closeMenuOnOutsideClick = () => {
+        menu.style.display = 'none';
+        trigger.classList.remove('active');
+      };
+      window.addEventListener('click', closeMenuOnOutsideClick);
+
       const cleanup = (val) => {
+        window.removeEventListener('click', closeMenuOnOutsideClick);
         overlay.classList.add('fade-out');
         overlay.querySelector('.custom-dialog-box').classList.add('scale-out');
         setTimeout(() => {
@@ -521,11 +591,13 @@ export const Dialog = {
         }, 150);
       };
 
-      overlay.querySelector('.btn-dialog-ok').addEventListener('click', () => {
-        cleanup(select.value);
+      overlay.querySelector('.btn-dialog-ok').addEventListener('click', (e) => {
+        e.stopPropagation();
+        cleanup(selectedValue);
       });
 
-      overlay.querySelector('.btn-dialog-cancel').addEventListener('click', () => {
+      overlay.querySelector('.btn-dialog-cancel').addEventListener('click', (e) => {
+        e.stopPropagation();
         cleanup(null);
       });
 
