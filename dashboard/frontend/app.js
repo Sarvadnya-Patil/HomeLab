@@ -260,8 +260,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      const isOpen = store.get('commandPaletteOpen');
-      store.set('commandPaletteOpen', !isOpen);
+      const mainSearchBar = document.getElementById("cmd-palette");
+      if (mainSearchBar) {
+        mainSearchBar.focus();
+        mainSearchBar.select();
+      }
     }
   });
 

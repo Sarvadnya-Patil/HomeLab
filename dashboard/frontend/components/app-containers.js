@@ -5,10 +5,33 @@ import { Dialog } from '../utils/dialog.js';
 export const AppContainers = {
   container: null,
   activeTab: 'containers',
+  cachedList: null,
+  onSearchInput: null,
 
   init(containerEl) {
     this.container = containerEl;
+    this.cachedList = null;
+
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar) {
+      this.onSearchInput = () => {
+        this.filterAndRenderContent();
+      };
+      mainSearchBar.addEventListener('input', this.onSearchInput);
+    }
+
+    window.activeAppDestroy = () => this.destroy();
+
     this.render();
+  },
+
+  destroy() {
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar && this.onSearchInput) {
+      mainSearchBar.removeEventListener('input', this.onSearchInput);
+    }
+    this.container = null;
+    this.cachedList = null;
   },
 
   async render() {
@@ -40,6 +63,7 @@ export const AppContainers = {
 
   switchTab(tab) {
     this.activeTab = tab;
+    this.cachedList = null;
     this.render();
   },
 
@@ -50,19 +74,60 @@ export const AppContainers = {
     try {
       if (this.activeTab === 'containers') {
         const containers = await api.get('/api/v1/docker/containers');
-        this.renderContainers(contentEl, containers);
+        this.cachedList = containers;
       } else if (this.activeTab === 'images') {
         const images = await api.get('/api/v1/docker/images');
-        this.renderImages(contentEl, images);
+        this.cachedList = images;
       } else if (this.activeTab === 'volumes') {
         const volumes = await api.get('/api/v1/docker/volumes');
-        this.renderVolumes(contentEl, volumes);
+        this.cachedList = volumes;
       } else if (this.activeTab === 'networks') {
         const networks = await api.get('/api/v1/docker/networks');
-        this.renderNetworks(contentEl, networks);
+        this.cachedList = networks;
       }
+      this.filterAndRenderContent();
     } catch (err) {
       contentEl.innerHTML = `<div style="color: var(--term-amber); font-family: var(--font-mono); font-size: 0.75rem;">Failed to fetch Docker daemon API: ${err.message}</div>`;
+    }
+  },
+
+  filterAndRenderContent() {
+    const contentEl = this.container?.querySelector('#docker-tab-content');
+    if (!contentEl || !this.cachedList) return;
+
+    const filterQuery = (document.getElementById("cmd-palette")?.value || '').toLowerCase();
+    
+    const filtered = this.cachedList.filter(item => {
+      if (!filterQuery) return true;
+      
+      if (this.activeTab === 'containers') {
+        const name = item.Names && item.Names[0] ? item.Names[0].replace('/', '') : '';
+        const id = item.Id || '';
+        const image = item.Image || '';
+        return name.toLowerCase().includes(filterQuery) || id.toLowerCase().includes(filterQuery) || image.toLowerCase().includes(filterQuery);
+      } else if (this.activeTab === 'images') {
+        const repoTags = item.RepoTags ? item.RepoTags.join(' ') : '';
+        const id = item.Id || '';
+        return repoTags.toLowerCase().includes(filterQuery) || id.toLowerCase().includes(filterQuery);
+      } else if (this.activeTab === 'volumes') {
+        const name = item.Name || '';
+        return name.toLowerCase().includes(filterQuery);
+      } else if (this.activeTab === 'networks') {
+        const name = item.Name || '';
+        const id = item.Id || '';
+        return name.toLowerCase().includes(filterQuery) || id.toLowerCase().includes(filterQuery);
+      }
+      return true;
+    });
+
+    if (this.activeTab === 'containers') {
+      this.renderContainers(contentEl, filtered);
+    } else if (this.activeTab === 'images') {
+      this.renderImages(contentEl, filtered);
+    } else if (this.activeTab === 'volumes') {
+      this.renderVolumes(contentEl, filtered);
+    } else if (this.activeTab === 'networks') {
+      this.renderNetworks(contentEl, filtered);
     }
   },
 
