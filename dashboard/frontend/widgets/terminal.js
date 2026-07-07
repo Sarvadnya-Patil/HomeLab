@@ -165,6 +165,10 @@ export default {
         if (inputText) {
           inputText.textContent = inputField.value;
         }
+        const outputEl = container.querySelector('#w-term-output');
+        if (outputEl) {
+          outputEl.scrollTop = outputEl.scrollHeight;
+        }
       });
 
       inputField.addEventListener('keydown', async (e) => {
@@ -186,17 +190,17 @@ export default {
           }
 
           // Display command in output
-          this.appendOutput(container, `> ${command}`);
+          this.appendOutput(container, `> ${command}`, true);
 
           try {
             const res = await api.post('/api/v1/terminal', { command });
             if (res && res.output) {
-              this.appendOutput(container, res.output);
+              this.appendOutput(container, res.output, true);
             } else {
-              this.appendOutput(container, 'Command executed (no output).');
+              this.appendOutput(container, 'Command executed (no output).', true);
             }
           } catch (err) {
-            this.appendOutput(container, `Error: ${err.message}`);
+            this.appendOutput(container, `Error: ${err.message}`, true);
           }
         }
       });
@@ -208,7 +212,7 @@ export default {
     // Note: ws-client streams console updates directly into registered subscribers
   },
 
-  appendOutput(container, text) {
+  appendOutput(container, text, forceScroll = false) {
     const output = container.querySelector('#w-term-output');
     if (!output) return;
 
@@ -251,7 +255,7 @@ export default {
         this.modalOutputEl.innerHTML += `<br><span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="m-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="m-term-cursor" class="cursor"></span>`;
       }
       
-      if (modalScrolledToBottom) {
+      if (modalScrolledToBottom || forceScroll) {
         this.modalOutputEl.scrollTop = this.modalOutputEl.scrollHeight;
       }
 
@@ -263,7 +267,7 @@ export default {
       }
     }
 
-    if (outputScrolledToBottom) {
+    if (outputScrolledToBottom || forceScroll) {
       output.scrollTop = output.scrollHeight;
     }
     this.syncHeight(container);
@@ -348,6 +352,9 @@ export default {
         if (inputText) {
           inputText.textContent = modalInput.value;
         }
+        if (modalOutput) {
+          modalOutput.scrollTop = modalOutput.scrollHeight;
+        }
       });
 
       modalInput.addEventListener('keydown', async (e) => {
@@ -374,15 +381,15 @@ export default {
           }
 
           // Display command in output
-          this.appendOutput(container, `> ${command}`);
+          this.appendOutput(container, `> ${command}`, true);
 
           try {
             const res = await api.post('/api/v1/terminal', { command });
             if (res && res.output) {
-              this.appendOutput(container, res.output);
+              this.appendOutput(container, res.output, true);
             }
           } catch (err) {
-            this.appendOutput(container, `Execution error: ${err.message}`);
+            this.appendOutput(container, `Execution error: ${err.message}`, true);
           }
         }
       });
