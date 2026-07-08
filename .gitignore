@@ -84,3 +84,4 @@ services/*/backup/
 
 # Audit Reports
 *audit_report*.md
+*priority_list*.md
