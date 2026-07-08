@@ -44,6 +44,16 @@ export const AppTerminal = {
     setTimeout(() => inputField.focus(), 50);
   },
 
+  escapeHtml(text) {
+    if (typeof text !== 'string') return text;
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  },
+
   async executeCommand(cmd) {
     const outputEl = this.container.querySelector('#app-term-output');
     if (!outputEl) return;
@@ -52,7 +62,7 @@ export const AppTerminal = {
     const cursor = outputEl.querySelector('#app-term-cursor');
     if (cursor) cursor.remove();
 
-    outputEl.innerHTML += `<br><span class="cyan-text">host@homelab-os:~$</span> <span class="white-text">${cmd}</span>`;
+    outputEl.innerHTML += `<br><span class="cyan-text">host@homelab-os:~$</span> <span class="white-text">${this.escapeHtml(cmd)}</span>`;
 
     if (cmd === 'clear') {
       outputEl.innerHTML = `<span class="cyan-text">host@homelab-os:~$</span> <span id="app-term-cursor" class="cursor"></span>`;
@@ -61,10 +71,10 @@ export const AppTerminal = {
 
     try {
       const res = await api.post('/api/v1/terminal', { command: cmd });
-      const formatted = res.output.replace(/\n/g, '<br>');
+      const formatted = this.escapeHtml(res.output).replace(/\n/g, '<br>');
       outputEl.innerHTML += `<br><span class="white-text">${formatted}</span>`;
     } catch (err) {
-      outputEl.innerHTML += `<br><span style="color: var(--border-focus);">bash error: ${err.message}</span>`;
+      outputEl.innerHTML += `<br><span style="color: var(--border-focus);">bash error: ${this.escapeHtml(err.message)}</span>`;
     }
 
     outputEl.innerHTML += `<br><br><span class="cyan-text">host@homelab-os:~$</span> <span id="app-term-cursor" class="cursor"></span>`;

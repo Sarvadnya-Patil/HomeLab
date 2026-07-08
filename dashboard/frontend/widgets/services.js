@@ -4,6 +4,16 @@ import { api } from '../core/api.js';
 import { getIcon } from '../utils/icons.js';
 import { Dialog } from '../utils/dialog.js';
 
+function escapeHtml(text) {
+  if (typeof text !== 'string') return text;
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 export default {
   id: 'services',
   title: 'Discovered Services',
@@ -268,13 +278,13 @@ export default {
         <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">
           <span class="card-icon" style="flex-shrink: 0; display: flex; align-items: center;">${getIcon(service.id)}</span>
           <div style="overflow: hidden;">
-            <h4 class="service-name" style="margin: 0; font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">${service.name}</h4>
-            <span style="font-size: 0.6rem; color: var(--text-muted); font-family: var(--font-mono);">${service.version}</span>
+            <h4 class="service-name" style="margin: 0; font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">${escapeHtml(service.name)}</h4>
+            <span style="font-size: 0.6rem; color: var(--text-muted); font-family: var(--font-mono);">${escapeHtml(service.version)}</span>
           </div>
         </div>
-        <span class="card-status ${isOnline ? 'online' : 'offline'}" style="flex-shrink: 0; font-size: 0.7rem; font-family: var(--font-mono); display: flex; align-items: center; padding: 0.15rem 0.35rem; border-radius: 3px;">${service.status}</span>
+        <span class="card-status ${isOnline ? 'online' : 'offline'}" style="flex-shrink: 0; font-size: 0.7rem; font-family: var(--font-mono); display: flex; align-items: center; padding: 0.15rem 0.35rem; border-radius: 3px;">${escapeHtml(service.status)}</span>
       </div>
-      <p class="service-description" style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; min-height: 32px;">${service.description}</p>
+      <p class="service-description" style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; min-height: 32px;">${escapeHtml(service.description)}</p>
       
       <div class="card-badges-row" style="margin-top: 0.25rem;">
         ${badges}

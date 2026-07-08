@@ -110,6 +110,22 @@ export default function (fastify: any, engine: CoreEngine): void {
     }
 
     request.user = user;
+
+    // Enforce role-based access control (RBAC)
+    const role = user.role || 'viewer';
+    if (url.startsWith('/api/v1/terminal') || url.startsWith('/api/v1/backups') || url.startsWith('/api/v1/settings')) {
+      if (role !== 'admin') {
+        return reply.status(403).send({ error: 'Forbidden: Admin privilege required' });
+      }
+    }
+    if (url.startsWith('/api/v1/docker') || url.startsWith('/api/v1/workflows') || url.startsWith('/api/v1/designer') || url.startsWith('/api/v1/jobs')) {
+      if (role !== 'admin' && role !== 'editor') {
+        return reply.status(403).send({ error: 'Forbidden: Editor or Admin privilege required' });
+      }
+    }
+    if (request.method !== 'GET' && role === 'viewer') {
+      return reply.status(403).send({ error: 'Forbidden: Viewer role cannot mutate resources' });
+    }
   });
 
   // Load modular v1 routes

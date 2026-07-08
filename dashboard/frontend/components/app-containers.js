@@ -34,6 +34,16 @@ export const AppContainers = {
     this.cachedList = null;
   },
 
+  escapeHtml(text) {
+    if (typeof text !== 'string') return text;
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  },
+
   async render() {
     if (!this.container) return;
 
@@ -153,15 +163,21 @@ export const AppContainers = {
     list.forEach(c => {
       const name = c.Names[0] ? c.Names[0].replace('/', '') : 'Unnamed';
       const isRunning = c.State === 'running';
+
+      const escName = this.escapeHtml(name);
+      const escState = this.escapeHtml(c.State);
+      const escStatus = this.escapeHtml(c.Status);
+      const escImage = this.escapeHtml(c.Image || '');
+
       html += `
         <tr style="border-bottom: 1px dashed rgba(255,255,255,0.02); height: 40px;" data-container-id="${c.Id}">
-          <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary);">${name}</td>
-          <td style="padding: 0.5rem;"><span class="card-status ${isRunning ? 'online' : 'offline'}" style="padding: 0.1rem 0.35rem; border-radius: 3px; font-family: var(--font-mono); font-size: 0.65rem;">${c.State}</span></td>
-          <td style="padding: 0.5rem; color: var(--text-secondary); font-family: var(--font-mono);">${c.Status}</td>
-          <td style="padding: 0.5rem; color: var(--text-muted); font-family: var(--font-mono); font-size: 0.65rem;">${c.Image || ''}</td>
+          <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary);">${escName}</td>
+          <td style="padding: 0.5rem;"><span class="card-status ${isRunning ? 'online' : 'offline'}" style="padding: 0.1rem 0.35rem; border-radius: 3px; font-family: var(--font-mono); font-size: 0.65rem;">${escState}</span></td>
+          <td style="padding: 0.5rem; color: var(--text-secondary); font-family: var(--font-mono);">${escStatus}</td>
+          <td style="padding: 0.5rem; color: var(--text-muted); font-family: var(--font-mono); font-size: 0.65rem;">${escImage}</td>
           <td style="padding: 0.5rem; text-align: right; display: flex; gap: 0.25rem; justify-content: flex-end; align-items: center; height: 40px;">
-            <button class="btn btn-panel btn-container-toggle" data-container-id="${c.Id}" data-service-id="${name}">${isRunning ? 'Stop' : 'Start'}</button>
-            <button class="btn btn-panel btn-container-restart" data-container-id="${c.Id}" data-service-id="${name}">Restart</button>
+            <button class="btn btn-panel btn-container-toggle" data-container-id="${c.Id}" data-service-id="${escName}">${isRunning ? 'Stop' : 'Start'}</button>
+            <button class="btn btn-panel btn-container-restart" data-container-id="${c.Id}" data-service-id="${escName}">Restart</button>
             <button class="btn btn-panel btn-container-logs" data-container-id="${c.Id}">Logs</button>
             <button class="btn btn-panel btn-container-inspect" data-container-id="${c.Id}">Inspect</button>
             <button class="btn btn-panel danger-btn btn-container-remove" data-container-id="${c.Id}">Remove</button>
@@ -398,13 +414,16 @@ export const AppContainers = {
     inner.style.flexDirection = 'column';
     inner.style.gap = '1rem';
 
+    const escTitle = this.escapeHtml(title);
+    const escContent = this.escapeHtml(contentText);
+
     inner.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:0.75rem;">
-        <h3 style="margin:0; font-size:1rem; color:#fff; font-weight:600;">${title}</h3>
+        <h3 style="margin:0; font-size:1rem; color:#fff; font-weight:600;">${escTitle}</h3>
         <button class="btn btn-panel" id="modal-close-btn" style="padding:0.25rem 0.5rem; font-size:0.7rem;">Close</button>
       </div>
       <div style="flex:1; overflow-y:auto; background:#000; border-radius:6px; padding:1rem; font-family:'JetBrains Mono', monospace; font-size:0.7rem; color:var(--text-primary); white-space:pre-wrap; border:1px solid rgba(255,255,255,0.05); line-height:1.4;">
-        ${isJson ? contentText : contentText}
+        ${escContent}
       </div>
     `;
 

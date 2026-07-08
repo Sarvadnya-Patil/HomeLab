@@ -10,7 +10,8 @@ const logSubscribers = new Set();
 export const WsClient = {
   connect() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const token = localStorage.getItem('homelab_token') || '';
+    const wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
 
     console.log(`WsClient connecting to stream endpoint: ${wsUrl}`);
     wsConn = new WebSocket(wsUrl);

@@ -57,8 +57,9 @@ export class WidgetsRepository extends BaseRepository<Widget> {
   }
 
   updateInWorkspace(id: string, workspaceId: string, partial: Partial<Widget>): Widget | undefined {
+    const allowed = ['type', 'title', 'size', 'col', 'row', 'displayOrder', 'pinned', 'visible', 'config'];
     const fields = Object.keys(partial).filter(
-      (k) => k !== 'id' && k !== 'workspaceId' && k !== 'createdAt' && k !== 'updatedAt'
+      (k) => allowed.includes(k)
     );
     if (fields.length === 0) return this.findByIdAndWorkspace(id, workspaceId);
 

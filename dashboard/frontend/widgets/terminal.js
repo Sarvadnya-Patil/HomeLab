@@ -6,6 +6,13 @@ import { api } from '../core/api.js';
 function ansiToHtml(text) {
   if (!text) return '';
   
+  const escapedText = String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+  
   const ansiColors = {
     '0': 'reset',
     '1': 'font-weight: bold;',
@@ -36,7 +43,7 @@ function ansiToHtml(text) {
   const regex = /(?:\x1b|\u001b|\\u001b|\\x1b||[\x00-\x1F\x7F])\[([0-9;]*)m/g;
   
   let openSpanCount = 0;
-  let html = text.replace(regex, (match, codesRaw) => {
+  let html = escapedText.replace(regex, (match, codesRaw) => {
     const codes = codesRaw.split(';');
     
     // Reset or blank styles

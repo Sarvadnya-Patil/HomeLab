@@ -37,13 +37,13 @@ export class UsersRepository extends BaseRepository<User> {
   }
 
   update(id: string, partial: Partial<User>): User | undefined {
+    const allowed = ['username', 'password', 'displayName', 'role', 'avatar'];
     const fields = Object.keys(partial).filter(
-      (k) => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt'
+      (k) => allowed.includes(k)
     );
     if (fields.length === 0) return this.findById(id);
 
     const sets = fields.map((f) => {
-      // Map camelCase to snake_case for SQLite compatibility if needed, but our columns match camelCase in schema exactly
       const colName = f === 'displayName' ? 'display_name' : f;
       return `${colName} = ?`;
     });

@@ -6,6 +6,19 @@ export default function (fastify: any, engine: CoreEngine): void {
   fastify.get('/ws', { websocket: true }, (connection: any, _req: any) => {
     const socket = connection.socket;
 
+    const token = _req.query?.token;
+    if (!token) {
+      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Authentication token required' }));
+      socket.close();
+      return;
+    }
+    const user = engine.auth.verifyToken(token);
+    if (!user) {
+      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Invalid token' }));
+      socket.close();
+      return;
+    }
+
     // Add client socket connection to pool
     engine.registerWsClient(socket);
 
