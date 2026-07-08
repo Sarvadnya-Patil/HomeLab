@@ -27,7 +27,12 @@ export default function (fastify: any, engine: CoreEngine): void {
     if (!dbUser) {
       return reply.status(401).send({ error: 'User no longer exists' });
     }
-    return user;
+    return {
+      id: dbUser.id,
+      username: dbUser.username,
+      role: dbUser.role,
+      displayName: dbUser.displayName
+    };
   });
 
   // 3. GET: /api/v1/auth/setup-status (Check if system requires first-time initialization setup)

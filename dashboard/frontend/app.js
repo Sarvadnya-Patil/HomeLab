@@ -29,6 +29,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   NotificationCenter.init();
   Sidebar.init(document.getElementById('sidebar-nav-menu'));
 
+  // 1.5. Bind logged-in user profile view update state changes
+  store.on('currentUser', ({ value }) => {
+    const displayNameEl = document.getElementById('user-display-name');
+    const roleEl = document.getElementById('user-role');
+    const avatarEl = document.getElementById('user-avatar');
+    
+    if (value) {
+      if (displayNameEl) displayNameEl.textContent = value.displayName || value.username || 'Administrator';
+      if (roleEl) roleEl.textContent = value.role || 'ADMIN';
+      if (avatarEl) {
+        const name = value.displayName || value.username || 'A';
+        avatarEl.textContent = name.charAt(0).toUpperCase();
+      }
+    }
+  });
+
   // 2. Register dynamic view router
   store.on('activeApp', ({ value }) => {
     console.log(`Routing active viewport application: [${value}]`);
