@@ -81,3 +81,6 @@ ssh_host_*
 # Runtime container config and data volumes
 services/*/data/
 services/*/backup/
+
+# Audit Reports
+*audit_report*.md

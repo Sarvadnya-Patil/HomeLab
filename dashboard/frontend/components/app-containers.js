@@ -103,8 +103,7 @@ export const AppContainers = {
       if (this.activeTab === 'containers') {
         const name = item.Names && item.Names[0] ? item.Names[0].replace('/', '') : '';
         const id = item.Id || '';
-        const image = item.Image || '';
-        return name.toLowerCase().includes(filterQuery) || id.toLowerCase().includes(filterQuery) || image.toLowerCase().includes(filterQuery);
+        return name.toLowerCase().includes(filterQuery) || id.toLowerCase().includes(filterQuery);
       } else if (this.activeTab === 'images') {
         const repoTags = item.RepoTags ? item.RepoTags.join(' ') : '';
         const id = item.Id || '';
