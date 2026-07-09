@@ -246,29 +246,33 @@ export default {
       const latVal = (service.details && service.details.latency && service.details.latency !== 'N/A') 
         ? service.details.latency 
         : '--';
+      const portVal = service.ports && service.ports.http ? String(service.ports.http) : 'N/A';
+      const uptimeVal = service.details ? String(service.details.uptime) : 'N/A';
       detailsHtml = `
         <div class="detail-item">
           <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Exposed Port</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.ports && service.ports.http ? service.ports.http : 'N/A'}</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(portVal)}</span>
         </div>
         <div class="detail-item">
           <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Latency</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${latVal}</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(latVal)}</span>
         </div>
         <div class="detail-item" style="grid-column: span 2;">
           <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Uptime</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.details ? service.details.uptime : 'N/A'}</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(uptimeVal)}</span>
         </div>
       `;
     } else {
+      const portVal = service.ports && service.ports.http ? String(service.ports.http) : 'N/A';
+      const uptimeVal = service.details ? String(service.details.uptime) : 'N/A';
       detailsHtml = `
         <div class="detail-item">
           <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Exposed Port</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.ports && service.ports.http ? service.ports.http : 'N/A'}</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(portVal)}</span>
         </div>
         <div class="detail-item">
           <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Uptime</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.details ? service.details.uptime : 'N/A'}</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(uptimeVal)}</span>
         </div>
       `;
     }

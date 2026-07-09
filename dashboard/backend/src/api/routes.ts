@@ -113,9 +113,14 @@ export default function (fastify: any, engine: CoreEngine): void {
 
     // Enforce role-based access control (RBAC)
     const role = user.role || 'viewer';
-    if (url.startsWith('/api/v1/terminal') || url.startsWith('/api/v1/backups') || url.startsWith('/api/v1/settings')) {
+    if (url.startsWith('/api/v1/terminal') || url.startsWith('/api/v1/backups') || url.startsWith('/api/v1/settings') || url.startsWith('/api/v1/audit')) {
       if (role !== 'admin') {
         return reply.status(403).send({ error: 'Forbidden: Admin privilege required' });
+      }
+    }
+    if (url.startsWith('/api/v1/servers') && request.method !== 'GET') {
+      if (role !== 'admin') {
+        return reply.status(403).send({ error: 'Forbidden: Admin privilege required to modify servers clustering' });
       }
     }
     if (url.startsWith('/api/v1/docker') || url.startsWith('/api/v1/workflows') || url.startsWith('/api/v1/designer') || url.startsWith('/api/v1/jobs')) {

@@ -17,6 +17,16 @@ export const NotificationCenter = {
     store.on('notifications', () => this.render());
   },
 
+  escapeHtml(text) {
+    if (typeof text !== 'string') return text;
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  },
+
   createDom() {
     if (document.getElementById('notification-center-drawer')) return;
 
@@ -94,12 +104,15 @@ export const NotificationCenter = {
       const row = document.createElement('div');
       row.className = `notification-drawer-item level-${item.level || 'info'} ${item.read ? 'read' : ''}`;
       
+      const escOrigin = this.escapeHtml(item.origin || '');
+      const escMessage = this.escapeHtml(item.message || '');
+      
       row.innerHTML = `
         <div class="notif-drawer-meta">
-          <span class="notif-drawer-time">[${item.createdAt || ''}]</span>
-          <span class="notif-drawer-origin">${item.origin}</span>
+          <span class="notif-drawer-time">[${this.escapeHtml(item.createdAt || '')}]</span>
+          <span class="notif-drawer-origin">${escOrigin}</span>
         </div>
-        <div class="notif-drawer-msg">${item.message}</div>
+        <div class="notif-drawer-msg">${escMessage}</div>
       `;
 
       if (!item.read) {

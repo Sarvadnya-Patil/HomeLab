@@ -2,16 +2,21 @@
 import { WsClient } from '../core/ws-client.js';
 import { api } from '../core/api.js';
 
-// Premium ANSI escape-code parsing and color conversion utility
-function ansiToHtml(text) {
-  if (!text) return '';
-  
-  const escapedText = String(text)
+function escapeHtml(text) {
+  if (typeof text !== 'string') return text;
+  return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;');
+}
+
+// Premium ANSI escape-code parsing and color conversion utility
+function ansiToHtml(text) {
+  if (!text) return '';
+  
+  const escapedText = escapeHtml(text);
   
   const ansiColors = {
     '0': 'reset',
@@ -133,12 +138,14 @@ export default {
       const currentInputValue = inputEl ? inputEl.value : '';
 
       const formatted = ansiToHtml(output);
-      outputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;">${currentInputValue}</span><span id="w-term-cursor" class="cursor"></span>`;
+      const escInputValue = escapeHtml(currentInputValue);
+      outputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;">${escInputValue}</span><span id="w-term-cursor" class="cursor"></span>`;
       
       if (this.modalActive && this.modalOutputEl) {
         const mInput = document.querySelector('#m-term-input');
         const currentModalInputValue = mInput ? mInput.value : '';
-        this.modalOutputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="m-term-input-text" style="color: var(--text-white); white-space: pre-wrap;">${currentModalInputValue}</span><span id="m-term-cursor" class="cursor"></span>`;
+        const escModalInputValue = escapeHtml(currentModalInputValue);
+        this.modalOutputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="m-term-input-text" style="color: var(--text-white); white-space: pre-wrap;">${escModalInputValue}</span><span id="m-term-cursor" class="cursor"></span>`;
         if (modalScrolledToBottom) {
           this.modalOutputEl.scrollTop = this.modalOutputEl.scrollHeight;
         }

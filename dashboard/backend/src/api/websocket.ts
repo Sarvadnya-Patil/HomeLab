@@ -38,6 +38,15 @@ export default function (fastify: any, engine: CoreEngine): void {
           engine.unsubscribe(socket, [`docker.logs.${payload.serviceId}`]);
           engine.stopLogPoller(payload.serviceId);
         } else if (payload.type === 'terminal' && payload.command) {
+          if (user.role !== 'admin') {
+            socket.send(
+              JSON.stringify({
+                type: 'error',
+                message: 'Forbidden: Admin privilege required'
+              })
+            );
+            return;
+          }
           const output = await engine.terminal.execute(payload.command);
           socket.send(
             JSON.stringify({
