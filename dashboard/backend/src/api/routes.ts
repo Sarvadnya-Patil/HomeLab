@@ -48,11 +48,33 @@ export default function (fastify: any, engine: CoreEngine): void {
     const statusCode = error.statusCode || 500;
     const url = request.url || '';
     if (url.startsWith('/api/v1/')) {
+      let friendlyMessage = error.message || 'Internal Server Error';
+
+      // Rewrite Fastify validation errors (AJV) into clean human-readable statements
+      if (error.validation && error.validation.length > 0) {
+        const vError = error.validation[0];
+        const rawField = vError.instancePath ? vError.instancePath.replace(/^\//, '') : (vError.params?.missingProperty || 'field');
+        // Camel case to separate words for readability
+        const field = rawField.replace(/([A-Z])/g, ' $1').toLowerCase();
+
+        if (vError.keyword === 'minLength') {
+          friendlyMessage = `The ${field} must be at least ${vError.params.limit} characters long.`;
+        } else if (vError.keyword === 'maxLength') {
+          friendlyMessage = `The ${field} cannot exceed ${vError.params.limit} characters.`;
+        } else if (vError.keyword === 'required') {
+          friendlyMessage = `The ${field} is required.`;
+        } else if (vError.keyword === 'pattern') {
+          friendlyMessage = `The ${field} format is invalid.`;
+        } else {
+          friendlyMessage = `Invalid input: ${error.message}`;
+        }
+      }
+
       reply.status(statusCode).send({
         success: false,
         error: {
-          message: error.message || 'Internal Server Error',
-          code: error.code || 'INTERNAL_ERROR'
+          message: friendlyMessage,
+          code: error.validation ? 'VALIDATION_ERROR' : (error.code || 'INTERNAL_ERROR')
         }
       });
     } else {
