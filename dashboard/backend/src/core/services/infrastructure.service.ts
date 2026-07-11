@@ -298,8 +298,117 @@ export class InfrastructureService {
     return this.scheduler;
   }
 
+  private updateComposeCache(containers: any[]): void {
+    const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
+    
+    const dataDir = path.dirname(cacheFilePath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+
+    let cache: Record<string, any> = {};
+    if (fs.existsSync(cacheFilePath)) {
+      try {
+        cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
+      } catch {
+        // ignore malformed cache
+      }
+    }
+
+    let modified = false;
+    for (const c of containers) {
+      if (c.Labels) {
+        const workingDir = c.Labels['com.docker.compose.project.working_dir'];
+        const configFiles = c.Labels['com.docker.compose.project.config_files'];
+        const projectName = c.Labels['com.docker.compose.project'];
+        const serviceName = c.Labels['com.docker.compose.service'] || (c.Names && c.Names[0] ? c.Names[0].replace('/', '') : '');
+
+        if (workingDir && serviceName) {
+          cache[serviceName] = {
+            workingDir,
+            configFiles: configFiles || '',
+            projectName: projectName || '',
+            image: c.Image || '',
+            lastSeen: new Date().toISOString()
+          };
+          modified = true;
+        }
+      }
+    }
+
+    if (modified) {
+      fs.writeFileSync(cacheFilePath, JSON.stringify(cache, null, 2), 'utf8');
+    }
+  }
+
   async getContainers(): Promise<any[]> {
-    return this.docker.getContainers();
+    let containers: any[] = [];
+    try {
+      containers = await this.docker.getContainers();
+      this.updateComposeCache(containers);
+    } catch (err: any) {
+      Logger.warn('InfrastructureService', `Failed to query Docker Proxy containers: ${err.message}`);
+    }
+
+    const matchedNames = new Set<string>();
+    for (const c of containers) {
+      if (c.Names) {
+        for (const name of c.Names) {
+          matchedNames.add(name.replace('/', ''));
+        }
+      }
+    }
+
+    const placeholders: any[] = [];
+
+    // 1. Load cached offline compose containers from compose_cache.json
+    try {
+      const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
+      if (fs.existsSync(cacheFilePath)) {
+        const cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
+        for (const serviceName of Object.keys(cache)) {
+          if (!matchedNames.has(serviceName) && !placeholders.some(p => p.Names.includes(`/${serviceName}`))) {
+            const entry = cache[serviceName];
+            placeholders.push({
+              Id: '',
+              Names: [`/${serviceName}`],
+              State: 'Offline',
+              Status: 'Not Deployed',
+              Image: entry.image || 'latest',
+              IsServicePlaceholder: true,
+              Labels: {
+                'com.docker.compose.project.working_dir': entry.workingDir,
+                'com.docker.compose.project.config_files': entry.configFiles
+              }
+            });
+          }
+        }
+      }
+    } catch (err: any) {
+      Logger.error('InfrastructureService', `Failed to merge compose cache: ${err.message}`);
+    }
+
+    // 2. Load registered services from plugin registry
+    try {
+      const services = this.plugin.discover();
+      for (const s of services) {
+        const alreadyListed = matchedNames.has(s.id) || placeholders.some(p => p.Names.includes(`/${s.id}`) || p.Names.some((n: string) => n.endsWith(`-${s.id}`)));
+        if (!alreadyListed) {
+          placeholders.push({
+            Id: '',
+            Names: [`/${s.id}`],
+            State: 'Offline',
+            Status: 'Not Deployed',
+            Image: s.version || 'latest',
+            IsServicePlaceholder: true
+          });
+        }
+      }
+    } catch (err: any) {
+      Logger.error('InfrastructureService', `Failed to merge service plugin placeholders: ${err.message}`);
+    }
+
+    return [...containers, ...placeholders];
   }
 
   async getImages(): Promise<any[]> {

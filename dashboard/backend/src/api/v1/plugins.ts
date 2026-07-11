@@ -132,22 +132,34 @@ export default function (fastify: any, engine: CoreEngine): void {
     const { id } = request.params;
     const actor = request.user?.id || 'admin';
 
-    // Resolve the service directory from plugin manifests
-    const servicesDir = engine.plugin.getServicesDir();
-    const serviceDir = path.join(servicesDir, id);
+    // Resolve the service directory, checking the compose cache first for external folders
+    let serviceDir = path.join(engine.plugin.getServicesDir(), id);
+    let composeFile = 'docker-compose.yml';
 
-    if (!fs.existsSync(serviceDir)) {
-      throw { statusCode: 404, message: `Service directory not found for [${id}]. Cannot recreate.` };
+    try {
+      const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
+      if (fs.existsSync(cacheFilePath)) {
+        const cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
+        if (cache[id] && cache[id].workingDir && fs.existsSync(cache[id].workingDir)) {
+          serviceDir = cache[id].workingDir;
+          if (cache[id].configFiles) {
+            // Read basename (e.g. docker-compose.yml or docker-compose.yaml)
+            composeFile = path.basename(cache[id].configFiles.split(',')[0]);
+          }
+        }
+      }
+    } catch {
+      // Fallback silently to default local services folder
     }
 
-    // Locate compose file from plugin manifest or default
-    const plugins = engine.plugin.discover();
-    const plugin = plugins.find(p => p.id === id);
-    const composeFile = plugin?.compose || 'docker-compose.yml';
-    const composePath = path.join(serviceDir, composeFile);
+    if (!fs.existsSync(serviceDir)) {
+      throw { statusCode: 404, message: `Compose folder not found for [${id}]. Cannot recreate.` };
+    }
 
+    // Locate compose file path
+    const composePath = path.join(serviceDir, composeFile);
     if (!fs.existsSync(composePath)) {
-      throw { statusCode: 404, message: `Compose file [${composeFile}] not found in service directory [${id}].` };
+      throw { statusCode: 404, message: `Compose file [${composeFile}] not found in directory [${serviceDir}].` };
     }
 
     const job = await engine.jobs.executeAsyncTask(

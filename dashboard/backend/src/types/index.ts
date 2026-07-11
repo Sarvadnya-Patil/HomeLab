@@ -199,6 +199,8 @@ export interface DockerContainer {
   Names: string[];
   State: string;
   Status: string;
+  Image?: string;
+  Labels?: Record<string, string>;
 }
 
 // Dynamic configuration schemas
