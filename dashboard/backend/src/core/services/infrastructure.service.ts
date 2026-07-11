@@ -408,6 +408,35 @@ export class InfrastructureService {
     } catch (err: any) {
       Logger.error('InfrastructureService', `Failed to merge service plugin placeholders: ${err.message}`);
     }
+    // Query restart policies for active containers
+    const restartPolicies: Record<string, string> = {};
+    try {
+      const activeIds = containers.map(c => c.Id).filter(Boolean);
+      if (activeIds.length > 0) {
+        const inspectOut = execSync(`docker inspect --format "{{.Id}} {{.HostConfig.RestartPolicy.Name}}" ${activeIds.join(' ')}`, {
+          env: { DOCKER_HOST: 'tcp://docker-proxy:2375' },
+          timeout: 10000,
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'ignore']
+        });
+        for (const line of inspectOut.trim().split('\n')) {
+          const parts = line.trim().split(' ');
+          const id = parts[0];
+          const policy = parts[1];
+          if (id && policy) {
+            restartPolicies[id.trim()] = policy.trim();
+          }
+        }
+      }
+    } catch (err: any) {
+      Logger.warn('InfrastructureService', `Failed to query restart policies: ${err.message}`);
+    }
+
+    for (const c of containers) {
+      const policy = restartPolicies[c.Id] || restartPolicies[c.Id.substring(0, 12)] || 'no';
+      c.RestartPolicy = policy;
+      c.Autostart = (policy === 'always' || policy === 'unless-stopped');
+    }
 
     return [...containers, ...placeholders];
   }

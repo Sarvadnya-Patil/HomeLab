@@ -1,5 +1,6 @@
 // Docker endpoints versioned REST Subsystem API routes
 import { CoreEngine } from '../../core/engine';
+import { execSync } from 'child_process';
 import path from 'path';
 
 export default function (fastify: any, engine: CoreEngine): void {
@@ -72,5 +73,26 @@ export default function (fastify: any, engine: CoreEngine): void {
       }
     );
     return { success: true, jobId: job.id };
+  });
+
+  // 9. POST: /api/v1/docker/containers/:id/autostart (Toggle autostart behavior by updating restart policy)
+  fastify.post('/api/v1/docker/containers/:id/autostart', async (request: any) => {
+    const { id } = request.params;
+    const { enabled } = request.body || {};
+    const actor = request.user?.id || 'admin';
+    const policy = enabled ? 'unless-stopped' : 'no';
+
+    try {
+      execSync(`docker update --restart=${policy} ${id}`, {
+        env: { DOCKER_HOST: 'tcp://docker-proxy:2375' },
+        timeout: 10000,
+        encoding: 'utf8'
+      });
+      engine.auditRepo.log(actor, 'update_restart_policy', 'container', id, { policy });
+      return { success: true, policy };
+    } catch (err: any) {
+      const stderr = err.stderr || err.message;
+      throw { statusCode: 500, message: `Failed to update autostart restart policy: ${stderr}` };
+    }
   });
 }

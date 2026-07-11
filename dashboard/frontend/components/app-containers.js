@@ -271,6 +271,7 @@ export const AppContainers = {
             <th style="padding: 0.5rem;">CONTAINER NAME</th>
             <th style="padding: 0.5rem;">STATE</th>
             <th style="padding: 0.5rem;">STATUS</th>
+            <th style="padding: 0.5rem;">AUTOSTART</th>
             <th style="padding: 0.5rem;">IMAGE</th>
             <th style="padding: 0.5rem; text-align: right;">ACTIONS</th>
           </tr>
@@ -289,11 +290,23 @@ export const AppContainers = {
 
       const isPlaceholder = c.IsServicePlaceholder === true;
 
+      const autostartTd = isPlaceholder ? `
+        <td style="padding: 0.5rem; color: var(--text-muted); font-size: 0.7rem;">N/A</td>
+      ` : `
+        <td style="padding: 0.5rem;">
+          <label class="switch">
+            <input type="checkbox" class="autostart-toggle" data-container-id="${c.Id}" ${c.Autostart ? 'checked' : ''}>
+            <span class="slider"></span>
+          </label>
+        </td>
+      `;
+
       html += `
         <tr style="border-bottom: 1px dashed rgba(255,255,255,0.02); height: 40px;" data-container-id="${c.Id}">
           <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary);">${escName}</td>
           <td style="padding: 0.5rem;"><span class="card-status ${isRunning ? 'online' : 'offline'}" style="padding: 0.1rem 0.35rem; border-radius: 3px; font-family: var(--font-mono); font-size: 0.65rem;">${escState}</span></td>
           <td style="padding: 0.5rem; color: var(--text-secondary); font-family: var(--font-mono);">${escStatus}</td>
+          ${autostartTd}
           <td style="padding: 0.5rem; color: var(--text-muted); font-family: var(--font-mono); font-size: 0.65rem;">${escImage}</td>
           <td style="padding: 0.5rem; text-align: right; display: flex; gap: 0.25rem; justify-content: flex-end; align-items: center; height: 40px;">
             ${isPlaceholder ? `
@@ -385,6 +398,20 @@ export const AppContainers = {
           } catch (err) {
             alert(`Compose Up failed: ${err.message || err.error || 'Unknown error'}`);
           }
+        }
+      });
+    });
+
+    // Attach Autostart toggles
+    target.querySelectorAll('.autostart-toggle').forEach(input => {
+      input.addEventListener('change', async () => {
+        const id = input.getAttribute('data-container-id');
+        const enabled = input.checked;
+        try {
+          await api.post(`/api/v1/docker/containers/${id}/autostart`, { enabled });
+        } catch (err) {
+          alert(`Failed to update autostart setting: ${err.message}`);
+          input.checked = !enabled;
         }
       });
     });

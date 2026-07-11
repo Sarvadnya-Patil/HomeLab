@@ -1547,4 +1547,54 @@ input[type=number] {
   }
 }
 
+/* Modern switch toggles */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  margin: 0;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-slate);
+  transition: .2s;
+  border-radius: 18px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 2px;
+  bottom: 2px;
+  background-color: var(--text-muted);
+  transition: .2s;
+  border-radius: 50%;
+}
+
+.switch input:checked + .slider {
+  background-color: var(--text-accent, #60a5fa) !important;
+  border-color: var(--text-accent, #60a5fa) !important;
+}
+
+.switch input:checked + .slider:before {
+  transform: translateX(14px);
+  background-color: var(--bg-card) !important;
+}
+
 
