@@ -9,16 +9,23 @@ export default function (fastify: any, engine: CoreEngine): void {
         type: 'object',
         required: ['username', 'password'],
         properties: {
-          username: { type: 'string', minLength: 3, maxLength: 30 },
-          password: { type: 'string', minLength: 6 }
+          username: { type: 'string' },
+          password: { type: 'string' }
         }
       }
     }
   }, async (request: any, reply: any) => {
     const { username, password } = request.body || {};
+    
+    // Query repository to provide user-friendly specific error details
+    const user = engine.usersRepo.findByUsername(username);
+    if (!user) {
+      return reply.status(401).send({ error: 'Incorrect username or password' });
+    }
+
     const token = engine.auth.login(username, password);
     if (!token) {
-      return reply.status(401).send({ error: 'Invalid username or password' });
+      return reply.status(401).send({ error: 'Incorrect password' });
     }
     return { token };
   });
