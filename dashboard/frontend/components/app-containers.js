@@ -268,6 +268,7 @@ export const AppContainers = {
           <td style="padding: 0.5rem; text-align: right; display: flex; gap: 0.25rem; justify-content: flex-end; align-items: center; height: 40px;">
             ${isPlaceholder ? `
               <button class="btn btn-panel btn-container-recreate" data-container-id="" data-service-id="${escName}" style="color: var(--text-accent, #60a5fa); border-color: var(--text-accent, #60a5fa);">Recreate</button>
+              <button class="btn btn-panel danger-btn btn-container-remove" data-container-id="" data-service-id="${escName}">Remove</button>
             ` : `
               <button class="btn btn-panel btn-container-toggle" data-container-id="${c.Id}" data-service-id="${escName}">${isRunning ? 'Stop' : 'Start'}</button>
               ${isRunning ? `<button class="btn btn-panel btn-container-restart" data-container-id="${c.Id}" data-service-id="${escName}">Restart</button>` : ''}

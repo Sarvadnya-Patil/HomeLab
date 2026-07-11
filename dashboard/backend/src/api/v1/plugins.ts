@@ -52,17 +52,35 @@ export default function (fastify: any, engine: CoreEngine): void {
       id,
       async (updateProgress) => {
         updateProgress(20);
+        // Handle container removal cache pruning
+        if (action === 'remove') {
+          try {
+            const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
+            if (fs.existsSync(cacheFilePath)) {
+              const cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
+              if (cache[id]) {
+                delete cache[id];
+                fs.writeFileSync(cacheFilePath, JSON.stringify(cache, null, 2), 'utf8');
+              }
+            }
+          } catch (err: any) {
+            Logger.error('PluginsSubsystem', `Failed to prune from compose cache: ${err.message}`);
+          }
+        }
+
         const dockerContainers = await engine.docker.getContainers();
         const match = dockerContainers.find((c) =>
           c.Names.some((name: string) => name === `/${id}` || name.endsWith(`-${id}`))
         );
-        if (!match && action !== 'start') {
+        if (!match && action !== 'start' && action !== 'remove') {
           throw new Error(`No container found matching service ID [${id}]`);
         }
 
         updateProgress(50);
         const containerId = match ? match.Id : null;
-        await engine.docker.executeAction(containerId, id, action, actor);
+        if (containerId || action !== 'remove') {
+          await engine.docker.executeAction(containerId, id, action, actor);
+        }
         updateProgress(90);
 
         // Notify event log
