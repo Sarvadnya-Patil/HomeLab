@@ -274,7 +274,7 @@ export const AppContainers = {
               ${isRunning ? `<button class="btn btn-panel btn-container-logs" data-container-id="${c.Id}">Logs</button>` : ''}
               <button class="btn btn-panel btn-container-inspect" data-container-id="${c.Id}">Inspect</button>
               <button class="btn btn-panel btn-container-recreate" data-container-id="${c.Id}" data-service-id="${escName}" style="color: var(--text-accent, #60a5fa);">Recreate</button>
-              <button class="btn btn-panel danger-btn btn-container-remove" data-container-id="${c.Id}">Remove</button>
+              <button class="btn btn-panel danger-btn btn-container-remove" data-container-id="${c.Id}" data-service-id="${escName}">Remove</button>
             `}
           </td>
         </tr>
@@ -328,12 +328,13 @@ export const AppContainers = {
     target.querySelectorAll('.btn-container-remove').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-container-id');
+        const sId = btn.getAttribute('data-service-id');
         const confirmDelete = await Dialog.confirm({
           title: 'Remove Container',
-          message: `Are you sure you want to permanently remove container ${id.substring(0, 12)}?`
+          message: `Are you sure you want to permanently remove container [${sId}]?`
         });
         if (confirmDelete) {
-          this.triggerAction(id, id, 'remove');
+          this.triggerAction(id, sId, 'remove');
         }
       });
     });
