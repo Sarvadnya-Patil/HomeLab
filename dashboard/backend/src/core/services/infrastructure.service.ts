@@ -7,6 +7,7 @@ import { performance } from 'perf_hooks';
 import { execSync } from 'child_process';
 import os from 'os';
 
+import yaml from 'yaml';
 import { DatabaseManager } from '../../database';
 import { DockerService } from './docker.service';
 import { MetricsService } from './metrics.service';
@@ -788,6 +789,85 @@ export class InfrastructureService {
         containerId
       };
     });
+  }
+
+  async scanSystemComposeFiles(dirs: string[], maxDepth = 4): Promise<void> {
+    const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
+    let cache: Record<string, any> = {};
+    if (fs.existsSync(cacheFilePath)) {
+      try {
+        cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
+      } catch { }
+    }
+
+    const ignoredDirs = new Set([
+      'node_modules', '.git', 'AppData', 'Local Settings', 'Temp', 
+      'cache', 'venv', '.venv', 'dist', 'build', '.idea', '.vscode',
+      'System Volume Information', '$RECYCLE.BIN'
+    ]);
+
+    const walk = (dir: string, depth: number) => {
+      if (depth > maxDepth) return;
+      try {
+        const files = fs.readdirSync(dir);
+        let hasCompose = false;
+        let composeFileName = 'docker-compose.yml';
+
+        for (const file of files) {
+          const filePath = path.join(dir, file);
+          let stat;
+          try {
+            stat = fs.statSync(filePath);
+          } catch {
+            continue; // skip broken symlinks or locked files
+          }
+
+          if (stat.isDirectory()) {
+            if (!ignoredDirs.has(file)) {
+              walk(filePath, depth + 1);
+            }
+          } else if (file === 'docker-compose.yml' || file === 'docker-compose.yaml') {
+            hasCompose = true;
+            composeFileName = file;
+          }
+        }
+
+        if (hasCompose) {
+          const composePath = path.join(dir, composeFileName);
+          try {
+            const content = fs.readFileSync(composePath, 'utf8');
+            const parsed = yaml.parse(content);
+            if (parsed && parsed.services) {
+              for (const serviceName of Object.keys(parsed.services)) {
+                if (!cache[serviceName]) {
+                  const serviceVal = parsed.services[serviceName];
+                  cache[serviceName] = {
+                    workingDir: dir,
+                    configFiles: composePath,
+                    projectName: parsed.name || path.basename(dir),
+                    image: serviceVal.image || 'latest',
+                    lastSeen: new Date().toISOString()
+                  };
+                  Logger.info('InfrastructureService', `Discovered offline compose service [${serviceName}] in [${dir}]`);
+                }
+              }
+            }
+          } catch (err: any) {
+            Logger.warn('InfrastructureService', `Failed to parse compose file [${composePath}]: ${err.message}`);
+          }
+        }
+      } catch {
+        // ignore read permissions errors
+      }
+    };
+
+    for (const dir of dirs) {
+      if (fs.existsSync(dir)) {
+        walk(dir, 0);
+      }
+    }
+
+    fs.writeFileSync(cacheFilePath, JSON.stringify(cache, null, 2), 'utf8');
   }
 }
 export default InfrastructureService;

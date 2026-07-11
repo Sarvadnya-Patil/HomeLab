@@ -60,11 +60,17 @@ export const AppContainers = {
     this.container.innerHTML = `
       <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
         <span class="panel-title" style="font-size: 0.9rem; font-weight: bold; text-transform: uppercase;">Docker Cluster Manager</span>
-        <div class="panel-quick-actions" style="display: flex; gap: 0.4rem;">
+        <div class="panel-quick-actions" style="display: flex; gap: 0.4rem; align-items: center;">
           <button class="btn btn-panel ${this.activeTab === 'containers' ? 'btn-open' : ''}" id="tab-btn-containers">Containers</button>
           <button class="btn btn-panel ${this.activeTab === 'images' ? 'btn-open' : ''}" id="tab-btn-images">Images</button>
           <button class="btn btn-panel ${this.activeTab === 'volumes' ? 'btn-open' : ''}" id="tab-btn-volumes">Volumes</button>
           <button class="btn btn-panel ${this.activeTab === 'networks' ? 'btn-open' : ''}" id="tab-btn-networks">Networks</button>
+          ${this.activeTab === 'containers' ? `
+            <button class="btn btn-panel" id="btn-scan-compose" style="margin-left: 0.5rem; color: var(--text-accent, #60a5fa); border-color: var(--text-accent, #60a5fa); display: flex; align-items: center; gap: 0.35rem;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              Scan System Compose
+            </button>
+          ` : ''}
         </div>
       </div>
       <div class="docker-view-content" id="docker-tab-content" style="margin-top: 1rem; width: 100%;">
@@ -81,6 +87,30 @@ export const AppContainers = {
     this.container.querySelector('#tab-btn-images').addEventListener('click', () => this.switchTab('images'));
     this.container.querySelector('#tab-btn-volumes').addEventListener('click', () => this.switchTab('volumes'));
     this.container.querySelector('#tab-btn-networks').addEventListener('click', () => this.switchTab('networks'));
+
+    // Bind Scan Compose button click
+    const scanBtn = this.container.querySelector('#btn-scan-compose');
+    if (scanBtn) {
+      scanBtn.addEventListener('click', async () => {
+        const confirmScan = await Dialog.confirm({
+          title: 'Scan System Compose Files',
+          message: 'This will recursively scan your workspace folders (C:\\projects, Documents, Desktop) for docker-compose configurations, auto-registering any offline stacks. Continue?'
+        });
+        if (confirmScan) {
+          try {
+            scanBtn.disabled = true;
+            scanBtn.textContent = 'Scanning...';
+            const res = await api.post('/api/v1/docker/scan-compose', {});
+            alert(`Scan task triggered as background job: ${res.jobId}`);
+          } catch (err) {
+            alert(`Scan failed: ${err.message}`);
+          } finally {
+            scanBtn.disabled = false;
+            scanBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> Scan System Compose`;
+          }
+        }
+      });
+    }
 
     this.loadTabContent();
   },
