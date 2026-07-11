@@ -194,6 +194,9 @@ export const AppContainers = {
 
   async refreshTabContent() {
     if (!this.container || !this.cachedList) return;
+    if (this.isActionInProgress || (this.lastActionTime && Date.now() - this.lastActionTime < 4000)) {
+      return;
+    }
     try {
       let data = null;
       if (this.activeTab === 'containers') {
@@ -407,11 +410,23 @@ export const AppContainers = {
       input.addEventListener('change', async () => {
         const id = input.getAttribute('data-container-id');
         const enabled = input.checked;
+        this.lastActionTime = Date.now();
+        this.isActionInProgress = true;
         try {
           await api.post(`/api/v1/docker/containers/${id}/autostart`, { enabled });
+          if (this.cachedList) {
+            const match = this.cachedList.find(c => c.Id === id);
+            if (match) {
+              match.Autostart = enabled;
+              match.RestartPolicy = enabled ? 'unless-stopped' : 'no';
+              this.cachedSerialized = JSON.stringify(this.cachedList);
+            }
+          }
         } catch (err) {
           alert(`Failed to update autostart setting: ${err.message}`);
           input.checked = !enabled;
+        } finally {
+          this.isActionInProgress = false;
         }
       });
     });
@@ -549,12 +564,16 @@ export const AppContainers = {
   },
 
   async triggerAction(containerId, serviceId, action) {
+    this.lastActionTime = Date.now();
+    this.isActionInProgress = true;
     try {
       const res = await api.post(`/api/v1/services/${serviceId}/action`, { action });
       alert(`Action [${action.toUpperCase()}] triggered as job: ${res.jobId}`);
       this.loadTabContent();
     } catch (err) {
       alert(`Action [${action.toUpperCase()}] failed: ${err.message}`);
+    } finally {
+      this.isActionInProgress = false;
     }
   },
 
