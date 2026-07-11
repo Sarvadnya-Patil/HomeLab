@@ -188,10 +188,12 @@ export default function (fastify: any, engine: CoreEngine): void {
 
         try {
           updateProgress(30, `Running: docker compose -f ${composeFile} up -d`);
+          const dockerHost = process.env.DOCKER_HOST || process.env.DOCKER_PROXY_URL?.replace('http://', 'tcp://') || 'tcp://docker-proxy:2375';
           const output = execSync(`docker compose -f ${composeFile} up -d --build`, {
             cwd: serviceDir,
             timeout: 120000,
             encoding: 'utf8',
+            env: { ...process.env, DOCKER_HOST: dockerHost },
             stdio: ['pipe', 'pipe', 'pipe']
           });
           updateProgress(80, output || 'Compose stack launched successfully.');

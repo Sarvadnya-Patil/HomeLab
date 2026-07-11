@@ -12,6 +12,9 @@ services:
       - IMAGES=1          # Allow image pulling/checking
       - POST=1            # Allow start/stop/restart operations
       - INFO=1            # Allow Docker daemon info
+      - NETWORKS=1        # Allow docker compose to manage networks
+      - VOLUMES=1         # Allow docker compose to manage volumes
+      - BUILD=1           # Allow compose build operations
     networks:
       - homelab-network
 
@@ -35,6 +38,7 @@ services:
     environment:
       - DOCKER_PROXY_URL=http://docker-proxy:2375
       - NODE_EXPORTER_URL=http://node-exporter:9100
+      - DOCKER_HOST=tcp://docker-proxy:2375
     networks:
       - homelab-network
     labels:

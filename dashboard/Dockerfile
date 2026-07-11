@@ -25,8 +25,8 @@ FROM node:20-alpine AS runtime
 
 WORKDIR /app
 
-# Install native compilation dependencies for better-sqlite3
-RUN apk add --no-cache python3 make g++
+# Install native compilation dependencies and Docker CLI client
+RUN apk add --no-cache python3 make g++ docker-cli docker-cli-compose
 
 # Install only production dependencies
 COPY backend/package*.json ./backend/
