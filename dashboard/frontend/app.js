@@ -15,7 +15,6 @@ import { AppTerminal } from './components/app-terminal.js';
 import { AppDesigner } from './components/app-designer.js';
 import { AppHealth } from './components/app-health.js';
 import { AppJobs } from './components/app-jobs.js';
-import { AppWorkflows } from './components/app-workflows.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Booting HomeLab OS Control Plane...');
@@ -67,9 +66,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (value === 'designer') {
       viewport.className = 'app-viewport';
       AppDesigner.init(viewport);
-    } else if (value === 'workflows') {
-      viewport.className = 'app-viewport';
-      AppWorkflows.init(viewport);
     } else if (value === 'health') {
       viewport.className = 'app-viewport';
       AppHealth.init(viewport);
@@ -416,7 +412,12 @@ window.showCustomAlert = function(title, message, type = 'error') {
 
 // Override standard browser alert globally to route to custom toast notification
 window.alert = function(message) {
-  const isSuccess = message.toLowerCase().includes('success') || message.toLowerCase().includes('saved');
+  const lowercaseMsg = message.toLowerCase();
+  const isSuccess = lowercaseMsg.includes('success') || 
+                    lowercaseMsg.includes('saved') || 
+                    lowercaseMsg.includes('triggered') || 
+                    lowercaseMsg.includes('recreated') || 
+                    lowercaseMsg.includes('completed');
   window.showToast(message, isSuccess ? 'success' : 'error');
 };
 

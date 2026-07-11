@@ -68,7 +68,7 @@ homelab-workspace/
 
 ### 3.1 Service Registry (Dependency Injection)
 The `ServiceRegistry` is a singleton container that initializes and binds all runtime singletons. This design isolates dependencies and prevents global instantiations of database and container clients.
-* Services bound: `ConfigService`, `DockerService` (with `ContainerProvider`), `MetricsService`, `NotificationService`, `WorkspaceService`, `CategoryService`, `PluginService`, `JobsService`, `AuthService`, `BackupService`, `WorkflowService`.
+* Services bound: `ConfigService`, `DockerService` (with `ContainerProvider`), `MetricsService`, `NotificationService`, `WorkspaceService`, `CategoryService`, `PluginService`, `JobsService`, `AuthService`, `BackupService`.
 
 ### 3.2 Job Execution Engine
 Long-running operations (such as container restarts, volume pull updates, and database backups) execute asynchronously inside the `JobsService` queue. This prevents blocking standard HTTP request-response cycles.
@@ -125,7 +125,6 @@ The database uses SQLite with write-ahead logging (WAL) enabled:
 * **`workspaces` / `categories` / `widgets`:** Custom layout parameters scoped per workspace and canvas grid positions.
 * **`service_cache` / `plugin_meta`:** Manifest spec caches and container state logs.
 * **`jobs` / `audit_log` / `notifications`:** Runtime operational histories.
-* **`workflows`:** User-defined infrastructure rules and trigger configs.
 
 ---
 

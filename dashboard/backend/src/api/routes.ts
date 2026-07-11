@@ -13,11 +13,53 @@ import pluginsRoutes from './v1/plugins';
 import searchRoutes from './v1/search';
 import designerRoutes from './v1/designer';
 import authRoutes from './v1/auth';
-import workflowsRoutes from './v1/workflows';
 import backupsRoutes from './v1/backups';
 import dockerRoutes from './v1/docker';
 
 export default function (fastify: any, engine: CoreEngine): void {
+  // 1. Standard Response Envelope serialization hook
+  fastify.addHook('preSerialization', async (request: any, reply: any, payload: any) => {
+    const url = request.url || '';
+    if (!url.startsWith('/api/v1/')) {
+      return payload;
+    }
+    const publicPaths = [
+      '/api/v1/auth/login',
+      '/api/v1/auth/setup',
+      '/api/v1/auth/setup-status',
+      '/api/v1/health',
+      '/api/v1/apps',
+      '/api/v1/docs',
+      '/api/v1/system/header'
+    ];
+    if (publicPaths.some(p => url.startsWith(p))) {
+      return payload;
+    }
+    if (payload && typeof payload === 'object') {
+      if ('success' in payload || 'error' in payload || 'statusCode' in payload) {
+        return payload;
+      }
+    }
+    return { success: true, data: payload };
+  });
+
+  // 2. Standard Error Envelope handler
+  fastify.setErrorHandler((error: any, request: any, reply: any) => {
+    const statusCode = error.statusCode || 500;
+    const url = request.url || '';
+    if (url.startsWith('/api/v1/')) {
+      reply.status(statusCode).send({
+        success: false,
+        error: {
+          message: error.message || 'Internal Server Error',
+          code: error.code || 'INTERNAL_ERROR'
+        }
+      });
+    } else {
+      reply.status(statusCode).send(error);
+    }
+  });
+
   // Centralized Audit Middleware Hook
   fastify.addHook('onResponse', async (request: any, reply: any) => {
     const method = request.method;
@@ -111,6 +153,16 @@ export default function (fastify: any, engine: CoreEngine): void {
 
     request.user = user;
 
+    // Sliding session auto-renewal: if token has < 30 minutes left, send a renewed token in headers
+    if (user.exp) {
+      const timeLeft = user.exp - Math.floor(Date.now() / 1000);
+      if (timeLeft > 0 && timeLeft < 1800) {
+        const renewedToken = engine.auth.signJwt({ id: user.id, username: user.username, role: user.role });
+        reply.header('Access-Control-Expose-Headers', 'X-Renewed-Token');
+        reply.header('X-Renewed-Token', renewedToken);
+      }
+    }
+
     // Enforce role-based access control (RBAC)
     const role = user.role || 'viewer';
     if (url.startsWith('/api/v1/terminal') || url.startsWith('/api/v1/backups') || url.startsWith('/api/v1/settings') || url.startsWith('/api/v1/audit')) {
@@ -123,7 +175,7 @@ export default function (fastify: any, engine: CoreEngine): void {
         return reply.status(403).send({ error: 'Forbidden: Admin privilege required to modify servers clustering' });
       }
     }
-    if (url.startsWith('/api/v1/docker') || url.startsWith('/api/v1/workflows') || url.startsWith('/api/v1/designer') || url.startsWith('/api/v1/jobs')) {
+    if (url.startsWith('/api/v1/docker') || url.startsWith('/api/v1/designer') || url.startsWith('/api/v1/jobs')) {
       if (role !== 'admin' && role !== 'editor') {
         return reply.status(403).send({ error: 'Forbidden: Editor or Admin privilege required' });
       }
@@ -145,7 +197,6 @@ export default function (fastify: any, engine: CoreEngine): void {
   searchRoutes(fastify, engine);
   designerRoutes(fastify, engine);
   authRoutes(fastify, engine);
-  workflowsRoutes(fastify, engine);
   backupsRoutes(fastify, engine);
   dockerRoutes(fastify, engine);
 
@@ -173,13 +224,7 @@ export default function (fastify: any, engine: CoreEngine): void {
         displayOrder: 2,
         permissions: ['admin', 'editor']
       },
-      {
-        id: 'workflows',
-        name: 'Automation',
-        icon: 'activity',
-        displayOrder: 3,
-        permissions: ['admin', 'editor']
-      },
+
       {
         id: 'health',
         name: 'System Health',

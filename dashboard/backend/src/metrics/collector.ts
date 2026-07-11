@@ -102,7 +102,7 @@ export class MetricsCollector {
           this.cachedStats.diskGbTotal = Math.round(parsed.diskTotal / 1024 ** 3);
           const used = parsed.diskTotal - parsed.diskFree;
           this.cachedStats.diskGbUsed = Math.round(used / 1024 ** 3);
-          this.cachedStats.disk = Math.round((used / parsed.diskTotal) * 100);
+          this.cachedStats.disk = parsed.diskTotal > 0 ? Math.round((used / parsed.diskTotal) * 100) : 0;
         }
 
         // CPU temperature parsing from Node Exporter hwmon sensor metrics if they exist
@@ -148,7 +148,7 @@ export class MetricsCollector {
         const used = total - free;
         this.cachedStats.diskGbTotal = Math.round(total / 1024 ** 3);
         this.cachedStats.diskGbUsed = Math.round(used / 1024 ** 3);
-        this.cachedStats.disk = Math.round((used / total) * 100);
+        this.cachedStats.disk = total > 0 ? Math.round((used / total) * 100) : 0;
       } catch {
         // Fallback silently if statfs is unsupported or throws
       }

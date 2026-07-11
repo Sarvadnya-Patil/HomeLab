@@ -35,13 +35,36 @@ export const AppHealth = {
         </div>
 
         <div id="health-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
-          <div class="card card-loading">Gathering subsystem statuses...</div>
+          <div class="skeleton-card">
+            <div class="skeleton-line title"></div>
+            <div class="skeleton-line text"></div>
+            <div class="skeleton-line short"></div>
+          </div>
+          <div class="skeleton-card">
+            <div class="skeleton-line title"></div>
+            <div class="skeleton-line text"></div>
+            <div class="skeleton-line short"></div>
+          </div>
+          <div class="skeleton-card">
+            <div class="skeleton-line title"></div>
+            <div class="skeleton-line text"></div>
+            <div class="skeleton-line short"></div>
+          </div>
         </div>
 
         <div style="margin-top: 1rem; border-top: 1px dashed var(--border-slate); padding-top: 1rem;">
           <h3 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; color: #fff; font-weight: 600;">System Information Overview</h3>
           <div id="system-info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
-            <div class="card card-loading" style="font-size: 0.75rem; color: var(--text-muted);">Gathering system platform metrics...</div>
+            <div class="skeleton-card">
+              <div class="skeleton-line title"></div>
+              <div class="skeleton-line text"></div>
+              <div class="skeleton-line short"></div>
+            </div>
+            <div class="skeleton-card">
+              <div class="skeleton-line title"></div>
+              <div class="skeleton-line text"></div>
+              <div class="skeleton-line short"></div>
+            </div>
           </div>
         </div>
       </div>

@@ -24,7 +24,7 @@
 
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  --transition: 0.15s ease-in-out;
+  --transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -106,6 +106,7 @@ body {
 .nav-item:hover {
   color: var(--text-primary);
   background-color: rgba(255, 255, 255, 0.02);
+  transform: translateX(4px);
 }
 
 .nav-item.active {
@@ -416,6 +417,10 @@ body {
 .btn:hover {
   border-color: var(--text-secondary);
   color: var(--text-primary);
+}
+
+.btn:active {
+  transform: scale(0.97);
 }
 
 .btn-panel:hover {
@@ -1473,6 +1478,73 @@ input[type=number] {
   background: rgba(56, 189, 248, 0.12);
   color: var(--border-focus);
   font-weight: 600;
+}
+
+/* ========================================================
+   Accessibility & Skeleton Loader Additions
+   ======================================================== */
+
+/* Skeleton Loading Screens */
+.skeleton-card {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-slate);
+  border-radius: 6px;
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.skeleton-line {
+  height: 10px;
+  background: linear-gradient(90deg, #0d0d0d 25%, #181818 50%, #0d0d0d 75%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse-animation 1.5s infinite linear;
+  border-radius: 2px;
+}
+
+.skeleton-line.title {
+  height: 16px;
+  width: 50%;
+  margin-bottom: 0.25rem;
+}
+
+.skeleton-line.text {
+  width: 85%;
+}
+
+.skeleton-line.short {
+  width: 30%;
+}
+
+@keyframes skeleton-pulse-animation {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Touch targets optimization on mobile */
+@media (max-width: 767px) {
+  .nav-item {
+    min-height: 48px;
+    padding: 0.75rem 1rem !important;
+  }
+  .btn, .btn-panel, .btn-primary, .btn-danger, .btn-success, .btn-card-act {
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1rem !important;
+  }
+  .hamburger-btn {
+    min-height: 48px;
+    min-width: 48px;
+    display: flex !important;
+  }
 }
 
 

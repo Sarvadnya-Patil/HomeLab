@@ -11,6 +11,8 @@ export const AppContainers = {
   init(containerEl) {
     this.container = containerEl;
     this.cachedList = null;
+    this.cachedSerialized = null;
+    this.refreshInterval = null;
 
     const mainSearchBar = document.getElementById("cmd-palette");
     if (mainSearchBar) {
@@ -20,18 +22,26 @@ export const AppContainers = {
       mainSearchBar.addEventListener('input', this.onSearchInput);
     }
 
+    // Auto-refresh Docker states in the background every 3 seconds silently
+    this.refreshInterval = setInterval(() => this.refreshTabContent(), 3000);
+
     window.activeAppDestroy = () => this.destroy();
 
     this.render();
   },
 
   destroy() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+    }
     const mainSearchBar = document.getElementById("cmd-palette");
     if (mainSearchBar && this.onSearchInput) {
       mainSearchBar.removeEventListener('input', this.onSearchInput);
     }
     this.container = null;
     this.cachedList = null;
+    this.cachedSerialized = null;
   },
 
   escapeHtml(text) {
@@ -58,7 +68,11 @@ export const AppContainers = {
         </div>
       </div>
       <div class="docker-view-content" id="docker-tab-content" style="margin-top: 1rem; width: 100%;">
-        <div style="color: var(--text-muted);">Fetching Docker daemon registries...</div>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%;">
+          <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
+          <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
+          <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
+        </div>
       </div>
     `;
 
@@ -74,30 +88,104 @@ export const AppContainers = {
   switchTab(tab) {
     this.activeTab = tab;
     this.cachedList = null;
+    this.cachedSerialized = null;
     this.render();
+  },
+
+  async getEnrichedContainers() {
+    try {
+      const [containers, services] = await Promise.all([
+        api.get('/api/v1/docker/containers'),
+        api.get('/api/v1/services')
+      ]);
+
+      // Find registered services that do not have a matching container on the Docker host
+      services.forEach(s => {
+        const hasContainer = containers.some(c => 
+          c.Names && c.Names.some(name => name === `/${s.id}` || name.endsWith(`-${s.id}`))
+        );
+        if (!hasContainer) {
+          // Synthesize a placeholder entry for the removed service so the user can easily click Recreate
+          containers.push({
+            Id: '',
+            Names: [`/${s.id}`],
+            State: 'Offline',
+            Status: 'Not Deployed',
+            Image: s.version || 'latest',
+            IsServicePlaceholder: true
+          });
+        }
+      });
+
+      return containers;
+    } catch (err) {
+      console.error('Failed to get enriched containers list:', err);
+      // Fallback to basic containers list if services API is slow/fails
+      return api.get('/api/v1/docker/containers');
+    }
   },
 
   async loadTabContent() {
     const contentEl = this.container.querySelector('#docker-tab-content');
     if (!contentEl) return;
 
+    // Render animated skeleton loaders while loading
+    contentEl.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%;">
+        <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
+        <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
+        <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
+      </div>
+    `;
+
     try {
       if (this.activeTab === 'containers') {
-        const containers = await api.get('/api/v1/docker/containers');
+        const containers = await this.getEnrichedContainers();
+        this.cachedSerialized = JSON.stringify(containers);
         this.cachedList = containers;
       } else if (this.activeTab === 'images') {
         const images = await api.get('/api/v1/docker/images');
+        this.cachedSerialized = JSON.stringify(images);
         this.cachedList = images;
       } else if (this.activeTab === 'volumes') {
         const volumes = await api.get('/api/v1/docker/volumes');
+        this.cachedSerialized = JSON.stringify(volumes);
         this.cachedList = volumes;
       } else if (this.activeTab === 'networks') {
         const networks = await api.get('/api/v1/docker/networks');
+        this.cachedSerialized = JSON.stringify(networks);
         this.cachedList = networks;
       }
       this.filterAndRenderContent();
     } catch (err) {
       contentEl.innerHTML = `<div style="color: var(--term-amber); font-family: var(--font-mono); font-size: 0.75rem;">Failed to fetch Docker daemon API: ${err.message}</div>`;
+    }
+  },
+
+  async refreshTabContent() {
+    if (!this.container || !this.cachedList) return;
+    try {
+      let data = null;
+      if (this.activeTab === 'containers') {
+        data = await this.getEnrichedContainers();
+      } else if (this.activeTab === 'images') {
+        data = await api.get('/api/v1/docker/images');
+      } else if (this.activeTab === 'volumes') {
+        data = await api.get('/api/v1/docker/volumes');
+      } else if (this.activeTab === 'networks') {
+        data = await api.get('/api/v1/docker/networks');
+      }
+      
+      if (data) {
+        const serialized = JSON.stringify(data);
+        if (this.cachedSerialized !== serialized) {
+          this.cachedSerialized = serialized;
+          this.cachedList = data;
+          this.filterAndRenderContent();
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to auto-refresh tab data:', err);
     }
   },
 
@@ -169,6 +257,8 @@ export const AppContainers = {
       const escStatus = this.escapeHtml(c.Status);
       const escImage = this.escapeHtml(c.Image || '');
 
+      const isPlaceholder = c.IsServicePlaceholder === true;
+
       html += `
         <tr style="border-bottom: 1px dashed rgba(255,255,255,0.02); height: 40px;" data-container-id="${c.Id}">
           <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary);">${escName}</td>
@@ -176,11 +266,16 @@ export const AppContainers = {
           <td style="padding: 0.5rem; color: var(--text-secondary); font-family: var(--font-mono);">${escStatus}</td>
           <td style="padding: 0.5rem; color: var(--text-muted); font-family: var(--font-mono); font-size: 0.65rem;">${escImage}</td>
           <td style="padding: 0.5rem; text-align: right; display: flex; gap: 0.25rem; justify-content: flex-end; align-items: center; height: 40px;">
-            <button class="btn btn-panel btn-container-toggle" data-container-id="${c.Id}" data-service-id="${escName}">${isRunning ? 'Stop' : 'Start'}</button>
-            <button class="btn btn-panel btn-container-restart" data-container-id="${c.Id}" data-service-id="${escName}">Restart</button>
-            <button class="btn btn-panel btn-container-logs" data-container-id="${c.Id}">Logs</button>
-            <button class="btn btn-panel btn-container-inspect" data-container-id="${c.Id}">Inspect</button>
-            <button class="btn btn-panel danger-btn btn-container-remove" data-container-id="${c.Id}">Remove</button>
+            ${isPlaceholder ? `
+              <button class="btn btn-panel btn-container-recreate" data-container-id="" data-service-id="${escName}" style="color: var(--text-accent, #60a5fa); border-color: var(--text-accent, #60a5fa);">Recreate</button>
+            ` : `
+              <button class="btn btn-panel btn-container-toggle" data-container-id="${c.Id}" data-service-id="${escName}">${isRunning ? 'Stop' : 'Start'}</button>
+              ${isRunning ? `<button class="btn btn-panel btn-container-restart" data-container-id="${c.Id}" data-service-id="${escName}">Restart</button>` : ''}
+              ${isRunning ? `<button class="btn btn-panel btn-container-logs" data-container-id="${c.Id}">Logs</button>` : ''}
+              <button class="btn btn-panel btn-container-inspect" data-container-id="${c.Id}">Inspect</button>
+              <button class="btn btn-panel btn-container-recreate" data-container-id="${c.Id}" data-service-id="${escName}" style="color: var(--text-accent, #60a5fa);">Recreate</button>
+              <button class="btn btn-panel danger-btn btn-container-remove" data-container-id="${c.Id}">Remove</button>
+            `}
           </td>
         </tr>
       `;
@@ -239,6 +334,25 @@ export const AppContainers = {
         });
         if (confirmDelete) {
           this.triggerAction(id, id, 'remove');
+        }
+      });
+    });
+
+    target.querySelectorAll('.btn-container-recreate').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const serviceId = btn.getAttribute('data-service-id');
+        const confirmRecreate = await Dialog.confirm({
+          title: 'Recreate Container',
+          message: `This will run docker compose up -d for service [${serviceId}], rebuilding and launching it from its compose definition. Continue?`
+        });
+        if (confirmRecreate) {
+          try {
+            const res = await api.post(`/api/v1/services/${serviceId}/compose-up`, {});
+            alert(`Compose Up triggered as job: ${res.jobId}`);
+            this.loadTabContent();
+          } catch (err) {
+            alert(`Compose Up failed: ${err.message || err.error || 'Unknown error'}`);
+          }
         }
       });
     });

@@ -74,7 +74,24 @@ export default function (fastify: any, engine: CoreEngine): void {
     return engine.widgetsRepo.findByWorkspace(workspaceId);
   });
 
-  fastify.post('/api/v1/workspaces/:workspaceId/widgets', async (request: any) => {
+  fastify.post('/api/v1/workspaces/:workspaceId/widgets', {
+    schema: {
+      body: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['id', 'size', 'col', 'row', 'displayOrder'],
+          properties: {
+            id: { type: 'string' },
+            size: { type: 'string' },
+            col: { type: 'integer' },
+            row: { type: 'integer' },
+            displayOrder: { type: 'integer' }
+          }
+        }
+      }
+    }
+  }, async (request: any) => {
     const { workspaceId } = request.params;
     const list = request.body || [];
     engine.widgetsRepo.saveLayout(workspaceId, list);

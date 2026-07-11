@@ -3,7 +3,18 @@ import { CoreEngine } from '../../core/engine';
 
 export default function (fastify: any, engine: CoreEngine): void {
   // 1. POST: /api/v1/auth/login (Verify credentials and issue signed token)
-  fastify.post('/api/v1/auth/login', async (request: any, reply: any) => {
+  fastify.post('/api/v1/auth/login', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['username', 'password'],
+        properties: {
+          username: { type: 'string', minLength: 3, maxLength: 30 },
+          password: { type: 'string', minLength: 6 }
+        }
+      }
+    }
+  }, async (request: any, reply: any) => {
     const { username, password } = request.body || {};
     const token = engine.auth.login(username, password);
     if (!token) {
@@ -42,16 +53,25 @@ export default function (fastify: any, engine: CoreEngine): void {
   });
 
   // 4. POST: /api/v1/auth/setup (Configure the first Super Admin user account during first startup setup wizard)
-  fastify.post('/api/v1/auth/setup', async (request: any, reply: any) => {
+  fastify.post('/api/v1/auth/setup', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['username', 'password', 'displayName'],
+        properties: {
+          username: { type: 'string', minLength: 3, maxLength: 30 },
+          password: { type: 'string', minLength: 6 },
+          displayName: { type: 'string', minLength: 1, maxLength: 50 }
+        }
+      }
+    }
+  }, async (request: any, reply: any) => {
     const users = engine.usersRepo.findAll().filter((u) => u.username !== 'system');
     if (users.length > 0) {
       return reply.status(400).send({ error: 'Initialization setup is already complete' });
     }
 
     const { username, password, displayName } = request.body || {};
-    if (!username || !password || !displayName) {
-      return reply.status(400).send({ error: 'Username, password, and display name are required' });
-    }
 
     try {
       const hashedPassword = engine.auth.hashPassword(password);

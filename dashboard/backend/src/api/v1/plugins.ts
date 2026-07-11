@@ -1,5 +1,8 @@
 // Plugins and Services discovery and lifecycle REST Subsystem API routes
 import { CoreEngine } from '../../core/engine';
+import { execSync } from 'child_process';
+import path from 'path';
+import fs from 'fs';
 
 export default function (fastify: any, engine: CoreEngine): void {
   // 1. GET: /api/v1/plugins (Query list of discovered plugin manifests)
@@ -42,6 +45,7 @@ export default function (fastify: any, engine: CoreEngine): void {
   fastify.post('/api/v1/services/:id/action', async (request: any) => {
     const { id } = request.params;
     const { action } = request.body || {};
+    const actor = request.user?.id || 'admin';
 
     const job = await engine.jobs.executeAsyncTask(
       `container_${action}`,
@@ -58,7 +62,7 @@ export default function (fastify: any, engine: CoreEngine): void {
 
         updateProgress(50);
         const containerId = match ? match.Id : null;
-        await engine.docker.executeAction(containerId, id, action);
+        await engine.docker.executeAction(containerId, id, action, actor);
         updateProgress(90);
 
         // Notify event log
@@ -118,7 +122,67 @@ export default function (fastify: any, engine: CoreEngine): void {
       engine.settingsRepo.set(dbKey, String(body[key]), 'plugin-settings');
     }
 
-    engine.auditRepo.log('admin', 'update_plugin_settings', 'plugin', id, body);
+    const actor = request.user?.id || 'admin';
+    engine.auditRepo.log(actor, 'update_plugin_settings', 'plugin', id, body);
     return { success: true };
+  });
+
+  // 8. POST: /api/v1/services/:id/compose-up (Recreate container from its Compose definition)
+  fastify.post('/api/v1/services/:id/compose-up', async (request: any) => {
+    const { id } = request.params;
+    const actor = request.user?.id || 'admin';
+
+    // Resolve the service directory from plugin manifests
+    const servicesDir = engine.plugin.getServicesDir();
+    const serviceDir = path.join(servicesDir, id);
+
+    if (!fs.existsSync(serviceDir)) {
+      throw { statusCode: 404, message: `Service directory not found for [${id}]. Cannot recreate.` };
+    }
+
+    // Locate compose file from plugin manifest or default
+    const plugins = engine.plugin.discover();
+    const plugin = plugins.find(p => p.id === id);
+    const composeFile = plugin?.compose || 'docker-compose.yml';
+    const composePath = path.join(serviceDir, composeFile);
+
+    if (!fs.existsSync(composePath)) {
+      throw { statusCode: 404, message: `Compose file [${composeFile}] not found in service directory [${id}].` };
+    }
+
+    const job = await engine.jobs.executeAsyncTask(
+      'compose_up',
+      id,
+      async (updateProgress) => {
+        updateProgress(10, `Resolving compose definition for service [${id}]...`);
+
+        try {
+          updateProgress(30, `Running: docker compose -f ${composeFile} up -d`);
+          const output = execSync(`docker compose -f ${composeFile} up -d --build`, {
+            cwd: serviceDir,
+            timeout: 120000,
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          updateProgress(80, output || 'Compose stack launched successfully.');
+        } catch (err: any) {
+          const stderr = err.stderr || err.message;
+          throw new Error(`Compose up failed: ${stderr}`);
+        }
+
+        updateProgress(90, 'Refreshing plugin discovery registry...');
+        engine.plugin.discover();
+
+        engine.notifier.notify(
+          id,
+          `Service [${id}] recreated via docker compose up.`,
+          'info'
+        );
+        updateProgress(100, `Service [${id}] recreated successfully.`);
+      }
+    );
+
+    engine.auditRepo.log(actor, 'compose_up', 'service', id, { composeFile });
+    return { success: true, jobId: job.id };
   });
 }

@@ -545,7 +545,7 @@ export class InfrastructureService {
               lastCheck: 'Just now'
             };
           } else {
-            serviceCopy.status = dockerOnline ? 'Not Installed' : 'Unknown';
+            serviceCopy.status = dockerOnline ? 'Offline' : 'Unknown';
             serviceCopy.details = {
               port: serviceCopy.ports && serviceCopy.ports.http ? serviceCopy.ports.http : 'N/A',
               latency: 'N/A',

@@ -90,6 +90,13 @@ export const AppJobs = {
   async refreshJobs() {
     try {
       this.jobs = await api.get('/api/v1/jobs?limit=50');
+      
+      const hasActive = this.jobs.some(j => j.status === 'running' || j.status === 'pending');
+      if (!hasActive && this.activeTab === 'active' && this.jobs.length > 0) {
+        this.activeTab = 'history';
+        this.updateTabButtons();
+      }
+
       this.renderJobsList();
       
       // Update selected job logs
@@ -128,12 +135,33 @@ export const AppJobs = {
 
     if (this.jobs.length === 0) {
       container.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">No jobs have been executed yet.</div>`;
+      const header = this.container.querySelector('#job-details-header');
+      const consoleBox = this.container.querySelector('#job-console-output');
+      if (header && consoleBox) {
+        header.style.display = 'none';
+        consoleBox.innerHTML = 'Select an execution job from the left panel to inspect real-time log output and status metrics.';
+      }
       return;
     }
 
     if (filtered.length === 0) {
       container.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">No ${this.activeTab} jobs found.</div>`;
+      const header = this.container.querySelector('#job-details-header');
+      const consoleBox = this.container.querySelector('#job-console-output');
+      if (header && consoleBox) {
+        header.style.display = 'none';
+        consoleBox.innerHTML = 'Select an execution job from the left panel to inspect real-time log output and status metrics.';
+      }
       return;
+    }
+
+    // Auto-select first job in the current list if nothing is selected or selection is obsolete
+    if (filtered.length > 0) {
+      const match = filtered.find(j => j.id === this.selectedJobId);
+      if (!match) {
+        this.selectedJobId = filtered[0].id;
+        this.renderDetails(filtered[0]);
+      }
     }
 
     let html = '';

@@ -11,9 +11,27 @@ export const api = {
   },
 
   async handleResponse(res) {
+    try {
+      const renewedToken = res.headers.get('X-Renewed-Token');
+      if (renewedToken) {
+        localStorage.setItem('homelab_token', renewedToken);
+      }
+    } catch (e) {
+      // ignore header reading issues
+    }
+
     const text = await res.text();
     try {
-      return text ? JSON.parse(text) : {};
+      const parsed = text ? JSON.parse(text) : {};
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.success === false && parsed.error) {
+          return { error: parsed.error.message || parsed.error };
+        }
+        if (parsed.success === true && 'data' in parsed) {
+          return parsed.data;
+        }
+      }
+      return parsed;
     } catch {
       return { error: text || res.statusText };
     }

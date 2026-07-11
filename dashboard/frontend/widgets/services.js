@@ -72,7 +72,7 @@ export default {
       let catServices = services.filter(s => {
         const matchesCategory = s.category.toLowerCase() === cat.id.toLowerCase() || s.category === cat.name;
         const matchesFilter = !filterQuery || s.name.toLowerCase().includes(filterQuery) || s.id.toLowerCase().includes(filterQuery);
-        const isInstalled = s.status !== 'Not Installed';
+        const isInstalled = s.status !== 'Unknown';
         return matchesCategory && matchesFilter && isInstalled;
       });
 
@@ -215,8 +215,8 @@ export default {
                           window.location.hostname.endsWith('.local');
     const isRemoteAccess = !isLocalAccess;
 
-    if (service.status !== 'Not Installed') {
-      if (capabilities.includes('open')) {
+    if (service.status !== 'Offline' && service.status !== 'Unknown') {
+      if (capabilities.includes('open') && isOnline) {
         const shouldHideOpen = isRemoteAccess && !isPublic;
         if (!shouldHideOpen) {
           actionButtons += `<button class="btn-card-act btn-open" onclick="window.open('${href}')">Open</button>`;
@@ -228,11 +228,11 @@ export default {
       if ((capabilities.includes('stop') && isOnline) || (capabilities.includes('start') && !isOnline)) {
         actionButtons += `<button class="btn-card-act" data-action="toggle" data-service-id="${service.id}">${isOnline ? 'Stop' : 'Start'}</button>`;
       }
-      if (capabilities.includes('logs')) {
+      if (capabilities.includes('logs') && isOnline) {
         actionButtons += `<button class="btn-card-act" data-action="logs" data-service-id="${service.id}">Logs</button>`;
       }
     } else {
-      actionButtons += `<span style="font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 2;">Not Installed</span>`;
+      actionButtons += `<button class="btn-card-act" data-action="compose-up" data-service-id="${service.id}" style="color: var(--text-accent, #60a5fa); border-color: var(--text-accent, #60a5fa);">Recreate</button>`;
     }
 
     const card = document.createElement("div");
@@ -597,8 +597,13 @@ export default {
     }
 
     try {
-      // Call engine post lifecycle action
-      await api.post(`/api/v1/services/${serviceId}/action`, { action });
+      if (action === 'compose-up') {
+        const res = await api.post(`/api/v1/services/${serviceId}/compose-up`, {});
+        alert(`Compose Up triggered as job: ${res.jobId}`);
+      } else {
+        // Call engine post lifecycle action
+        await api.post(`/api/v1/services/${serviceId}/action`, { action });
+      }
     } catch (err) {
       if (window.showCustomAlert) {
         window.showCustomAlert('Action Failed', err.message, 'error');
@@ -625,7 +630,6 @@ export default {
     const defaultTemplates = [
       { id: 'infrastructure', name: 'Infrastructure', accent: '#3b82f6' },
       { id: 'monitoring', name: 'Monitoring', accent: '#10b981' },
-      { id: 'automation', name: 'Automation', accent: '#a855f7' },
       { id: 'ai', name: 'AI Stack', accent: '#f59e0b' },
       { id: 'networking', name: 'Networking', accent: '#06b6d4' },
       { id: 'storage', name: 'Storage', accent: '#eab308' }

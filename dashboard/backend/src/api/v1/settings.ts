@@ -13,7 +13,8 @@ export default function (fastify: any, engine: CoreEngine): void {
     for (const key of Object.keys(prefs)) {
       engine.settingsRepo.set(key, prefs[key].value, prefs[key].groupName);
     }
-    engine.auditRepo.log('admin', 'update_settings', 'system', 'preferences');
+    const actor = request.user?.id || 'admin';
+    engine.auditRepo.log(actor, 'update_settings', 'system', 'preferences');
     return { success: true };
   });
 
