@@ -587,15 +587,31 @@ export const AppDesigner = {
       }
     });
 
-    // Zoom canvas via wheel scroll
+    // Zoom canvas via wheel scroll (centered on cursor)
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
+      
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
       const zoomFactor = 1.1;
+      const oldScale = this.scale;
+      let newScale = oldScale;
+
       if (e.deltaY < 0) {
-        this.scale = Math.min(2.0, this.scale * zoomFactor);
+        newScale = Math.min(2.0, oldScale * zoomFactor);
       } else {
-        this.scale = Math.max(0.5, this.scale / zoomFactor);
+        newScale = Math.max(0.5, oldScale / zoomFactor);
       }
+
+      if (oldScale > 0) {
+        const ratio = newScale / oldScale;
+        this.panX = mouseX - (mouseX - this.panX) * ratio;
+        this.panY = mouseY - (mouseY - this.panY) * ratio;
+      }
+      
+      this.scale = newScale;
       wrapper.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.scale})`;
     }, { passive: false });
   },

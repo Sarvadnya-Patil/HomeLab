@@ -88,17 +88,28 @@ export const AppSettings = {
         return;
       }
 
-      let options = '';
-      this.plugins.forEach(p => {
-        options += `<option value="${p.id}" ${p.id === this.selectedPluginId ? 'selected' : ''}>${p.name}</option>`;
-      });
+      const activePlugin = this.plugins.find(p => p.id === this.selectedPluginId) || this.plugins[0];
+      if (!this.selectedPluginId) {
+        this.selectedPluginId = activePlugin.id;
+      }
 
       formEl.innerHTML = `
-        <div class="detail-item">
+        <div class="detail-item" style="position: relative;">
           <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: bold;">Select Plugin Target</label>
-          <select id="select-settings-plugin" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.5rem; color: var(--text-primary); font-size: 0.75rem; width: 100%;">
-            ${options}
-          </select>
+          <div class="custom-dropdown-container">
+            <button class="custom-dropdown-trigger" id="plugin-dropdown-trigger">
+              <span class="selected-text">${activePlugin.name}</span>
+              <span class="dropdown-arrow">▼</span>
+            </button>
+            <div class="custom-dropdown-menu" id="plugin-dropdown-menu">
+              ${this.plugins.map((p) => `
+                <div class="custom-dropdown-item ${p.id === this.selectedPluginId ? 'selected' : ''}" data-value="${p.id}">
+                  <span>${p.name}</span>
+                  ${p.id === this.selectedPluginId ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><polyline points="20 6 9 17 4 12"></polyline></svg>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
         </div>
         <div id="dynamic-plugin-form-fields" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
           <!-- Dynamically generated fields go here -->
@@ -106,10 +117,61 @@ export const AppSettings = {
         <button class="btn btn-panel btn-open" id="btn-save-plugin-settings" style="margin-top: 1rem; width: 150px; display: none;">Save Plugin Config</button>
       `;
 
-      const select = formEl.querySelector('#select-settings-plugin');
-      select.addEventListener('change', () => {
-        this.selectedPluginId = select.value;
-        this.loadPluginSettingsSchema();
+      const trigger = formEl.querySelector('#plugin-dropdown-trigger');
+      const menu = formEl.querySelector('#plugin-dropdown-menu');
+      const selectedTextSpan = trigger.querySelector('.selected-text');
+      const items = formEl.querySelectorAll('.custom-dropdown-item');
+
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = menu.style.display === 'block';
+        if (isOpen) {
+          menu.style.display = 'none';
+          trigger.classList.remove('active');
+        } else {
+          menu.style.display = 'block';
+          trigger.classList.add('active');
+        }
+      });
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', () => {
+        menu.style.display = 'none';
+        trigger.classList.remove('active');
+      });
+
+      items.forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const val = item.getAttribute('data-value');
+          const name = item.querySelector('span').textContent;
+          this.selectedPluginId = val;
+          selectedTextSpan.textContent = name;
+
+          items.forEach(el => {
+            el.classList.remove('selected');
+            const svg = el.querySelector('svg');
+            if (svg) svg.remove();
+          });
+
+          item.classList.add('selected');
+          const checkSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          checkSvg.setAttribute('viewBox', '0 0 24 24');
+          checkSvg.setAttribute('fill', 'none');
+          checkSvg.setAttribute('stroke', 'currentColor');
+          checkSvg.setAttribute('stroke-width', '2.5');
+          checkSvg.setAttribute('stroke-linecap', 'round');
+          checkSvg.setAttribute('stroke-linejoin', 'round');
+          checkSvg.style.width = '14px';
+          checkSvg.style.height = '14px';
+          checkSvg.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>';
+          item.appendChild(checkSvg);
+
+          menu.style.display = 'none';
+          trigger.classList.remove('active');
+
+          this.loadPluginSettingsSchema();
+        });
       });
 
       this.loadPluginSettingsSchema();
