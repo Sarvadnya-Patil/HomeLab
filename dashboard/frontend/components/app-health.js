@@ -9,6 +9,17 @@ export const AppHealth = {
     this.container = containerEl;
     this.render();
 
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar) {
+      this.onSearchInput = () => {
+        const currentHealth = store.get('healthStatus');
+        if (currentHealth) {
+          this.updateUI(currentHealth);
+        }
+      };
+      mainSearchBar.addEventListener('input', this.onSearchInput);
+    }
+
     // Listen to unified health status updates
     store.on('healthStatus', ({ value }) => this.updateUI(value));
     store.on('metrics', () => this.updateMetricsUI());
@@ -21,6 +32,14 @@ export const AppHealth = {
     const currentMetrics = store.get('metrics');
     if (currentMetrics) {
       this.updateMetricsUI(currentMetrics);
+    }
+    window.activeAppDestroy = () => this.destroy();
+  },
+
+  destroy() {
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar && this.onSearchInput) {
+      mainSearchBar.removeEventListener('input', this.onSearchInput);
     }
   },
 
@@ -75,11 +94,17 @@ export const AppHealth = {
     const grid = this.container?.querySelector('#health-grid');
     if (!grid || !healthData || !healthData.subsystems) return;
 
+    const searchVal = (document.getElementById("cmd-palette")?.value || '').toLowerCase().trim();
     let html = '';
     const subs = healthData.subsystems;
+    let visibleCount = 0;
 
     for (const name of Object.keys(subs)) {
       const item = subs[name];
+      if (searchVal && !name.toLowerCase().includes(searchVal) && !item.status.toLowerCase().includes(searchVal)) {
+        continue;
+      }
+      visibleCount++;
       const isOnline = item.status === 'online';
       const color = isOnline ? 'var(--term-green)' : '#ef4444';
       
@@ -112,7 +137,11 @@ export const AppHealth = {
       `;
     }
 
-    grid.innerHTML = html;
+    if (visibleCount === 0) {
+      grid.innerHTML = `<div style="grid-column: 1 / -1; color: var(--text-muted); font-size: 0.75rem; text-align: center; padding: 2rem 0;">No matching health subsystems found.</div>`;
+    } else {
+      grid.innerHTML = html;
+    }
   },
 
   updateMetricsUI() {

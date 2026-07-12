@@ -25,12 +25,31 @@ export const AppDesigner = {
     this.isDragging = false;
     this.localPositions = new Map();
 
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar) {
+      this.onSearchInput = () => {
+        this.renderConnections();
+      };
+      mainSearchBar.addEventListener('input', this.onSearchInput);
+    }
+
     this.render();
     
     // Initial fetch of states and dynamic updates
     this.refreshLiveTopology(true);
     this.pollInterval = setInterval(() => this.refreshLiveTopology(false), 4000);
     window.activeAppDestroy = () => this.destroy();
+  },
+
+  destroy() {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar && this.onSearchInput) {
+      mainSearchBar.removeEventListener('input', this.onSearchInput);
+    }
   },
 
   async refreshLiveTopology(isInitial = false) {
@@ -372,6 +391,8 @@ export const AppDesigner = {
     if (!svg) return;
     svg.innerHTML = '';
 
+    const searchVal = (document.getElementById("cmd-palette")?.value || '').toLowerCase().trim();
+
     this.links.forEach(link => {
       const sourceNode = this.nodes.find(n => n.id === link.source);
       const targetNode = this.nodes.find(n => n.id === link.target);
@@ -404,6 +425,14 @@ export const AppDesigner = {
           }
         }
 
+        // Determine if this path matches the global search query
+        const queryMatches = searchVal && (
+          sourceNode.name.toLowerCase().includes(searchVal) || 
+          targetNode.name.toLowerCase().includes(searchVal) ||
+          sourceNode.id.toLowerCase().includes(searchVal) ||
+          targetNode.id.toLowerCase().includes(searchVal)
+        );
+
         // Determine path properties based on statuses
         const sOnline = sourceNode.status === 'online';
         const tOnline = targetNode.status === 'online';
@@ -417,13 +446,13 @@ export const AppDesigner = {
         let activeFlow = false;
 
         if (sOnline && tOnline) {
-          color = 'var(--term-green)'; // Green solid for connected path
+          color = queryMatches ? '#3b82f6' : 'var(--term-green)'; // Blue if matches query, otherwise Green
           dasharray = 'none';
           width = '3.5';
           opacity = '0.9';
           activeFlow = true;
         } else if (sOffline || tOffline) {
-          color = '#ef4444'; // Red dashed for offline broken route
+          color = queryMatches ? '#3b82f6' : '#ef4444'; // Blue if matches query, otherwise Red
           dasharray = '6, 6';
           width = '3.5';
           opacity = '0.8';
@@ -448,7 +477,7 @@ export const AppDesigner = {
         if (activeFlow) {
           const flowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           flowPath.setAttribute('d', pathData);
-          flowPath.setAttribute('stroke', '#34d399');
+          flowPath.setAttribute('stroke', queryMatches ? '#60a5fa' : '#34d399');
           flowPath.setAttribute('stroke-width', '4');
           flowPath.setAttribute('fill', 'none');
           flowPath.setAttribute('class', 'flowing-line');

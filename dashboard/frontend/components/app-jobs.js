@@ -12,12 +12,32 @@ export const AppJobs = {
   init(containerEl) {
     this.container = containerEl;
     this.activeTab = 'active';
+
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar) {
+      this.onSearchInput = () => {
+        this.renderJobsList();
+      };
+      mainSearchBar.addEventListener('input', this.onSearchInput);
+    }
+
     this.render();
     this.refreshJobs();
     
     // Auto refresh lists every 3 seconds
     this.intervalId = setInterval(() => this.refreshJobs(), 3000);
     window.activeAppDestroy = () => this.destroy();
+  },
+
+  destroy() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar && this.onSearchInput) {
+      mainSearchBar.removeEventListener('input', this.onSearchInput);
+    }
   },
 
   render() {
@@ -127,10 +147,30 @@ export const AppJobs = {
     const container = this.container.querySelector('#jobs-cards-container');
     if (!container) return;
 
-    // Filter jobs by active tab
+    const searchVal = (document.getElementById("cmd-palette")?.value || '').toLowerCase().trim();
+
+    // Filter jobs by active tab and search query
     const filtered = this.jobs.filter(job => {
       const isActive = job.status === 'running' || job.status === 'pending';
-      return this.activeTab === 'active' ? isActive : !isActive;
+      const tabMatches = this.activeTab === 'active' ? isActive : !isActive;
+      if (!tabMatches) return false;
+
+      if (searchVal) {
+        if (searchVal.startsWith('/title')) {
+          const queryPart = searchVal.replace(/^\/title[:=\s]*/, '').trim();
+          const jobTitle = (job.type || '').replace(/_/g, ' ').toLowerCase();
+          return jobTitle.includes(queryPart);
+        } else if (searchVal.startsWith('/target')) {
+          const queryPart = searchVal.replace(/^\/target[:=\s]*/, '').trim();
+          const jobTarget = (job.targetId || 'system').toLowerCase();
+          return jobTarget.includes(queryPart);
+        } else {
+          const jobTitle = (job.type || '').replace(/_/g, ' ').toLowerCase();
+          const jobTarget = (job.targetId || 'system').toLowerCase();
+          return jobTitle.includes(searchVal) || jobTarget.includes(searchVal);
+        }
+      }
+      return true;
     });
 
     if (this.jobs.length === 0) {
