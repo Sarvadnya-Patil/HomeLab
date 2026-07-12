@@ -22,6 +22,8 @@ export const AppDesigner = {
     this.panY = 0;
     this.nodes = [];
     this.links = [];
+    this.isDragging = false;
+    this.localPositions = new Map();
 
     this.render();
     
@@ -32,6 +34,7 @@ export const AppDesigner = {
   },
 
   async refreshLiveTopology() {
+    if (this.isDragging) return;
     await this.loadTopologyData();
     this.renderNodes();
     this.renderConnections();
@@ -40,7 +43,22 @@ export const AppDesigner = {
   async loadTopologyData() {
     try {
       // Fetch dynamic coordinates and status from backend infrastructure service
-      this.nodes = await api.get('/api/v1/designer/topology').catch(() => []);
+      const fetchedNodes = await api.get('/api/v1/designer/topology').catch(() => []);
+      
+      // Preserve local coordinates if a drag-and-save cycle is pending in database
+      fetchedNodes.forEach(node => {
+        const localPos = this.localPositions ? this.localPositions.get(node.id) : null;
+        if (localPos) {
+          const targetPos = node.position || { x: node.x, y: node.y };
+          if (Math.abs(targetPos.x - localPos.x) < 2 && Math.abs(targetPos.y - localPos.y) < 2) {
+            this.localPositions.delete(node.id);
+          } else {
+            node.position = localPos;
+          }
+        }
+      });
+
+      this.nodes = fetchedNodes;
       
       // Parse links dynamically from node connections array
       this.links = [];
@@ -380,6 +398,7 @@ export const AppDesigner = {
       e.stopPropagation();
       this.selectedNodeId = node.id;
       this.updateSelectedCard(node);
+      this.isDragging = true;
 
       startX = e.clientX - node.x;
       startY = e.clientY - node.y;
@@ -393,6 +412,9 @@ export const AppDesigner = {
       node.y = e.clientY - startY;
 
       node.position = { x: node.x, y: node.y };
+      if (this.localPositions) {
+        this.localPositions.set(node.id, node.position);
+      }
 
       el.style.left = `${node.x}px`;
       el.style.top = `${node.y}px`;
@@ -402,6 +424,7 @@ export const AppDesigner = {
     const dragEnd = () => {
       document.removeEventListener('mousemove', dragMove);
       document.removeEventListener('mouseup', dragEnd);
+      this.isDragging = false;
       this.saveLayout();
     };
 
