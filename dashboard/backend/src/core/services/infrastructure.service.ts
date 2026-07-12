@@ -270,9 +270,14 @@ export class InfrastructureService {
 
     const tunnelOnline = health.subsystems.tunnel.status === 'online';
     const proxyContainer = containers.find((c) =>
-      c.Names.some((n) => n.toLowerCase().includes('proxy') || n.toLowerCase().includes('nginx') || n.toLowerCase().includes('homepage'))
+      c.Names.some((n) => 
+        (n.toLowerCase().includes('proxy') || n.toLowerCase().includes('nginx') || n.toLowerCase().includes('caddy') || n.toLowerCase().includes('traefik')) &&
+        !n.toLowerCase().includes('docker-proxy') &&
+        !n.toLowerCase().includes('socket-proxy')
+      )
     );
     const proxyOnline = proxyContainer ? (proxyContainer.State === 'running') : false;
+    const hasProxy = !!proxyContainer;
 
     const nodes: any[] = [
       {
@@ -289,21 +294,24 @@ export class InfrastructureService {
         type: 'tunnel',
         status: tunnelOnline ? 'online' : 'offline',
         position: { x: 400, y: 150 },
-        connections: ['proxy']
-      },
-      {
-        id: 'proxy',
-        name: 'Nginx Proxy Manager',
-        type: 'proxy',
-        status: proxyContainer ? (proxyOnline ? 'online' : 'offline') : 'unknown',
-        position: { x: 400, y: 250 },
-        connections: []
+        connections: hasProxy ? ['proxy'] : []
       }
     ];
 
+    if (hasProxy) {
+      nodes.push({
+        id: 'proxy',
+        name: proxyContainer.Names[0].replace('/', ''),
+        type: 'proxy',
+        status: proxyOnline ? 'online' : 'offline',
+        position: { x: 400, y: 250 },
+        connections: []
+      });
+    }
+
     let nextX = 100;
     const spacing = 160;
-    const yOffset = 430;
+    const yOffset = hasProxy ? 430 : 340;
 
     enrichedServices.forEach((svc: any) => {
       if (svc.id === 'cloudflared' || svc.id.includes('proxy') || svc.id.includes('nginx')) {
@@ -332,7 +340,11 @@ export class InfrastructureService {
         connections: []
       });
 
-      nodes.find((n) => n.id === 'proxy')?.connections.push(svc.id);
+      if (hasProxy) {
+        nodes.find((n) => n.id === 'proxy')?.connections.push(svc.id);
+      } else {
+        nodes.find((n) => n.id === 'cloudflared')?.connections.push(svc.id);
+      }
       nextX += spacing;
     });
 

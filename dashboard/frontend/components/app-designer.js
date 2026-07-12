@@ -149,7 +149,7 @@ export const AppDesigner = {
       <div class="designer-layout" style="display: flex; flex-direction: column; height: 100%; gap: 1rem; color: var(--text-slate); user-select: none;">
         <div class="designer-toolbar" style="display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.4); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border-slate); backdrop-filter: blur(10px);">
           <div>
-            <h2 style="margin: 0; font-size: 1.1rem; color: #fff; font-weight: 600;">Infrastructure Topology Designer</h2>
+            <h2 style="margin: 0; font-size: 1.1rem; color: #fff; font-weight: 600;">Topology</h2>
             <span style="font-size: 0.7rem; color: var(--text-muted);">Interactive status mapping, connection flow & stack control panel</span>
           </div>
           <div style="display: flex; gap: 0.5rem;">
@@ -289,11 +289,32 @@ export const AppDesigner = {
       const targetNode = this.nodes.find(n => n.id === link.target);
 
       if (sourceNode && targetNode) {
-        // Center offsets for 150x50 nodes
-        const x1 = sourceNode.x + 75;
-        const y1 = sourceNode.y + 25;
-        const x2 = targetNode.x + 75;
-        const y2 = targetNode.y + 25;
+        let x1 = sourceNode.x + 75;
+        let y1 = sourceNode.y + 25;
+        let x2 = targetNode.x + 75;
+        let y2 = targetNode.y + 25;
+
+        // Calculate boundary anchor points dynamically to keep lines outside semi-transparent cards
+        const dy = targetNode.y - sourceNode.y;
+        const dx = targetNode.x - sourceNode.x;
+
+        if (Math.abs(dy) > Math.abs(dx)) {
+          if (dy > 0) {
+            y1 = sourceNode.y + 50; // Bottom edge
+            y2 = targetNode.y;      // Top edge
+          } else {
+            y1 = sourceNode.y;      // Top edge
+            y2 = targetNode.y + 50; // Bottom edge
+          }
+        } else {
+          if (dx > 0) {
+            x1 = sourceNode.x + 150; // Right edge
+            x2 = targetNode.x;       // Left edge
+          } else {
+            x1 = sourceNode.x;       // Left edge
+            x2 = targetNode.x + 150; // Right edge
+          }
+        }
 
         // Determine path properties based on statuses
         const sOnline = sourceNode.status === 'online';

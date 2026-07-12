@@ -241,7 +241,7 @@ export default function (fastify: any, engine: CoreEngine): void {
       },
       {
         id: 'designer',
-        name: 'Designer',
+        name: 'Topology',
         icon: 'map',
         displayOrder: 2,
         permissions: ['admin', 'editor']
