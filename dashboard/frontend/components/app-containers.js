@@ -1,6 +1,7 @@
 // Containers Application - Dynamic Docker Manager View
 import { api } from '../core/api.js';
 import { Dialog } from '../utils/dialog.js';
+import { getIcon } from '../utils/icons.js';
 
 export const AppContainers = {
   container: null,
@@ -304,9 +305,25 @@ export const AppContainers = {
         </td>
       `;
 
+      let refName = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      if (refName.includes('homelab') || refName === 'docker-proxy') {
+        refName = 'homelab';
+      }
+      const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${refName}.webp`;
+
       html += `
         <tr style="border-bottom: 1px dashed rgba(255,255,255,0.02); height: 40px;" data-container-id="${c.Id}">
-          <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary);">${escName}</td>
+          <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary);">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
+                <img src="${logoUrl}" 
+                     alt="${escName}" 
+                     style="width: 16px; height: 16px; object-fit: contain;" 
+                     onerror="this.onerror=null; this.outerHTML=decodeURIComponent('${encodeURIComponent(getIcon(name))}')"/>
+              </span>
+              <span>${escName}</span>
+            </div>
+          </td>
           <td style="padding: 0.5rem;"><span class="card-status ${isRunning ? 'online' : 'offline'}" style="padding: 0.1rem 0.35rem; border-radius: 3px; font-family: var(--font-mono); font-size: 0.65rem;">${escState}</span></td>
           <td style="padding: 0.5rem; color: var(--text-secondary); font-family: var(--font-mono);">${escStatus}</td>
           ${autostartTd}

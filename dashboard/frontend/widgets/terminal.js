@@ -1,6 +1,7 @@
 // Terminal console widget module
 import { WsClient } from '../core/ws-client.js';
 import { api } from '../core/api.js';
+import { store } from '../core/state.js';
 
 function escapeHtml(text) {
   if (typeof text !== 'string') return text;
@@ -119,6 +120,34 @@ export default {
         <input type="text" id="w-term-input" style="opacity: 0; position: absolute; width: 0; height: 0; pointer-events: none;" autocomplete="off" />
       </div>
     `;
+
+    // Listen to services state to detect if our active logs container goes offline
+    const servicesListener = ({ value: services }) => {
+      if (!this.activeLogsServiceId) return;
+      const svc = services.find(s => s.id === this.activeLogsServiceId);
+      if (svc && (svc.status === 'Offline' || svc.status === 'Inactive' || svc.status === 'Unknown')) {
+        WsClient.unsubscribeLogs(this.activeLogsServiceId, this.logCallback);
+        this.activeLogsServiceId = null;
+        
+        const hostLabel = container.querySelector('#w-term-host-label');
+        if (hostLabel) hostLabel.textContent = 'root@homelab-os';
+        
+        const outputEl = container.querySelector('#w-term-output');
+        if (outputEl) {
+          outputEl.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span style="color: var(--text-muted);">Container went offline. Logs stream cleared.</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span>`;
+        }
+      }
+    };
+
+    store.on('services', servicesListener);
+    
+    const observer = new MutationObserver(() => {
+      if (!document.body.contains(container)) {
+        store.off('services', servicesListener);
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
 
     // Hook up local command intercept listener
     this.logCallback = (output) => {

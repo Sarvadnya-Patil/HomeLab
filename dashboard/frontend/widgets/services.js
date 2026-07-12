@@ -277,10 +277,21 @@ export default {
       `;
     }
 
+    let serviceRefName = service.id.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    if (serviceRefName.includes('homelab') || serviceRefName === 'docker-proxy') {
+      serviceRefName = 'homelab';
+    }
+    const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${serviceRefName}.webp`;
+
     card.innerHTML = `
       <div class="service-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;">
         <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">
-          <span class="card-icon" style="flex-shrink: 0; display: flex; align-items: center;">${getIcon(service.id)}</span>
+          <span class="card-icon" style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 18px; height: 18px;">
+            <img src="${logoUrl}" 
+                 alt="${escapeHtml(service.name)}" 
+                 style="width: 18px; height: 18px; object-fit: contain;" 
+                 onerror="this.onerror=null; this.outerHTML=decodeURIComponent('${encodeURIComponent(getIcon(service.id))}')"/>
+          </span>
           <div style="overflow: hidden;">
             <h4 class="service-name" style="margin: 0; font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">${escapeHtml(service.name)}</h4>
             <span style="font-size: 0.6rem; color: var(--text-muted); font-family: var(--font-mono);">${escapeHtml(service.version)}</span>
