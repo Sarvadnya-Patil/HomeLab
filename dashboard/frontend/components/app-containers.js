@@ -305,15 +305,29 @@ export const AppContainers = {
         </td>
       `;
 
-      let refName = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-      if (refName.includes('homelab') || refName === 'docker-proxy' || refName === 'dashboard') {
-        refName = 'falcon';
-      } else if (refName === 'postgres') {
-        refName = 'postgresql';
+      const guessLogoName = (id) => {
+        const ref = id.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        const mappings = [
+          { keywords: ['homelab', 'docker-proxy', 'dashboard', 'console'], logo: 'falcon' },
+          { keywords: ['postgresql', 'postgres', 'postgre', 'pgsql', 'psql', 'pg-'], logo: 'postgresql' },
+          { keywords: ['mariadb', 'maria', 'mariya'], logo: 'mariadb' },
+          { keywords: ['mysql', 'my-sql'], logo: 'mysql' },
+          { keywords: ['home-assistant', 'homeassistant', 'home-assist', 'hass'], logo: 'home-assistant' }
+        ];
+        for (const rule of mappings) {
+          if (rule.keywords.some(kw => ref.includes(kw))) {
+            return rule.logo;
+          }
+        }
+        return ref;
+      };
+
+      let refName = guessLogoName(name);
+      const monochromeLogos = ['falcon', 'docker-proxy', 'dashboard', 'sqlite', 'server'];
+      if (monochromeLogos.includes(refName)) {
+        refName += '-light';
       }
       const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${refName}.webp`;
-      const monochromeLogos = ['falcon', 'postgresql', 'postgres', 'docker-proxy', 'dashboard', 'sqlite', 'server'];
-      const filterStyle = monochromeLogos.includes(refName) ? 'filter: brightness(0) invert(1);' : '';
 
       html += `
         <tr style="border-bottom: 1px dashed rgba(255,255,255,0.02); height: 40px;" data-container-id="${c.Id}">
@@ -322,7 +336,7 @@ export const AppContainers = {
               <span style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
                 <img src="${logoUrl}" 
                      alt="${escName}" 
-                     style="width: 16px; height: 16px; object-fit: contain; ${filterStyle}" 
+                     style="width: 16px; height: 16px; object-fit: contain;" 
                      onerror="this.onerror=null; this.outerHTML=decodeURIComponent('${encodeURIComponent(getIcon(name)).replace(/'/g, '%27')}')"/>
               </span>
               <span>${escName}</span>

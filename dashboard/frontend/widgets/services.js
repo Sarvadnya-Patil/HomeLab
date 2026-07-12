@@ -277,15 +277,29 @@ export default {
       `;
     }
 
-    let serviceRefName = service.id.toLowerCase().replace(/[^a-z0-9]/g, '-');
-    if (serviceRefName.includes('homelab') || serviceRefName === 'docker-proxy' || serviceRefName === 'dashboard') {
-      serviceRefName = 'falcon';
-    } else if (serviceRefName === 'postgres') {
-      serviceRefName = 'postgresql';
+    const guessLogoName = (id) => {
+      const ref = id.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      const mappings = [
+        { keywords: ['homelab', 'docker-proxy', 'dashboard', 'console'], logo: 'falcon' },
+        { keywords: ['postgresql', 'postgres', 'postgre', 'pgsql', 'psql', 'pg-'], logo: 'postgresql' },
+        { keywords: ['mariadb', 'maria', 'mariya'], logo: 'mariadb' },
+        { keywords: ['mysql', 'my-sql'], logo: 'mysql' },
+        { keywords: ['home-assistant', 'homeassistant', 'home-assist', 'hass'], logo: 'home-assistant' }
+      ];
+      for (const rule of mappings) {
+        if (rule.keywords.some(kw => ref.includes(kw))) {
+          return rule.logo;
+        }
+      }
+      return ref;
+    };
+
+    let serviceRefName = guessLogoName(service.id);
+    const monochromeLogos = ['falcon', 'docker-proxy', 'dashboard', 'sqlite', 'server'];
+    if (monochromeLogos.includes(serviceRefName)) {
+      serviceRefName += '-light';
     }
     const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${serviceRefName}.webp`;
-    const monochromeLogos = ['falcon', 'postgresql', 'postgres', 'docker-proxy', 'dashboard', 'sqlite', 'server'];
-    const filterStyle = monochromeLogos.includes(serviceRefName) ? 'filter: brightness(0) invert(1);' : '';
 
     card.innerHTML = `
       <div class="service-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;">
@@ -293,7 +307,7 @@ export default {
           <span class="card-icon" style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 18px; height: 18px;">
             <img src="${logoUrl}" 
                  alt="${escapeHtml(service.name)}" 
-                 style="width: 18px; height: 18px; object-fit: contain; ${filterStyle}" 
+                 style="width: 18px; height: 18px; object-fit: contain;" 
                  onerror="this.onerror=null; this.outerHTML=decodeURIComponent('${encodeURIComponent(getIcon(service.id)).replace(/'/g, '%27')}')"/>
           </span>
           <div style="overflow: hidden;">
