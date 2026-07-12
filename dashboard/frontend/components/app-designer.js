@@ -28,16 +28,19 @@ export const AppDesigner = {
     this.render();
     
     // Initial fetch of states and dynamic updates
-    this.refreshLiveTopology();
-    this.pollInterval = setInterval(() => this.refreshLiveTopology(), 4000);
+    this.refreshLiveTopology(true);
+    this.pollInterval = setInterval(() => this.refreshLiveTopology(false), 4000);
     window.activeAppDestroy = () => this.destroy();
   },
 
-  async refreshLiveTopology() {
+  async refreshLiveTopology(isInitial = false) {
     if (this.isDragging) return;
     await this.loadTopologyData();
     this.renderNodes();
     this.renderConnections();
+    if (isInitial) {
+      setTimeout(() => this.fitView(), 50);
+    }
   },
 
   async loadTopologyData() {
@@ -93,24 +96,43 @@ export const AppDesigner = {
   },
 
   autoLayout() {
+    const canvas = this.container.querySelector('#canvas-area');
+    const canvasWidth = canvas ? canvas.clientWidth : 800;
+    const canvasHeight = canvas ? canvas.clientHeight : 450;
+    const centerX = canvasWidth / 2;
+
     const internet = this.nodes.filter(n => n.type === 'internet');
     const tunnels = this.nodes.filter(n => n.type === 'tunnel');
     const proxies = this.nodes.filter(n => n.type === 'proxy');
     const containers = this.nodes.filter(n => n.type === 'container' || (!['internet', 'tunnel', 'proxy'].includes(n.type)));
 
-    if (internet[0]) internet[0].position = { x: 400, y: 50 };
+    const hasProxy = proxies.length > 0;
+
+    // Distribute vertically inside the available canvas height with padding bounds
+    const yInternet = Math.round(canvasHeight * 0.12);
+    const yTunnel = Math.round(canvasHeight * 0.38);
+    const yProxy = Math.round(canvasHeight * 0.62);
+    const yContainer = Math.round(canvasHeight * 0.82);
+
+    if (internet[0]) internet[0].position = { x: centerX - 75, y: yInternet };
+    
     tunnels.forEach((t, i) => {
-      t.position = { x: 400 + (i - (tunnels.length - 1) / 2) * 200, y: 170 };
+      t.position = { x: centerX - 75 + (i - (tunnels.length - 1) / 2) * 180, y: yTunnel };
     });
-    proxies.forEach((p, i) => {
-      p.position = { x: 400 + (i - (proxies.length - 1) / 2) * 200, y: 290 };
-    });
+    
+    if (hasProxy) {
+      proxies.forEach((p, i) => {
+        p.position = { x: centerX - 75 + (i - (proxies.length - 1) / 2) * 180, y: yProxy };
+      });
+    }
 
     const totalContainers = containers.length;
-    const spacing = 160;
-    const startX = 400 - ((totalContainers - 1) * spacing) / 2;
+    const spacing = 170;
+    const startX = centerX - 75 - ((totalContainers - 1) * spacing) / 2;
+    const targetY = hasProxy ? yContainer : yProxy;
+
     containers.forEach((c, i) => {
-      c.position = { x: startX + i * spacing, y: 430 };
+      c.position = { x: startX + i * spacing, y: targetY };
     });
 
     // Mirror to visual x/y
@@ -124,6 +146,54 @@ export const AppDesigner = {
     this.saveLayout();
     this.renderNodes();
     this.renderConnections();
+    this.fitView();
+  },
+
+  fitView() {
+    const canvas = this.container.querySelector('#canvas-area');
+    const wrapper = this.container.querySelector('#canvas-transform-wrapper');
+    if (!canvas || !wrapper || this.nodes.length === 0) return;
+
+    const canvasWidth = canvas.clientWidth;
+    const canvasHeight = canvas.clientHeight;
+
+    // Calculate bounding box of all nodes
+    let minX = Infinity, minY = Infinity;
+    let maxX = -Infinity, maxY = -Infinity;
+
+    this.nodes.forEach(n => {
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + 150);
+      maxY = Math.max(maxY, n.y + 50);
+    });
+
+    const graphWidth = maxX - minX;
+    const graphHeight = maxY - minY;
+    
+    const padding = 30;
+    const paddedWidth = graphWidth + padding * 2;
+    const paddedHeight = graphHeight + padding * 2;
+
+    // Compute best scale fit
+    let newScale = Math.min(
+      canvasWidth / paddedWidth,
+      canvasHeight / paddedHeight
+    );
+    newScale = Math.max(0.4, Math.min(newScale, 1.1));
+
+    // Center layout coordinates
+    const graphCenterX = minX + graphWidth / 2;
+    const graphCenterY = minY + graphHeight / 2;
+
+    const newPanX = canvasWidth / 2 - graphCenterX * newScale;
+    const newPanY = canvasHeight / 2 - graphCenterY * newScale;
+
+    this.scale = newScale;
+    this.panX = newPanX;
+    this.panY = newPanY;
+
+    wrapper.style.transform = `translate(${newPanX}px, ${newPanY}px) scale(${newScale})`;
   },
 
   render() {
@@ -538,15 +608,7 @@ export const AppDesigner = {
 
     const fitBtn = this.container.querySelector('#btn-fit-screen');
     if (fitBtn) {
-      fitBtn.addEventListener('click', () => {
-        this.scale = 1.0;
-        this.panX = 0;
-        this.panY = 0;
-        const wrapper = this.container.querySelector('#canvas-transform-wrapper');
-        if (wrapper) {
-          wrapper.style.transform = `translate(0px, 0px) scale(1)`;
-        }
-      });
+      fitBtn.addEventListener('click', () => this.fitView());
     }
 
     const deployBtn = this.container.querySelector('#btn-deploy-stack');
