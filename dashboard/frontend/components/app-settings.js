@@ -180,7 +180,7 @@ export const AppSettings = {
         <div class="detail-item" style="border: 1px dashed var(--border-slate); border-radius: 6px; padding: 1rem;">
           <h4 style="font-size: 0.8rem; font-weight: bold; margin-bottom: 0.5rem;">Database Backup Staging Center</h4>
           <p style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 1rem;">
-            Executes transactional copies of the SQLite configurations. Backups staging archives are saved to logs/backups/ directories.
+            Executes transactional copies of the SQLite configurations. Backups staging archives are saved to the backups/ directory in your HomeLab OS root folder.
           </p>
           <div style="display: flex; gap: 0.5rem;">
             <button class="btn btn-panel" id="btn-trigger-backup">Run Backup</button>
