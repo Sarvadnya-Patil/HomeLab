@@ -46,9 +46,6 @@ export const AppSettings = {
         <span class="panel-title" style="font-size: 0.9rem; font-weight: bold; text-transform: uppercase;">HomeLab OS Configuration Settings</span>
         <div class="panel-quick-actions" style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
           <button class="btn btn-panel ${this.activeTab === 'general' ? 'btn-open' : ''}" id="tab-settings-general">General</button>
-          <button class="btn btn-panel ${this.activeTab === 'appearance' ? 'btn-open' : ''}" id="tab-settings-appearance">Appearance</button>
-          <button class="btn btn-panel ${this.activeTab === 'docker' ? 'btn-open' : ''}" id="tab-settings-docker">Docker Proxy</button>
-          <button class="btn btn-panel ${this.activeTab === 'metrics' ? 'btn-open' : ''}" id="tab-settings-metrics">Metrics Scraper</button>
           <button class="btn btn-panel ${this.activeTab === 'plugins' ? 'btn-open' : ''}" id="tab-settings-plugins">Plugins Config</button>
           <button class="btn btn-panel ${this.activeTab === 'backup' ? 'btn-open' : ''}" id="tab-settings-backup">Backup Center</button>
         </div>
@@ -60,9 +57,6 @@ export const AppSettings = {
 
     // Bind tab clicks
     this.container.querySelector('#tab-settings-general').addEventListener('click', () => this.switchTab('general'));
-    this.container.querySelector('#tab-settings-appearance').addEventListener('click', () => this.switchTab('appearance'));
-    this.container.querySelector('#tab-settings-docker').addEventListener('click', () => this.switchTab('docker'));
-    this.container.querySelector('#tab-settings-metrics').addEventListener('click', () => this.switchTab('metrics'));
     this.container.querySelector('#tab-settings-plugins').addEventListener('click', () => this.switchTab('plugins'));
     this.container.querySelector('#tab-settings-backup').addEventListener('click', () => this.switchTab('backup'));
 
@@ -80,45 +74,10 @@ export const AppSettings = {
 
     if (this.activeTab === 'general') {
       const appName = this.settingsCache['app.name']?.value || 'HomeLab OS';
-      const serverHostname = this.settingsCache['server.hostname']?.value || '';
       formEl.innerHTML = `
         <div class="detail-item">
           <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: bold;">App Name Title</label>
           <input type="text" id="set-app-name" value="${appName}" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.5rem; color: var(--text-primary); font-family: inherit; font-size: 0.75rem; width: 100%;">
-        </div>
-        <div class="detail-item" style="margin-top: 1rem;">
-          <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: bold;">Server Hostname</label>
-          <input type="text" id="set-server-hostname" value="${serverHostname}" placeholder="e.g. homelab-host (Leave blank to use system hostname)" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.5rem; color: var(--text-primary); font-family: inherit; font-size: 0.75rem; width: 100%;">
-        </div>
-        <button class="btn btn-panel btn-open" id="btn-save-settings" style="margin-top: 1rem; width: 100px;">Save Settings</button>
-      `;
-      formEl.querySelector('#btn-save-settings').addEventListener('click', () => this.saveFormValues());
-    } else if (this.activeTab === 'appearance') {
-      const width = this.settingsCache['ui.sidebar_width']?.value || '220';
-      formEl.innerHTML = `
-        <div class="detail-item">
-          <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: bold;">Sidebar Width (px)</label>
-          <input type="number" id="set-sidebar-width" value="${width}" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.5rem; color: var(--text-primary); font-family: inherit; font-size: 0.75rem; width: 100%;">
-        </div>
-        <button class="btn btn-panel btn-open" id="btn-save-settings" style="margin-top: 1rem; width: 100px;">Save Settings</button>
-      `;
-      formEl.querySelector('#btn-save-settings').addEventListener('click', () => this.saveFormValues());
-    } else if (this.activeTab === 'docker') {
-      const proxy = this.settingsCache['docker.proxy_url']?.value || 'http://docker-proxy:2375';
-      formEl.innerHTML = `
-        <div class="detail-item">
-          <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: bold;">Docker Socket Proxy TCP Endpoint</label>
-          <input type="text" id="set-docker-proxy" value="${proxy}" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.5rem; color: var(--text-primary); font-family: var(--font-mono); font-size: 0.75rem; width: 100%;">
-        </div>
-        <button class="btn btn-panel btn-open" id="btn-save-settings" style="margin-top: 1rem; width: 100px;">Save Settings</button>
-      `;
-      formEl.querySelector('#btn-save-settings').addEventListener('click', () => this.saveFormValues());
-    } else if (this.activeTab === 'metrics') {
-      const interval = this.settingsCache['metrics.interval']?.value || '3000';
-      formEl.innerHTML = `
-        <div class="detail-item">
-          <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: bold;">Hardware Metrics Scraping Interval (ms)</label>
-          <input type="number" id="set-metrics-interval" value="${interval}" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.5rem; color: var(--text-primary); font-family: inherit; font-size: 0.75rem; width: 100%;">
         </div>
         <button class="btn btn-panel btn-open" id="btn-save-settings" style="margin-top: 1rem; width: 100px;">Save Settings</button>
       `;
@@ -263,18 +222,7 @@ export const AppSettings = {
     const payload = {};
     if (this.activeTab === 'general') {
       const name = this.container.querySelector('#set-app-name').value.trim();
-      const hostname = this.container.querySelector('#set-server-hostname').value.trim();
       payload['app.name'] = { value: name, groupName: 'general' };
-      payload['server.hostname'] = { value: hostname, groupName: 'general' };
-    } else if (this.activeTab === 'appearance') {
-      const width = this.container.querySelector('#set-sidebar-width').value.trim();
-      payload['ui.sidebar_width'] = { value: width, groupName: 'appearance' };
-    } else if (this.activeTab === 'docker') {
-      const proxy = this.container.querySelector('#set-docker-proxy').value.trim();
-      payload['docker.proxy_url'] = { value: proxy, groupName: 'docker' };
-    } else if (this.activeTab === 'metrics') {
-      const interval = this.container.querySelector('#set-metrics-interval').value.trim();
-      payload['metrics.interval'] = { value: interval, groupName: 'metrics' };
     }
 
     try {
