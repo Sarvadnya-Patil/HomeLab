@@ -41,9 +41,14 @@ export function getIcon(name) {
 }
 
 if (typeof window !== 'undefined') {
+  window.logoUrlCache = window.logoUrlCache || new Map();
+
   window.handleLogoLoad = function(img) {
-    if (img.dataset.logoChecked || img.src.includes('-light.webp')) return;
+    if (img.dataset.logoChecked) return;
     img.dataset.logoChecked = 'true';
+    
+    const cacheKey = img.dataset.cacheKey;
+
     try {
       const canvas = document.createElement('canvas');
       canvas.width = 8;
@@ -52,31 +57,68 @@ if (typeof window !== 'undefined') {
       ctx.drawImage(img, 0, 0, 8, 8);
       const imgData = ctx.getImageData(0, 0, 8, 8);
       const data = imgData.data;
+      
       let totalBrightness = 0;
       let visiblePixels = 0;
+      let colorfulPixels = 0;
+      
       for (let i = 0; i < data.length; i += 4) {
         const a = data[i+3];
         if (a > 30) {
           const r = data[i];
           const g = data[i+1];
           const b = data[i+2];
+          
           const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
           totalBrightness += brightness;
           visiblePixels++;
-        }
-      }
-      if (visiblePixels > 0) {
-        const avgBrightness = totalBrightness / visiblePixels;
-        // If average brightness of logo is dark (< 130 out of 255), switch to -light.webp
-        if (avgBrightness < 130) {
-          const currentSrc = img.src;
-          if (currentSrc.includes('/webp/') && currentSrc.endsWith('.webp') && !currentSrc.includes('-light.webp')) {
-            img.src = currentSrc.replace('.webp', '-light.webp');
+          
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          if (max - min > 35) {
+            colorfulPixels++;
           }
         }
       }
+      
+      if (visiblePixels > 0) {
+        const avgBrightness = totalBrightness / visiblePixels;
+        const colorfulRatio = colorfulPixels / visiblePixels;
+        
+        // Only swap to -light if it's a monochrome logo (less than 10% colorful pixels) and is dark
+        if (colorfulRatio < 0.1 && avgBrightness < 130) {
+          const currentSrc = img.src;
+          if (currentSrc.includes('/webp/') && currentSrc.endsWith('.webp') && !currentSrc.includes('-light.webp')) {
+            const lightSrc = currentSrc.replace('.webp', '-light.webp');
+            
+            img.onload = function() {
+              if (cacheKey) {
+                const clone = img.cloneNode(true);
+                clone.removeAttribute('onload');
+                clone.removeAttribute('onerror');
+                window.logoUrlCache.set(cacheKey, clone.outerHTML);
+              }
+            };
+            img.src = lightSrc;
+            return;
+          }
+        }
+      }
+      
+      if (cacheKey) {
+        const clone = img.cloneNode(true);
+        clone.removeAttribute('onload');
+        clone.removeAttribute('onerror');
+        window.logoUrlCache.set(cacheKey, clone.outerHTML);
+      }
     } catch (err) {
       console.warn('Failed to analyze logo brightness:', err);
+      if (cacheKey) {
+        const clone = img.cloneNode(true);
+        clone.removeAttribute('onload');
+        clone.removeAttribute('onerror');
+        window.logoUrlCache.set(cacheKey, clone.outerHTML);
+      }
     }
   };
 }

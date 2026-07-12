@@ -294,19 +294,29 @@ export default {
       return ref;
     };
 
-    const serviceRefName = guessLogoName(service.id);
-    const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${serviceRefName}.webp`;
+    const cacheKey = `logo-${service.id}`;
+    let logoHtml = '';
+    if (window.logoUrlCache && window.logoUrlCache.has(cacheKey)) {
+      logoHtml = window.logoUrlCache.get(cacheKey);
+    } else {
+      const serviceRefName = guessLogoName(service.id);
+      const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${serviceRefName}.webp`;
+      logoHtml = `
+        <img src="${logoUrl}" 
+             alt="${escapeHtml(service.name)}" 
+             crossorigin="anonymous"
+             data-cache-key="${cacheKey}"
+             style="width: 18px; height: 18px; object-fit: contain;" 
+             onload="window.handleLogoLoad(this)"
+             onerror="this.onerror=null; const svg=decodeURIComponent('${encodeURIComponent(getIcon(service.id)).replace(/'/g, '%27')}'); if(window.logoUrlCache){window.logoUrlCache.set('${cacheKey}', svg);} this.outerHTML=svg;"/>
+      `;
+    }
 
     card.innerHTML = `
       <div class="service-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;">
         <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">
           <span class="card-icon" style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 18px; height: 18px;">
-            <img src="${logoUrl}" 
-                 alt="${escapeHtml(service.name)}" 
-                 crossorigin="anonymous"
-                 style="width: 18px; height: 18px; object-fit: contain;" 
-                 onload="window.handleLogoLoad(this)"
-                 onerror="this.onerror=null; this.outerHTML=decodeURIComponent('${encodeURIComponent(getIcon(service.id)).replace(/'/g, '%27')}')"/>
+            ${logoHtml}
           </span>
           <div style="overflow: hidden;">
             <h4 class="service-name" style="margin: 0; font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">${escapeHtml(service.name)}</h4>

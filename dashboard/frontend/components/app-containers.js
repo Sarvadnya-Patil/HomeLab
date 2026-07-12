@@ -322,20 +322,30 @@ export const AppContainers = {
         return ref;
       };
 
-      const refName = guessLogoName(name);
-      const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${refName}.webp`;
+      const cacheKey = `logo-cont-${name}`;
+      let logoHtml = '';
+      if (window.logoUrlCache && window.logoUrlCache.has(cacheKey)) {
+        logoHtml = window.logoUrlCache.get(cacheKey);
+      } else {
+        const refName = guessLogoName(name);
+        const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${refName}.webp`;
+        logoHtml = `
+          <img src="${logoUrl}" 
+               alt="${escName}" 
+               crossorigin="anonymous"
+               data-cache-key="${cacheKey}"
+               style="width: 16px; height: 16px; object-fit: contain;" 
+               onload="window.handleLogoLoad(this)"
+               onerror="this.onerror=null; const svg=decodeURIComponent('${encodeURIComponent(getIcon(name)).replace(/'/g, '%27')}'); if(window.logoUrlCache){window.logoUrlCache.set('${cacheKey}', svg);} this.outerHTML=svg;"/>
+        `;
+      }
 
       html += `
         <tr style="border-bottom: 1px dashed rgba(255,255,255,0.02); height: 40px;" data-container-id="${c.Id}">
           <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary);">
             <div style="display: flex; align-items: center; gap: 0.5rem;">
               <span style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
-                <img src="${logoUrl}" 
-                     alt="${escName}" 
-                     crossorigin="anonymous"
-                     style="width: 16px; height: 16px; object-fit: contain;" 
-                     onload="window.handleLogoLoad(this)"
-                     onerror="this.onerror=null; this.outerHTML=decodeURIComponent('${encodeURIComponent(getIcon(name)).replace(/'/g, '%27')}')"/>
+                ${logoHtml}
               </span>
               <span>${escName}</span>
             </div>
