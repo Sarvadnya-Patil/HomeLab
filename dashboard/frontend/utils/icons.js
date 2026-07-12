@@ -22,10 +22,20 @@ export const icons = {
   disk: `<svg class="widget-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>`,
   bell: `<svg class="widget-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"></path></svg>`,
 
+  falcon: `<svg class="logo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h.01M3.4 18H12a8 8 0 0 0 8-8V7a3 3 0 0 0-3-3 3 3 0 0 0-3 3v2.5a2 2 0 0 1-2 2H6M2 20h20"></path></svg>`,
+
   // Default
   default: `<svg class="logo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect><line x1="12" y1="2" x2="12" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line></svg>`
 };
 
 export function getIcon(name) {
-  return icons[name] || icons.default;
+  if (!name) return icons.default;
+  const lower = name.toLowerCase();
+  if (lower.includes('homelab') || lower.includes('falcon') || lower.includes('dashboard') || lower.includes('docker-proxy') || lower.includes('console')) {
+    return icons.falcon;
+  }
+  if (lower.includes('postgres') || lower.includes('sql') || lower.includes('db') || lower.includes('database')) {
+    return icons.database;
+  }
+  return icons[lower] || icons.default;
 }

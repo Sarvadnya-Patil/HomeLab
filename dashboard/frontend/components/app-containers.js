@@ -323,7 +323,7 @@ export const AppContainers = {
       };
 
       let refName = guessLogoName(name);
-      const monochromeLogos = ['falcon', 'docker-proxy', 'dashboard', 'sqlite', 'server'];
+      const monochromeLogos = ['falcon', 'docker-proxy', 'dashboard', 'sqlite', 'server', 'portainer'];
       if (monochromeLogos.includes(refName)) {
         refName += '-light';
       }

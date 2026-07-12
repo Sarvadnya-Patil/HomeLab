@@ -295,7 +295,7 @@ export default {
     };
 
     let serviceRefName = guessLogoName(service.id);
-    const monochromeLogos = ['falcon', 'docker-proxy', 'dashboard', 'sqlite', 'server'];
+    const monochromeLogos = ['falcon', 'docker-proxy', 'dashboard', 'sqlite', 'server', 'portainer'];
     if (monochromeLogos.includes(serviceRefName)) {
       serviceRefName += '-light';
     }
