@@ -27,20 +27,25 @@ export default function (fastify: any, engine: CoreEngine): void {
     return { success: engine.workspacesRepo.delete(id) };
   });
 
-  // 2. Categories CRUD
   fastify.get('/api/v1/categories', async () => {
     const list = engine.categoriesRepo.findAll();
     if (!list.some(c => c.id === 'containers' || c.name.toLowerCase() === 'containers')) {
-      list.push({
-        id: 'containers',
-        workspaceId: 'overview',
-        name: 'Containers',
-        icon: 'server',
-        description: 'Auto-discovered Docker host container instances',
-        displayOrder: 10,
-        collapsed: false,
-        visible: true
-      } as any);
+      const services = await engine.getEnrichedServices().catch(() => []);
+      const hasContainers = services.some(
+        s => !s.category || s.category.toLowerCase() === 'containers'
+      );
+      if (hasContainers) {
+        list.push({
+          id: 'containers',
+          workspaceId: 'overview',
+          name: 'Containers',
+          icon: 'server',
+          description: 'Auto-discovered Docker host container instances',
+          displayOrder: 10,
+          collapsed: false,
+          visible: true
+        } as any);
+      }
     }
     return list;
   });
@@ -69,7 +74,24 @@ export default function (fastify: any, engine: CoreEngine): void {
     return engine.widgetsRepo.findByWorkspace(workspaceId);
   });
 
-  fastify.post('/api/v1/workspaces/:workspaceId/widgets', async (request: any) => {
+  fastify.post('/api/v1/workspaces/:workspaceId/widgets', {
+    schema: {
+      body: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['id', 'size', 'col', 'row', 'displayOrder'],
+          properties: {
+            id: { type: 'string' },
+            size: { type: 'string' },
+            col: { type: 'integer' },
+            row: { type: 'integer' },
+            displayOrder: { type: 'integer' }
+          }
+        }
+      }
+    }
+  }, async (request: any) => {
     const { workspaceId } = request.params;
     const list = request.body || [];
     engine.widgetsRepo.saveLayout(workspaceId, list);

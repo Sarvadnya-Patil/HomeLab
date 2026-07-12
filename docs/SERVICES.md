@@ -15,5 +15,27 @@ If you wish to create a custom service manifest in your `services/` directory, r
 
 ---
 
+## Logo & Icon Resolution Engine
+
+HomeLab OS employs a fully dynamic, client-side logo resolution system:
+
+### 1. Dynamic CDN Mapping
+The dashboard maps service and container identifiers to the public [selfh.st/icons](https://selfh.st/icons) library, dynamically fetching high-performance `.webp` logos from the jsDelivr CDN.
+
+*   **Typo & Alias Matching:** An in-memory resolver maps common typos or variations (e.g., `postgres` $\rightarrow$ `postgresql`, `homelab-dashboard`/`docker-proxy` $\rightarrow$ `falcon`).
+*   **Persistent Caching:** Assets are loaded with aggressive CDN caching headers so logos remain visible in the browser even when containers go offline or during a `docker compose down` state.
+
+### 2. Auto-Brightness Canvas Analyzer
+To ensure optimal legibility on the dashboard's dark theme:
+*   As each WebP logo loads, an in-memory `canvas` (8x8 pixels) analyzes the average relative luminance of the visible pixels.
+*   If the logo is detected as dark, grey, or black (brightness $< 130$ out of 255), the image `src` is automatically updated to the native CDN light-theme variant (appending `-light.webp`).
+
+### 3. Bulletproof SVG Fallbacks
+If a logo does not exist in the selfh.st catalog or fails to load:
+*   The `onerror` handler captures the network failure.
+*   It immediately swaps the failed image element for a high-quality, local vector SVG (e.g., the falcon icon for HomeLab services, or the database icon for SQLite/PostgreSQL databases), preserving the integrity and premium look of the UI.
+
+---
+
 > [!NOTE]
 > Public subdomain URLs are dynamically resolved using the active host Cloudflare Tunnel configuration (`config.yml` or `config.yaml` inside `/etc/cloudflared/` or your home directory `~/.cloudflared/`). If a service is not mapped in the tunnel, it safely falls back to local LAN routing (`http://127.0.0.1:port`).

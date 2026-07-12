@@ -4,6 +4,16 @@ import { api } from '../core/api.js';
 import { getIcon } from '../utils/icons.js';
 import { Dialog } from '../utils/dialog.js';
 
+function escapeHtml(text) {
+  if (typeof text !== 'string') return text;
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 export default {
   id: 'services',
   title: 'Discovered Services',
@@ -62,7 +72,7 @@ export default {
       let catServices = services.filter(s => {
         const matchesCategory = s.category.toLowerCase() === cat.id.toLowerCase() || s.category === cat.name;
         const matchesFilter = !filterQuery || s.name.toLowerCase().includes(filterQuery) || s.id.toLowerCase().includes(filterQuery);
-        const isInstalled = s.status !== 'Not Installed';
+        const isInstalled = s.status !== 'Unknown';
         return matchesCategory && matchesFilter && isInstalled;
       });
 
@@ -205,8 +215,8 @@ export default {
                           window.location.hostname.endsWith('.local');
     const isRemoteAccess = !isLocalAccess;
 
-    if (service.status !== 'Not Installed') {
-      if (capabilities.includes('open')) {
+    if (service.status !== 'Offline' && service.status !== 'Unknown') {
+      if (capabilities.includes('open') && isOnline) {
         const shouldHideOpen = isRemoteAccess && !isPublic;
         if (!shouldHideOpen) {
           actionButtons += `<button class="btn-card-act btn-open" onclick="window.open('${href}')">Open</button>`;
@@ -218,11 +228,11 @@ export default {
       if ((capabilities.includes('stop') && isOnline) || (capabilities.includes('start') && !isOnline)) {
         actionButtons += `<button class="btn-card-act" data-action="toggle" data-service-id="${service.id}">${isOnline ? 'Stop' : 'Start'}</button>`;
       }
-      if (capabilities.includes('logs')) {
+      if (capabilities.includes('logs') && isOnline) {
         actionButtons += `<button class="btn-card-act" data-action="logs" data-service-id="${service.id}">Logs</button>`;
       }
     } else {
-      actionButtons += `<span style="font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 2;">Not Installed</span>`;
+      actionButtons += `<button class="btn-card-act" data-action="compose-up" data-service-id="${service.id}" style="color: var(--text-accent, #60a5fa); border-color: var(--text-accent, #60a5fa);">Recreate</button>`;
     }
 
     const card = document.createElement("div");
@@ -236,45 +246,86 @@ export default {
       const latVal = (service.details && service.details.latency && service.details.latency !== 'N/A') 
         ? service.details.latency 
         : '--';
+      const portVal = service.ports && service.ports.http ? String(service.ports.http) : 'N/A';
+      const uptimeVal = service.details ? String(service.details.uptime) : 'N/A';
       detailsHtml = `
         <div class="detail-item">
           <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Exposed Port</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.ports && service.ports.http ? service.ports.http : 'N/A'}</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(portVal)}</span>
         </div>
         <div class="detail-item">
           <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Latency</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${latVal}</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(latVal)}</span>
         </div>
         <div class="detail-item" style="grid-column: span 2;">
           <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Uptime</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.details ? service.details.uptime : 'N/A'}</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(uptimeVal)}</span>
         </div>
       `;
     } else {
+      const portVal = service.ports && service.ports.http ? String(service.ports.http) : 'N/A';
+      const uptimeVal = service.details ? String(service.details.uptime) : 'N/A';
       detailsHtml = `
         <div class="detail-item">
           <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Exposed Port</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.ports && service.ports.http ? service.ports.http : 'N/A'}</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(portVal)}</span>
         </div>
         <div class="detail-item">
           <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Uptime</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${service.details ? service.details.uptime : 'N/A'}</span>
+          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(uptimeVal)}</span>
         </div>
+      `;
+    }
+
+    const guessLogoName = (id) => {
+      const ref = id.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      const mappings = [
+        { keywords: ['homelab', 'docker-proxy', 'dashboard', 'console'], logo: 'falcon' },
+        { keywords: ['postgresql', 'postgres', 'postgre', 'pgsql', 'psql', 'pg-'], logo: 'postgresql' },
+        { keywords: ['mariadb', 'maria', 'mariya'], logo: 'mariadb' },
+        { keywords: ['mysql', 'my-sql'], logo: 'mysql' },
+        { keywords: ['home-assistant', 'homeassistant', 'home-assist', 'hass'], logo: 'home-assistant' }
+      ];
+      for (const rule of mappings) {
+        if (rule.keywords.some(kw => ref.includes(kw))) {
+          return rule.logo;
+        }
+      }
+      return ref;
+    };
+
+    const cacheKey = `logo-${service.id}`;
+    let logoHtml = '';
+    if (window.logoUrlCache && window.logoUrlCache.has(cacheKey)) {
+      logoHtml = window.logoUrlCache.get(cacheKey);
+    } else {
+      const serviceRefName = guessLogoName(service.id);
+      const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${serviceRefName}.webp`;
+      logoHtml = `
+        <img src="${logoUrl}" 
+             alt="${escapeHtml(service.name)}" 
+             crossorigin="anonymous"
+             data-cache-key="${cacheKey}"
+             style="width: 18px; height: 18px; object-fit: contain;" 
+             onload="window.handleLogoLoad(this)"
+             onerror="this.onerror=null; const svg=decodeURIComponent('${encodeURIComponent(getIcon(service.id)).replace(/'/g, '%27')}'); if(window.logoUrlCache){window.logoUrlCache.set('${cacheKey}', svg);} this.outerHTML=svg;"/>
       `;
     }
 
     card.innerHTML = `
       <div class="service-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;">
         <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">
-          <span class="card-icon" style="flex-shrink: 0; display: flex; align-items: center;">${getIcon(service.id)}</span>
+          <span class="card-icon" style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 18px; height: 18px;">
+            ${logoHtml}
+          </span>
           <div style="overflow: hidden;">
-            <h4 class="service-name" style="margin: 0; font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">${service.name}</h4>
-            <span style="font-size: 0.6rem; color: var(--text-muted); font-family: var(--font-mono);">${service.version}</span>
+            <h4 class="service-name" style="margin: 0; font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">${escapeHtml(service.name)}</h4>
+            <span style="font-size: 0.6rem; color: var(--text-muted); font-family: var(--font-mono);">${escapeHtml(service.version)}</span>
           </div>
         </div>
-        <span class="card-status ${isOnline ? 'online' : 'offline'}" style="flex-shrink: 0; font-size: 0.7rem; font-family: var(--font-mono); display: flex; align-items: center; padding: 0.15rem 0.35rem; border-radius: 3px;">${service.status}</span>
+        <span class="card-status ${isOnline ? 'online' : 'offline'}" style="flex-shrink: 0; font-size: 0.7rem; font-family: var(--font-mono); display: flex; align-items: center; padding: 0.15rem 0.35rem; border-radius: 3px;">${escapeHtml(service.status)}</span>
       </div>
-      <p class="service-description" style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; min-height: 32px;">${service.description}</p>
+      <p class="service-description" style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; min-height: 32px;">${escapeHtml(service.description)}</p>
       
       <div class="card-badges-row" style="margin-top: 0.25rem;">
         ${badges}
@@ -583,8 +634,13 @@ export default {
     }
 
     try {
-      // Call engine post lifecycle action
-      await api.post(`/api/v1/services/${serviceId}/action`, { action });
+      if (action === 'compose-up') {
+        const res = await api.post(`/api/v1/services/${serviceId}/compose-up`, {});
+        alert(`Compose Up triggered as job: ${res.jobId}`);
+      } else {
+        // Call engine post lifecycle action
+        await api.post(`/api/v1/services/${serviceId}/action`, { action });
+      }
     } catch (err) {
       if (window.showCustomAlert) {
         window.showCustomAlert('Action Failed', err.message, 'error');
@@ -611,7 +667,6 @@ export default {
     const defaultTemplates = [
       { id: 'infrastructure', name: 'Infrastructure', accent: '#3b82f6' },
       { id: 'monitoring', name: 'Monitoring', accent: '#10b981' },
-      { id: 'automation', name: 'Automation', accent: '#a855f7' },
       { id: 'ai', name: 'AI Stack', accent: '#f59e0b' },
       { id: 'networking', name: 'Networking', accent: '#06b6d4' },
       { id: 'storage', name: 'Storage', accent: '#eab308' }
@@ -697,13 +752,60 @@ export default {
   },
 
   async promptDeleteCategory(categoryId, categoryName) {
-    const confirmDelete = await Dialog.confirm({
-      title: 'Delete Category',
-      message: `Are you sure you want to delete category "${categoryName}"? Services in it will revert to uncategorized.`
-    });
-    if (!confirmDelete) return;
+    const services = store.get('services') || [];
+    const categories = store.get('categories') || [];
+    
+    const categoryServices = services.filter(s => 
+      s.category && (s.category.toLowerCase() === categoryId.toLowerCase() || s.category === categoryName)
+    );
+    const otherCategories = categories.filter(c => c.id !== categoryId);
+
+    let targetCategoryId = null;
+
+    if (categoryServices.length > 0) {
+      if (otherCategories.length === 0) {
+        await Dialog.confirm({
+          title: 'Cannot Delete Category',
+          message: `Category "${categoryName}" contains active services, and there are no other categories to move them to. Please create another category first.`
+        });
+        return;
+      }
+
+      targetCategoryId = await Dialog.promptReassignCategory({
+        title: 'Delete Category & Move Services',
+        message: `Category "${categoryName}" contains ${categoryServices.length} active service(s). Please choose which category to move these services to before deleting:`,
+        categories: otherCategories
+      });
+
+      if (!targetCategoryId) return; // User cancelled
+    } else {
+      const confirmDelete = await Dialog.confirm({
+        title: 'Delete Category',
+        message: `Are you sure you want to delete empty category "${categoryName}"?`
+      });
+      if (!confirmDelete) return;
+    }
 
     try {
+      if (targetCategoryId) {
+        const targetCatObj = otherCategories.find(c => c.id === targetCategoryId);
+        const targetCatName = targetCatObj ? targetCatObj.name : targetCategoryId;
+
+        const updatedServices = services.map(s => {
+          const matches = s.category && (s.category.toLowerCase() === categoryId.toLowerCase() || s.category === categoryName);
+          return matches ? { ...s, category: targetCatName } : s;
+        });
+        store.set('services', updatedServices);
+
+        await Promise.all(categoryServices.map(async (s) => {
+          try {
+            await api.put(`/api/v1/services/${s.id}/category`, { categoryId: targetCategoryId });
+          } catch (err) {
+            console.error(`Failed to move service ${s.id} to category ${targetCategoryId}: ${err.message}`);
+          }
+        }));
+      }
+
       await api.delete(`/api/v1/categories/${categoryId}`);
       const current = store.get('categories') || [];
       store.set('categories', current.filter(c => c.id !== categoryId));

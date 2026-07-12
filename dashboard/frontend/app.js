@@ -15,7 +15,6 @@ import { AppTerminal } from './components/app-terminal.js';
 import { AppDesigner } from './components/app-designer.js';
 import { AppHealth } from './components/app-health.js';
 import { AppJobs } from './components/app-jobs.js';
-import { AppWorkflows } from './components/app-workflows.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Booting HomeLab OS Control Plane...');
@@ -28,6 +27,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   CommandPalette.init();
   NotificationCenter.init();
   Sidebar.init(document.getElementById('sidebar-nav-menu'));
+
+  // 1.5. Bind logged-in user profile view update state changes
+  store.on('currentUser', ({ value }) => {
+    const displayNameEl = document.getElementById('user-display-name');
+    const roleEl = document.getElementById('user-role');
+    const avatarEl = document.getElementById('user-avatar');
+    
+    if (value) {
+      if (displayNameEl) displayNameEl.textContent = value.displayName || value.username || 'Administrator';
+      if (roleEl) roleEl.textContent = value.role || 'ADMIN';
+      if (avatarEl) {
+        const name = value.displayName || value.username || 'A';
+        avatarEl.textContent = name.charAt(0).toUpperCase();
+      }
+    }
+  });
 
   // 2. Register dynamic view router
   store.on('activeApp', ({ value }) => {
@@ -51,9 +66,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (value === 'designer') {
       viewport.className = 'app-viewport';
       AppDesigner.init(viewport);
-    } else if (value === 'workflows') {
-      viewport.className = 'app-viewport';
-      AppWorkflows.init(viewport);
     } else if (value === 'health') {
       viewport.className = 'app-viewport';
       AppHealth.init(viewport);
@@ -260,8 +272,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      const isOpen = store.get('commandPaletteOpen');
-      store.set('commandPaletteOpen', !isOpen);
+      const mainSearchBar = document.getElementById("cmd-palette");
+      if (mainSearchBar) {
+        mainSearchBar.focus();
+        mainSearchBar.select();
+      }
     }
   });
 
@@ -397,7 +412,12 @@ window.showCustomAlert = function(title, message, type = 'error') {
 
 // Override standard browser alert globally to route to custom toast notification
 window.alert = function(message) {
-  const isSuccess = message.toLowerCase().includes('success') || message.toLowerCase().includes('saved');
+  const lowercaseMsg = message.toLowerCase();
+  const isSuccess = lowercaseMsg.includes('success') || 
+                    lowercaseMsg.includes('saved') || 
+                    lowercaseMsg.includes('triggered') || 
+                    lowercaseMsg.includes('recreated') || 
+                    lowercaseMsg.includes('completed');
   window.showToast(message, isSuccess ? 'success' : 'error');
 };
 

@@ -146,9 +146,16 @@ export class BackupService {
 
   // 3. Trigger database restore task
   async restoreDatabase(backupFile: string): Promise<any> {
-    const backupPath = path.join(this.backupDir, backupFile);
+    const safeFilename = path.basename(backupFile);
+    const resolvedBackupDir = path.resolve(this.backupDir);
+    const backupPath = path.resolve(resolvedBackupDir, safeFilename);
+
+    if (!backupPath.startsWith(resolvedBackupDir)) {
+      throw new Error('Access Denied: Invalid backup file path');
+    }
+
     if (!fs.existsSync(backupPath)) {
-      throw new Error(`Backup file not found: ${backupFile}`);
+      throw new Error(`Backup file not found: ${safeFilename}`);
     }
 
     const job = await this.jobs.executeAsyncTask('system_restore', 'database', async (updateProgress) => {

@@ -9,6 +9,17 @@ export const AppHealth = {
     this.container = containerEl;
     this.render();
 
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar) {
+      this.onSearchInput = () => {
+        const currentHealth = store.get('healthStatus');
+        if (currentHealth) {
+          this.updateUI(currentHealth);
+        }
+      };
+      mainSearchBar.addEventListener('input', this.onSearchInput);
+    }
+
     // Listen to unified health status updates
     store.on('healthStatus', ({ value }) => this.updateUI(value));
     store.on('metrics', () => this.updateMetricsUI());
@@ -21,6 +32,14 @@ export const AppHealth = {
     const currentMetrics = store.get('metrics');
     if (currentMetrics) {
       this.updateMetricsUI(currentMetrics);
+    }
+    window.activeAppDestroy = () => this.destroy();
+  },
+
+  destroy() {
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar && this.onSearchInput) {
+      mainSearchBar.removeEventListener('input', this.onSearchInput);
     }
   },
 
@@ -35,13 +54,36 @@ export const AppHealth = {
         </div>
 
         <div id="health-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
-          <div class="card card-loading">Gathering subsystem statuses...</div>
+          <div class="skeleton-card">
+            <div class="skeleton-line title"></div>
+            <div class="skeleton-line text"></div>
+            <div class="skeleton-line short"></div>
+          </div>
+          <div class="skeleton-card">
+            <div class="skeleton-line title"></div>
+            <div class="skeleton-line text"></div>
+            <div class="skeleton-line short"></div>
+          </div>
+          <div class="skeleton-card">
+            <div class="skeleton-line title"></div>
+            <div class="skeleton-line text"></div>
+            <div class="skeleton-line short"></div>
+          </div>
         </div>
 
         <div style="margin-top: 1rem; border-top: 1px dashed var(--border-slate); padding-top: 1rem;">
           <h3 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; color: #fff; font-weight: 600;">System Information Overview</h3>
           <div id="system-info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
-            <div class="card card-loading" style="font-size: 0.75rem; color: var(--text-muted);">Gathering system platform metrics...</div>
+            <div class="skeleton-card">
+              <div class="skeleton-line title"></div>
+              <div class="skeleton-line text"></div>
+              <div class="skeleton-line short"></div>
+            </div>
+            <div class="skeleton-card">
+              <div class="skeleton-line title"></div>
+              <div class="skeleton-line text"></div>
+              <div class="skeleton-line short"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -52,18 +94,24 @@ export const AppHealth = {
     const grid = this.container?.querySelector('#health-grid');
     if (!grid || !healthData || !healthData.subsystems) return;
 
+    const searchVal = (document.getElementById("cmd-palette")?.value || '').toLowerCase().trim();
     let html = '';
     const subs = healthData.subsystems;
+    let visibleCount = 0;
 
     for (const name of Object.keys(subs)) {
       const item = subs[name];
+      if (searchVal && !name.toLowerCase().includes(searchVal) && !item.status.toLowerCase().includes(searchVal)) {
+        continue;
+      }
+      visibleCount++;
       const isOnline = item.status === 'online';
       const color = isOnline ? 'var(--term-green)' : '#ef4444';
       
       let iconName = 'activity';
       if (name === 'database') iconName = 'database';
       if (name === 'docker') iconName = 'server';
-      if (name === 'tunnel') iconName = 'link';
+      if (name === 'tunnel') iconName = 'tunnel';
       
       const iconHtml = getIcon(iconName);
 
@@ -79,7 +127,9 @@ export const AppHealth = {
           </div>
           
           <div style="font-size: 0.7rem; color: var(--text-muted); display: grid; grid-template-columns: 80px 1fr; gap: 0.25rem; margin-top: 0.5rem;">
-            <span>Latency:</span> <span style="color: #fff; font-weight: 500;">${item.latency || 'N/A'}</span>
+            ${(name !== 'scheduler' && name !== 'metrics_collector') ? `
+              <span>Latency:</span> <span style="color: #fff; font-weight: 500;">${item.latency || 'N/A'}</span>
+            ` : ''}
             <span>Heartbeat:</span> <span>${new Date(item.lastHeartbeat).toLocaleTimeString()}</span>
             <span>Errors:</span> <span style="color: ${item.lastError ? '#ef4444' : 'var(--text-muted)'};">${item.lastError || 'None'}</span>
           </div>
@@ -87,7 +137,11 @@ export const AppHealth = {
       `;
     }
 
-    grid.innerHTML = html;
+    if (visibleCount === 0) {
+      grid.innerHTML = `<div style="grid-column: 1 / -1; color: var(--text-muted); font-size: 0.75rem; text-align: center; padding: 2rem 0;">No matching health subsystems found.</div>`;
+    } else {
+      grid.innerHTML = html;
+    }
   },
 
   updateMetricsUI() {

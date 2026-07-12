@@ -22,25 +22,67 @@ export const AppDesigner = {
     this.panY = 0;
     this.nodes = [];
     this.links = [];
+    this.isDragging = false;
+    this.isLoading = true;
+    this.localPositions = new Map();
+
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar) {
+      this.onSearchInput = () => {
+        this.renderConnections();
+      };
+      mainSearchBar.addEventListener('input', this.onSearchInput);
+    }
 
     this.render();
     
     // Initial fetch of states and dynamic updates
-    this.refreshLiveTopology();
-    this.pollInterval = setInterval(() => this.refreshLiveTopology(), 4000);
+    this.refreshLiveTopology(true);
+    this.pollInterval = setInterval(() => this.refreshLiveTopology(false), 4000);
     window.activeAppDestroy = () => this.destroy();
   },
 
-  async refreshLiveTopology() {
+  destroy() {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar && this.onSearchInput) {
+      mainSearchBar.removeEventListener('input', this.onSearchInput);
+    }
+  },
+
+  async refreshLiveTopology(isInitial = false) {
+    if (this.isDragging) return;
     await this.loadTopologyData();
+    this.isLoading = false;
     this.renderNodes();
     this.renderConnections();
+    if (isInitial) {
+      setTimeout(() => this.fitView(), 50);
+    }
   },
 
   async loadTopologyData() {
     try {
       // Fetch dynamic coordinates and status from backend infrastructure service
-      this.nodes = await api.get('/api/v1/designer/topology').catch(() => []);
+      const fetchedNodes = await api.get('/api/v1/designer/topology').catch(() => []);
+      
+      // Preserve local coordinates if a drag-and-save cycle is pending in database
+      fetchedNodes.forEach(node => {
+        const localPos = this.localPositions ? this.localPositions.get(node.id) : null;
+        if (localPos) {
+          const targetPos = node.position || { x: node.x, y: node.y };
+          if (Math.abs(targetPos.x - localPos.x) < 2 && Math.abs(targetPos.y - localPos.y) < 2) {
+            this.localPositions.delete(node.id);
+          } else {
+            node.position = localPos;
+          }
+        }
+      });
+
+      this.nodes = fetchedNodes;
       
       // Parse links dynamically from node connections array
       this.links = [];
@@ -75,24 +117,43 @@ export const AppDesigner = {
   },
 
   autoLayout() {
+    const canvas = this.container.querySelector('#canvas-area');
+    const canvasWidth = canvas ? canvas.clientWidth : 800;
+    const canvasHeight = canvas ? canvas.clientHeight : 450;
+    const centerX = canvasWidth / 2;
+
     const internet = this.nodes.filter(n => n.type === 'internet');
     const tunnels = this.nodes.filter(n => n.type === 'tunnel');
     const proxies = this.nodes.filter(n => n.type === 'proxy');
     const containers = this.nodes.filter(n => n.type === 'container' || (!['internet', 'tunnel', 'proxy'].includes(n.type)));
 
-    if (internet[0]) internet[0].position = { x: 400, y: 50 };
+    const hasProxy = proxies.length > 0;
+
+    // Distribute vertically inside the available canvas height with padding bounds
+    const yInternet = Math.round(canvasHeight * 0.12);
+    const yTunnel = Math.round(canvasHeight * 0.38);
+    const yProxy = Math.round(canvasHeight * 0.62);
+    const yContainer = Math.round(canvasHeight * 0.82);
+
+    if (internet[0]) internet[0].position = { x: centerX - 75, y: yInternet };
+    
     tunnels.forEach((t, i) => {
-      t.position = { x: 400 + (i - (tunnels.length - 1) / 2) * 200, y: 170 };
+      t.position = { x: centerX - 75 + (i - (tunnels.length - 1) / 2) * 180, y: yTunnel };
     });
-    proxies.forEach((p, i) => {
-      p.position = { x: 400 + (i - (proxies.length - 1) / 2) * 200, y: 290 };
-    });
+    
+    if (hasProxy) {
+      proxies.forEach((p, i) => {
+        p.position = { x: centerX - 75 + (i - (proxies.length - 1) / 2) * 180, y: yProxy };
+      });
+    }
 
     const totalContainers = containers.length;
-    const spacing = 160;
-    const startX = 400 - ((totalContainers - 1) * spacing) / 2;
+    const spacing = 170;
+    const startX = centerX - 75 - ((totalContainers - 1) * spacing) / 2;
+    const targetY = hasProxy ? yContainer : yProxy;
+
     containers.forEach((c, i) => {
-      c.position = { x: startX + i * spacing, y: 430 };
+      c.position = { x: startX + i * spacing, y: targetY };
     });
 
     // Mirror to visual x/y
@@ -106,6 +167,54 @@ export const AppDesigner = {
     this.saveLayout();
     this.renderNodes();
     this.renderConnections();
+    this.fitView();
+  },
+
+  fitView() {
+    const canvas = this.container.querySelector('#canvas-area');
+    const wrapper = this.container.querySelector('#canvas-transform-wrapper');
+    if (!canvas || !wrapper || this.nodes.length === 0) return;
+
+    const canvasWidth = canvas.clientWidth;
+    const canvasHeight = canvas.clientHeight;
+
+    // Calculate bounding box of all nodes
+    let minX = Infinity, minY = Infinity;
+    let maxX = -Infinity, maxY = -Infinity;
+
+    this.nodes.forEach(n => {
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + 150);
+      maxY = Math.max(maxY, n.y + 50);
+    });
+
+    const graphWidth = maxX - minX;
+    const graphHeight = maxY - minY;
+    
+    const padding = 30;
+    const paddedWidth = graphWidth + padding * 2;
+    const paddedHeight = graphHeight + padding * 2;
+
+    // Compute best scale fit
+    let newScale = Math.min(
+      canvasWidth / paddedWidth,
+      canvasHeight / paddedHeight
+    );
+    newScale = Math.max(0.4, Math.min(newScale, 1.1));
+
+    // Center layout coordinates
+    const graphCenterX = minX + graphWidth / 2;
+    const graphCenterY = minY + graphHeight / 2;
+
+    const newPanX = canvasWidth / 2 - graphCenterX * newScale;
+    const newPanY = canvasHeight / 2 - graphCenterY * newScale;
+
+    this.scale = newScale;
+    this.panX = newPanX;
+    this.panY = newPanY;
+
+    wrapper.style.transform = `translate(${newPanX}px, ${newPanY}px) scale(${newScale})`;
   },
 
   render() {
@@ -149,7 +258,7 @@ export const AppDesigner = {
       <div class="designer-layout" style="display: flex; flex-direction: column; height: 100%; gap: 1rem; color: var(--text-slate); user-select: none;">
         <div class="designer-toolbar" style="display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.4); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border-slate); backdrop-filter: blur(10px);">
           <div>
-            <h2 style="margin: 0; font-size: 1.1rem; color: #fff; font-weight: 600;">Infrastructure Topology Designer</h2>
+            <h2 style="margin: 0; font-size: 1.1rem; color: #fff; font-weight: 600;">Topology</h2>
             <span style="font-size: 0.7rem; color: var(--text-muted);">Interactive status mapping, connection flow & stack control panel</span>
           </div>
           <div style="display: flex; gap: 0.5rem;">
@@ -217,7 +326,24 @@ export const AppDesigner = {
     container.innerHTML = '';
 
     if (!this.nodes || this.nodes.length === 0) {
-      container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding-top: 150px; width: 100%; font-weight: 500;">No topology discovered.</div>`;
+      if (this.isLoading) {
+        container.innerHTML = `
+          <div class="skeleton-card" style="position: absolute; left: 100px; top: 150px; width: 150px; height: 50px; padding: 0.5rem; display: flex; flex-direction: column; justify-content: center; gap: 0.3rem; border: 1px dashed var(--border-slate); background: rgba(30,41,59,0.3);">
+            <div class="skeleton-line title" style="width: 70%; height: 10px; margin: 0;"></div>
+            <div class="skeleton-line short" style="width: 40%; height: 6px; margin: 0;"></div>
+          </div>
+          <div class="skeleton-card" style="position: absolute; left: 350px; top: 150px; width: 150px; height: 50px; padding: 0.5rem; display: flex; flex-direction: column; justify-content: center; gap: 0.3rem; border: 1px dashed var(--border-slate); background: rgba(30,41,59,0.3);">
+            <div class="skeleton-line title" style="width: 80%; height: 10px; margin: 0;"></div>
+            <div class="skeleton-line short" style="width: 30%; height: 6px; margin: 0;"></div>
+          </div>
+          <div class="skeleton-card" style="position: absolute; left: 600px; top: 150px; width: 150px; height: 50px; padding: 0.5rem; display: flex; flex-direction: column; justify-content: center; gap: 0.3rem; border: 1px dashed var(--border-slate); background: rgba(30,41,59,0.3);">
+            <div class="skeleton-line title" style="width: 60%; height: 10px; margin: 0;"></div>
+            <div class="skeleton-line short" style="width: 50%; height: 6px; margin: 0;"></div>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding-top: 150px; width: 100%; font-weight: 500;">No topology discovered.</div>`;
+      }
       return;
     }
 
@@ -278,22 +404,73 @@ export const AppDesigner = {
       this.bindNodeTooltip(nodeEl, node);
     });
   },
-
   renderConnections() {
     const svg = this.container.querySelector('#canvas-connections');
     if (!svg) return;
     svg.innerHTML = '';
+
+    const searchVal = (document.getElementById("cmd-palette")?.value || '').toLowerCase().trim();
+
+    // Trace path to matching container nodes
+    const nodesOnPath = new Set();
+    if (searchVal) {
+      const matchingContainerIds = this.nodes
+        .filter(n => n.type === 'container' && (
+          n.name.toLowerCase().includes(searchVal) ||
+          n.id.toLowerCase().includes(searchVal)
+        ))
+        .map(n => n.id);
+
+      matchingContainerIds.forEach(id => nodesOnPath.add(id));
+
+      if (matchingContainerIds.length > 0) {
+        let added = true;
+        while (added) {
+          added = false;
+          this.links.forEach(link => {
+            if (nodesOnPath.has(link.target) && !nodesOnPath.has(link.source)) {
+              nodesOnPath.add(link.source);
+              added = true;
+            }
+          });
+        }
+      }
+    }
 
     this.links.forEach(link => {
       const sourceNode = this.nodes.find(n => n.id === link.source);
       const targetNode = this.nodes.find(n => n.id === link.target);
 
       if (sourceNode && targetNode) {
-        // Center offsets for 150x50 nodes
-        const x1 = sourceNode.x + 75;
-        const y1 = sourceNode.y + 25;
-        const x2 = targetNode.x + 75;
-        const y2 = targetNode.y + 25;
+        let x1 = sourceNode.x + 75;
+        let y1 = sourceNode.y + 25;
+        let x2 = targetNode.x + 75;
+        let y2 = targetNode.y + 25;
+
+        // Calculate boundary anchor points dynamically to keep lines outside semi-transparent cards
+        const dy = targetNode.y - sourceNode.y;
+        const dx = targetNode.x - sourceNode.x;
+
+        if (Math.abs(dy) > Math.abs(dx)) {
+          if (dy > 0) {
+            y1 = sourceNode.y + 50; // Bottom edge
+            y2 = targetNode.y;      // Top edge
+          } else {
+            y1 = sourceNode.y;      // Top edge
+            y2 = targetNode.y + 50; // Bottom edge
+          }
+        } else {
+          if (dx > 0) {
+            x1 = sourceNode.x + 150; // Right edge
+            x2 = targetNode.x;       // Left edge
+          } else {
+            x1 = sourceNode.x;       // Left edge
+            x2 = targetNode.x + 150; // Right edge
+          }
+        }
+
+        // Determine if this path matches the global search query path
+        const queryMatches = searchVal && nodesOnPath.has(link.source) && nodesOnPath.has(link.target);
 
         // Determine path properties based on statuses
         const sOnline = sourceNode.status === 'online';
@@ -308,13 +485,13 @@ export const AppDesigner = {
         let activeFlow = false;
 
         if (sOnline && tOnline) {
-          color = 'var(--term-green)'; // Green solid for connected path
+          color = queryMatches ? '#3b82f6' : 'var(--term-green)'; // Blue if matches query, otherwise Green
           dasharray = 'none';
           width = '3.5';
           opacity = '0.9';
           activeFlow = true;
         } else if (sOffline || tOffline) {
-          color = '#ef4444'; // Red dashed for offline broken route
+          color = queryMatches ? '#3b82f6' : '#ef4444'; // Blue if matches query, otherwise Red
           dasharray = '6, 6';
           width = '3.5';
           opacity = '0.8';
@@ -339,7 +516,7 @@ export const AppDesigner = {
         if (activeFlow) {
           const flowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           flowPath.setAttribute('d', pathData);
-          flowPath.setAttribute('stroke', '#34d399');
+          flowPath.setAttribute('stroke', queryMatches ? '#60a5fa' : '#34d399');
           flowPath.setAttribute('stroke-width', '4');
           flowPath.setAttribute('fill', 'none');
           flowPath.setAttribute('class', 'flowing-line');
@@ -359,6 +536,7 @@ export const AppDesigner = {
       e.stopPropagation();
       this.selectedNodeId = node.id;
       this.updateSelectedCard(node);
+      this.isDragging = true;
 
       startX = e.clientX - node.x;
       startY = e.clientY - node.y;
@@ -372,6 +550,9 @@ export const AppDesigner = {
       node.y = e.clientY - startY;
 
       node.position = { x: node.x, y: node.y };
+      if (this.localPositions) {
+        this.localPositions.set(node.id, node.position);
+      }
 
       el.style.left = `${node.x}px`;
       el.style.top = `${node.y}px`;
@@ -381,6 +562,7 @@ export const AppDesigner = {
     const dragEnd = () => {
       document.removeEventListener('mousemove', dragMove);
       document.removeEventListener('mouseup', dragEnd);
+      this.isDragging = false;
       this.saveLayout();
     };
 
@@ -473,15 +655,31 @@ export const AppDesigner = {
       }
     });
 
-    // Zoom canvas via wheel scroll
+    // Zoom canvas via wheel scroll (centered on cursor)
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
+      
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
       const zoomFactor = 1.1;
+      const oldScale = this.scale;
+      let newScale = oldScale;
+
       if (e.deltaY < 0) {
-        this.scale = Math.min(2.0, this.scale * zoomFactor);
+        newScale = Math.min(2.0, oldScale * zoomFactor);
       } else {
-        this.scale = Math.max(0.5, this.scale / zoomFactor);
+        newScale = Math.max(0.5, oldScale / zoomFactor);
       }
+
+      if (oldScale > 0) {
+        const ratio = newScale / oldScale;
+        this.panX = mouseX - (mouseX - this.panX) * ratio;
+        this.panY = mouseY - (mouseY - this.panY) * ratio;
+      }
+      
+      this.scale = newScale;
       wrapper.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.scale})`;
     }, { passive: false });
   },
@@ -494,15 +692,7 @@ export const AppDesigner = {
 
     const fitBtn = this.container.querySelector('#btn-fit-screen');
     if (fitBtn) {
-      fitBtn.addEventListener('click', () => {
-        this.scale = 1.0;
-        this.panX = 0;
-        this.panY = 0;
-        const wrapper = this.container.querySelector('#canvas-transform-wrapper');
-        if (wrapper) {
-          wrapper.style.transform = `translate(0px, 0px) scale(1)`;
-        }
-      });
+      fitBtn.addEventListener('click', () => this.fitView());
     }
 
     const deployBtn = this.container.querySelector('#btn-deploy-stack');

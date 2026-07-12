@@ -43,13 +43,16 @@ export class NotificationService {
   }
 
   // 2. Fetch history records list mapped to AlertEvent interface
-  getHistory(limit: number = 50, unreadOnly: boolean = false): AlertEvent[] {
+  getHistory(limit: number = 50, unreadOnly: boolean = false): any[] {
     const rows = this.repo.findLimit(limit, unreadOnly);
     return rows.map((r) => ({
+      id: r.id,
       time: r.createdAt || new Date().toISOString(),
+      createdAt: r.createdAt || new Date().toISOString(),
       origin: r.origin,
       message: r.message,
-      level: (r.level === 'success' ? 'info' : r.level) as 'info' | 'warn' | 'error'
+      level: (r.level === 'success' ? 'info' : r.level) as 'info' | 'warn' | 'error',
+      read: r.read
     }));
   }
 

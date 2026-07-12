@@ -36,6 +36,20 @@ export class ServicesRepository {
   }
 
   saveOverride(serviceId: string, categoryId: string, serverId: string = 'local'): void {
+    // Ensure the category exists in the categories table first to satisfy the foreign key constraint
+    const categoryExists = this.db.get<{ id: string }>('SELECT id FROM categories WHERE id = ?', categoryId);
+    if (!categoryExists) {
+      const name = categoryId.charAt(0).toUpperCase() + categoryId.slice(1);
+      this.db.run(
+        `INSERT OR IGNORE INTO categories (id, workspace_id, name, display_order)
+         VALUES (?, ?, ?, ?)`,
+        categoryId,
+        'overview',
+        name,
+        10
+      );
+    }
+
     this.db.run(
       `INSERT INTO service_overrides (service_id, category_id, server_id, updated_at) 
        VALUES (?, ?, ?, datetime('now'))

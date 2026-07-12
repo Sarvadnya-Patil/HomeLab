@@ -28,8 +28,9 @@ export class WorkspacesRepository extends BaseRepository<Workspace> {
   }
 
   update(id: string, partial: Partial<Workspace>): Workspace | undefined {
+    const allowed = ['name', 'icon', 'description', 'displayOrder', 'isDefault'];
     const fields = Object.keys(partial).filter(
-      (k) => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt'
+      (k) => allowed.includes(k)
     );
     if (fields.length === 0) return this.findById(id);
 

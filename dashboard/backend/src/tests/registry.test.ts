@@ -17,7 +17,6 @@ test('Service Registry Subsystem Tests', async (t) => {
     assert.ok(registry.jobs, 'Jobs service must be registered');
     assert.ok(registry.auth, 'Authentication service must be registered');
     assert.ok(registry.backup, 'Backup engine must be registered');
-    assert.ok(registry.workflow, 'Workflow engine must be registered');
   });
 
   registry.stop();

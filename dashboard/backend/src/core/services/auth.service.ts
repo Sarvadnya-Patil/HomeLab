@@ -54,7 +54,7 @@ export class AuthService {
   }
 
   // 3. Verify signed JWT token and extract payload
-  verifyToken(token: string): { id: string; username: string; role: string } | null {
+  verifyToken(token: string): { id: string; username: string; role: string; exp?: number } | null {
     try {
       const parts = token.split('.');
       if (parts.length !== 3) return null;
@@ -69,16 +69,23 @@ export class AuthService {
         return null;
       }
 
-      return JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+      const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+      if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) {
+        return null;
+      }
+
+      return payload;
     } catch {
       return null;
     }
   }
 
   // 4. Custom JWT Signer (zero external dependencies)
-  private signJwt(payload: any): string {
+  signJwt(payload: any): string {
+    const exp = payload.exp || (Math.floor(Date.now() / 1000) + 7200); // 2 hours expiry
+    const fullPayload = { ...payload, exp };
     const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-    const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const body = Buffer.from(JSON.stringify(fullPayload)).toString('base64url');
     const signature = crypto
       .createHmac('sha256', this.jwtSecret)
       .update(`${header}.${body}`)

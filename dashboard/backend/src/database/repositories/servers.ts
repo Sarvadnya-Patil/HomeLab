@@ -33,8 +33,9 @@ export class ServersRepository extends BaseRepository<Server> {
   }
 
   update(id: string, partial: Partial<Server>): Server | undefined {
+    const allowed = ['name', 'hostname', 'ipAddress', 'osName', 'kernel', 'isLocal', 'dockerProxyUrl', 'nodeExporterUrl', 'status'];
     const fields = Object.keys(partial).filter(
-      (k) => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt'
+      (k) => allowed.includes(k)
     );
     if (fields.length === 0) return this.findById(id);
 

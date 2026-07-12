@@ -75,23 +75,15 @@ export class CoreEngine {
   public get backup() {
     return this.registry.backup;
   }
-  public get workflow() {
-    return this.registry.workflow;
-  }
   public get infrastructure() {
     return this.registry.infrastructure;
   }
 
-  // Engine Lifecycle Initializer
-  async init(dbPath?: string): Promise<void> {
-    Logger.info('CoreEngine', 'Initializing runtime service registry container...');
-
-    // Boot up central registry singleton
-    await this.registry.init(dbPath);
-
-    const adapter = this.registry.db.getAdapter();
-
-    // Wire repositories pointers for REST controllers compatibility
+  /**
+   * Initializes the database repositories utilizing the provided database adapter.
+   * @param adapter The database adapter instance.
+   */
+  private initializeRepositories(adapter: any): void {
     this.usersRepo = new UsersRepository(adapter);
     this.serversRepo = new ServersRepository(adapter);
     this.workspacesRepo = new WorkspacesRepository(adapter);
@@ -102,16 +94,21 @@ export class CoreEngine {
     this.settingsRepo = new SettingsRepository(adapter);
     this.auditRepo = new AuditRepository(adapter);
     this.metricsRepo = new MetricsRepository(adapter);
+  }
 
-    // Initial metrics compilation tick
-    await this.metrics.collect();
-    this.notifier.notify('System', 'Modular control plane active.', 'info');
-
-    // Route background job events to websocket streams
+  /**
+   * Registers global event handlers for central dispatching.
+   */
+  private registerEventHandlers(): void {
     this.registry.eventBus.on('job.updated', (job) => {
       this.broadcast({ type: 'job.updated', data: job });
     });
+  }
 
+  /**
+   * Configures background timers and scheduled system cron tasks.
+   */
+  private scheduleBackgroundJobs(): void {
     // Scrape hardware metrics every 3 seconds, push socket broadcasts, and record history logs
     this.scheduler.schedule('metrics-collector', 3000, async () => {
       const stats = await this.metrics.collect();
@@ -165,6 +162,28 @@ export class CoreEngine {
         }
       }
     });
+  }
+
+  /**
+   * Initializes the CoreEngine service and boots up background jobs.
+   * @param dbPath Optional filesystem path to the SQLite database.
+   */
+  async init(dbPath?: string): Promise<void> {
+    Logger.info('CoreEngine', 'Initializing runtime service registry container...');
+
+    // Boot up central registry singleton
+    await this.registry.init(dbPath);
+
+    const adapter = this.registry.db.getAdapter();
+
+    this.initializeRepositories(adapter);
+
+    // Initial metrics compilation tick
+    await this.metrics.collect();
+    this.notifier.notify('System', 'Modular control plane active.', 'info');
+
+    this.registerEventHandlers();
+    this.scheduleBackgroundJobs();
   }
 
   // Scan manifests and merge container state dynamically (Delegated to InfrastructureService)

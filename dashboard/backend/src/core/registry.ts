@@ -12,7 +12,6 @@ import { PluginService } from './services/plugin.service';
 import { JobsService } from './services/jobs.service';
 import { AuthService } from './services/auth.service';
 import { BackupService } from './services/backup.service';
-import { WorkflowService } from './services/workflow.service';
 import { InfrastructureService } from './services/infrastructure.service';
 import { DockerClient } from '../docker/client';
 import { Logger } from '../utils/logger';
@@ -33,7 +32,6 @@ export class ServiceRegistry {
   public jobs!: JobsService;
   public auth!: AuthService;
   public backup!: BackupService;
-  public workflow!: WorkflowService;
   public infrastructure!: InfrastructureService;
 
   private constructor() {}
@@ -74,7 +72,6 @@ export class ServiceRegistry {
     this.jobs = new JobsService(adapter, this.eventBus);
     this.auth = new AuthService(adapter);
     this.backup = new BackupService(adapter, this.jobs);
-    this.workflow = new WorkflowService(adapter, this.eventBus, this.jobs);
     this.infrastructure = new InfrastructureService(
       this.db,
       this.docker,

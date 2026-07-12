@@ -30,6 +30,15 @@
       </nav>
 
       <div class="sidebar-footer">
+        <div class="user-profile-card" id="user-profile-card" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0.5rem; margin-bottom: 0.75rem; border-bottom: 1px dashed rgba(255,255,255,0.05); overflow: hidden; width: 100%;">
+          <div class="user-avatar" id="user-avatar" style="width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #a855f7, #3b82f6); display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; font-size: 0.8rem; flex-shrink: 0;">
+            A
+          </div>
+          <div class="user-info" style="display: flex; flex-direction: column; gap: 0.1rem; min-width: 0;">
+            <span class="user-display-name" id="user-display-name" style="font-size: 0.75rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Loading...</span>
+            <span class="user-role" id="user-role" style="font-size: 0.6rem; color: var(--text-muted); font-family: var(--font-mono); text-transform: uppercase;">ADMIN</span>
+          </div>
+        </div>
         <div class="os-version" id="host-kernel">Kernel: Detecting...</div>
       </div>
     </aside>

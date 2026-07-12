@@ -1,10 +1,23 @@
 // Terminal console widget module
 import { WsClient } from '../core/ws-client.js';
 import { api } from '../core/api.js';
+import { store } from '../core/state.js';
+
+function escapeHtml(text) {
+  if (typeof text !== 'string') return text;
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
 
 // Premium ANSI escape-code parsing and color conversion utility
 function ansiToHtml(text) {
   if (!text) return '';
+  
+  const escapedText = escapeHtml(text);
   
   const ansiColors = {
     '0': 'reset',
@@ -36,7 +49,7 @@ function ansiToHtml(text) {
   const regex = /(?:\x1b|\u001b|\\u001b|\\x1b||[\x00-\x1F\x7F])\[([0-9;]*)m/g;
   
   let openSpanCount = 0;
-  let html = text.replace(regex, (match, codesRaw) => {
+  let html = escapedText.replace(regex, (match, codesRaw) => {
     const codes = codesRaw.split(';');
     
     // Reset or blank styles
@@ -108,6 +121,34 @@ export default {
       </div>
     `;
 
+    // Listen to services state to detect if our active logs container goes offline
+    const servicesListener = ({ value: services }) => {
+      if (!this.activeLogsServiceId) return;
+      const svc = services.find(s => s.id === this.activeLogsServiceId);
+      if (svc && (svc.status === 'Offline' || svc.status === 'Inactive' || svc.status === 'Unknown')) {
+        WsClient.unsubscribeLogs(this.activeLogsServiceId, this.logCallback);
+        this.activeLogsServiceId = null;
+        
+        const hostLabel = container.querySelector('#w-term-host-label');
+        if (hostLabel) hostLabel.textContent = 'root@homelab-os';
+        
+        const outputEl = container.querySelector('#w-term-output');
+        if (outputEl) {
+          outputEl.innerHTML = `<span class="cyan-text">root@homelab:~$</span> <span style="color: var(--text-muted);">Container went offline. Logs stream cleared.</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="w-term-cursor" class="cursor"></span>`;
+        }
+      }
+    };
+
+    store.on('services', servicesListener);
+    
+    const observer = new MutationObserver(() => {
+      if (!document.body.contains(container)) {
+        store.off('services', servicesListener);
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
     // Hook up local command intercept listener
     this.logCallback = (output) => {
       const outputEl = container.querySelector('#w-term-output');
@@ -126,12 +167,14 @@ export default {
       const currentInputValue = inputEl ? inputEl.value : '';
 
       const formatted = ansiToHtml(output);
-      outputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;">${currentInputValue}</span><span id="w-term-cursor" class="cursor"></span>`;
+      const escInputValue = escapeHtml(currentInputValue);
+      outputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="w-term-input-text" style="color: var(--text-white); white-space: pre-wrap;">${escInputValue}</span><span id="w-term-cursor" class="cursor"></span>`;
       
       if (this.modalActive && this.modalOutputEl) {
         const mInput = document.querySelector('#m-term-input');
         const currentModalInputValue = mInput ? mInput.value : '';
-        this.modalOutputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="m-term-input-text" style="color: var(--text-white); white-space: pre-wrap;">${currentModalInputValue}</span><span id="m-term-cursor" class="cursor"></span>`;
+        const escModalInputValue = escapeHtml(currentModalInputValue);
+        this.modalOutputEl.innerHTML = `<span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="m-term-input-text" style="color: var(--text-white); white-space: pre-wrap;">${escModalInputValue}</span><span id="m-term-cursor" class="cursor"></span>`;
         if (modalScrolledToBottom) {
           this.modalOutputEl.scrollTop = this.modalOutputEl.scrollHeight;
         }
@@ -165,6 +208,10 @@ export default {
         if (inputText) {
           inputText.textContent = inputField.value;
         }
+        const outputEl = container.querySelector('#w-term-output');
+        if (outputEl) {
+          outputEl.scrollTop = outputEl.scrollHeight;
+        }
       });
 
       inputField.addEventListener('keydown', async (e) => {
@@ -186,17 +233,17 @@ export default {
           }
 
           // Display command in output
-          this.appendOutput(container, `> ${command}`);
+          this.appendOutput(container, `> ${command}`, true);
 
           try {
             const res = await api.post('/api/v1/terminal', { command });
             if (res && res.output) {
-              this.appendOutput(container, res.output);
+              this.appendOutput(container, res.output, true);
             } else {
-              this.appendOutput(container, 'Command executed (no output).');
+              this.appendOutput(container, 'Command executed (no output).', true);
             }
           } catch (err) {
-            this.appendOutput(container, `Error: ${err.message}`);
+            this.appendOutput(container, `Error: ${err.message}`, true);
           }
         }
       });
@@ -208,7 +255,7 @@ export default {
     // Note: ws-client streams console updates directly into registered subscribers
   },
 
-  appendOutput(container, text) {
+  appendOutput(container, text, forceScroll = false) {
     const output = container.querySelector('#w-term-output');
     if (!output) return;
 
@@ -251,7 +298,7 @@ export default {
         this.modalOutputEl.innerHTML += `<br><span class="white-text">${formatted}</span><br><br><span class="cyan-text">root@homelab:~$</span> <span id="m-term-input-text" style="color: var(--text-white); white-space: pre-wrap;"></span><span id="m-term-cursor" class="cursor"></span>`;
       }
       
-      if (modalScrolledToBottom) {
+      if (modalScrolledToBottom || forceScroll) {
         this.modalOutputEl.scrollTop = this.modalOutputEl.scrollHeight;
       }
 
@@ -263,7 +310,7 @@ export default {
       }
     }
 
-    if (outputScrolledToBottom) {
+    if (outputScrolledToBottom || forceScroll) {
       output.scrollTop = output.scrollHeight;
     }
     this.syncHeight(container);
@@ -348,6 +395,9 @@ export default {
         if (inputText) {
           inputText.textContent = modalInput.value;
         }
+        if (modalOutput) {
+          modalOutput.scrollTop = modalOutput.scrollHeight;
+        }
       });
 
       modalInput.addEventListener('keydown', async (e) => {
@@ -374,15 +424,15 @@ export default {
           }
 
           // Display command in output
-          this.appendOutput(container, `> ${command}`);
+          this.appendOutput(container, `> ${command}`, true);
 
           try {
             const res = await api.post('/api/v1/terminal', { command });
             if (res && res.output) {
-              this.appendOutput(container, res.output);
+              this.appendOutput(container, res.output, true);
             }
           } catch (err) {
-            this.appendOutput(container, `Execution error: ${err.message}`);
+            this.appendOutput(container, `Execution error: ${err.message}`, true);
           }
         }
       });

@@ -12,12 +12,32 @@ export const AppJobs = {
   init(containerEl) {
     this.container = containerEl;
     this.activeTab = 'active';
+
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar) {
+      this.onSearchInput = () => {
+        this.renderJobsList();
+      };
+      mainSearchBar.addEventListener('input', this.onSearchInput);
+    }
+
     this.render();
     this.refreshJobs();
     
     // Auto refresh lists every 3 seconds
     this.intervalId = setInterval(() => this.refreshJobs(), 3000);
     window.activeAppDestroy = () => this.destroy();
+  },
+
+  destroy() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    const mainSearchBar = document.getElementById("cmd-palette");
+    if (mainSearchBar && this.onSearchInput) {
+      mainSearchBar.removeEventListener('input', this.onSearchInput);
+    }
   },
 
   render() {
@@ -37,10 +57,10 @@ export const AppJobs = {
         </div>
 
         <div style="display: flex; flex: 1; gap: 1rem; min-height: 400px; height: calc(100vh - 190px);">
-          <!-- Jobs list -->
           <div class="jobs-list-panel" style="flex: 1; min-width: 280px; background: rgba(30, 41, 59, 0.2); border-radius: 8px; border: 1px solid var(--border-slate); padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto;">
-            <div id="jobs-cards-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
-              <div style="font-size: 0.75rem; color: var(--text-muted);">Loading execution threads...</div>
+            <div id="jobs-cards-container" style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
+              <div class="skeleton-card" style="padding: 0.85rem; border: 1px solid var(--border-slate); background: rgba(30, 41, 59, 0.4);"><div class="skeleton-line title" style="width: 60%;"></div><div class="skeleton-line text"></div><div class="skeleton-line short"></div></div>
+              <div class="skeleton-card" style="padding: 0.85rem; border: 1px solid var(--border-slate); background: rgba(30, 41, 59, 0.4);"><div class="skeleton-line title" style="width: 80%;"></div><div class="skeleton-line text"></div><div class="skeleton-line short"></div></div>
             </div>
           </div>
 
@@ -90,6 +110,13 @@ export const AppJobs = {
   async refreshJobs() {
     try {
       this.jobs = await api.get('/api/v1/jobs?limit=50');
+      
+      const hasActive = this.jobs.some(j => j.status === 'running' || j.status === 'pending');
+      if (!hasActive && this.activeTab === 'active' && this.jobs.length > 0) {
+        this.activeTab = 'history';
+        this.updateTabButtons();
+      }
+
       this.renderJobsList();
       
       // Update selected job logs
@@ -120,20 +147,61 @@ export const AppJobs = {
     const container = this.container.querySelector('#jobs-cards-container');
     if (!container) return;
 
-    // Filter jobs by active tab
+    const searchVal = (document.getElementById("cmd-palette")?.value || '').toLowerCase().trim();
+
+    // Filter jobs by active tab and search query
     const filtered = this.jobs.filter(job => {
       const isActive = job.status === 'running' || job.status === 'pending';
-      return this.activeTab === 'active' ? isActive : !isActive;
+      const tabMatches = this.activeTab === 'active' ? isActive : !isActive;
+      if (!tabMatches) return false;
+
+      if (searchVal) {
+        if (searchVal.startsWith('/title')) {
+          const queryPart = searchVal.replace(/^\/title[:=\s]*/, '').trim();
+          const jobTitle = (job.type || '').replace(/_/g, ' ').toLowerCase();
+          return jobTitle.includes(queryPart);
+        } else if (searchVal.startsWith('/target')) {
+          const queryPart = searchVal.replace(/^\/target[:=\s]*/, '').trim();
+          const jobTarget = (job.targetId || 'system').toLowerCase();
+          return jobTarget.includes(queryPart);
+        } else {
+          const jobTitle = (job.type || '').replace(/_/g, ' ').toLowerCase();
+          const jobTarget = (job.targetId || 'system').toLowerCase();
+          return jobTitle.includes(searchVal) || jobTarget.includes(searchVal);
+        }
+      }
+      return true;
     });
 
     if (this.jobs.length === 0) {
       container.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">No jobs have been executed yet.</div>`;
+      const header = this.container.querySelector('#job-details-header');
+      const consoleBox = this.container.querySelector('#job-console-output');
+      if (header && consoleBox) {
+        header.style.display = 'none';
+        consoleBox.innerHTML = 'Select an execution job from the left panel to inspect real-time log output and status metrics.';
+      }
       return;
     }
 
     if (filtered.length === 0) {
       container.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">No ${this.activeTab} jobs found.</div>`;
+      const header = this.container.querySelector('#job-details-header');
+      const consoleBox = this.container.querySelector('#job-console-output');
+      if (header && consoleBox) {
+        header.style.display = 'none';
+        consoleBox.innerHTML = 'Select an execution job from the left panel to inspect real-time log output and status metrics.';
+      }
       return;
+    }
+
+    // Auto-select first job in the current list if nothing is selected or selection is obsolete
+    if (filtered.length > 0) {
+      const match = filtered.find(j => j.id === this.selectedJobId);
+      if (!match) {
+        this.selectedJobId = filtered[0].id;
+        this.renderDetails(filtered[0]);
+      }
     }
 
     let html = '';

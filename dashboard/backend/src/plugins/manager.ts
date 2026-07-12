@@ -200,4 +200,12 @@ export class PluginsManager {
       kind: 'LegacyService'
     };
   }
+
+  /**
+   * Returns the resolved filesystem path to the services directory.
+   * @returns Absolute path to the services root directory.
+   */
+  getServicesDir(): string {
+    return this.servicesDir;
+  }
 }

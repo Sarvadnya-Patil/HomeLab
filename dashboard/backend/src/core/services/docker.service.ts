@@ -58,10 +58,11 @@ export class DockerService {
   async executeAction(
     containerId: string | null,
     serviceId: string,
-    action: string
+    action: string,
+    actorId: string = 'system'
   ): Promise<{ success: boolean }> {
     const res = await this.client.executeAction(containerId, serviceId, action);
-    this.auditRepo.log('admin', `container_${action}`, 'service', serviceId, { containerId });
+    this.auditRepo.log(actorId, `container_${action}`, 'service', serviceId, { containerId });
     return res;
   }
 

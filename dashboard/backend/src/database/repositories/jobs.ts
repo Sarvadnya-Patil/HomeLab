@@ -35,8 +35,9 @@ export class JobsRepository extends BaseRepository<Job> {
 
   // 4. Update partial job states
   update(id: string, partial: Partial<Job>): Job | undefined {
+    const allowed = ['type', 'status', 'progress', 'logs', 'error', 'serverId', 'targetId'];
     const fields = Object.keys(partial).filter(
-      (k) => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt'
+      (k) => allowed.includes(k)
     );
     if (fields.length === 0) return this.findById(id);
 

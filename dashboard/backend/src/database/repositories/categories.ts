@@ -55,8 +55,9 @@ export class CategoriesRepository extends BaseRepository<Category> {
       });
     }
 
+    const allowed = ['workspaceId', 'name', 'icon', 'description', 'accent', 'displayOrder', 'collapsed', 'visible'];
     const fields = Object.keys(partial).filter(
-      (k) => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt'
+      (k) => allowed.includes(k)
     );
     if (fields.length === 0) return this.findById(id);
 

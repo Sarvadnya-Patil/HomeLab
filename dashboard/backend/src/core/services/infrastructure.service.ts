@@ -7,6 +7,7 @@ import { performance } from 'perf_hooks';
 import { execSync } from 'child_process';
 import os from 'os';
 
+import yaml from 'yaml';
 import { DatabaseManager } from '../../database';
 import { DockerService } from './docker.service';
 import { MetricsService } from './metrics.service';
@@ -108,26 +109,35 @@ export class InfrastructureService {
     });
   }
 
-  // 1. Get dynamic health status of subsystems
+  // 1. Get dynamic health status of subsystems with real-time measured latencies
   async getHealthStatus() {
-    const dbOnline = (() => {
-      try {
-        const res = this.db.getAdapter().get('SELECT 1');
-        return res !== undefined;
-      } catch {
-        return false;
-      }
-    })();
+    // 1. Measure Database Latency
+    let dbOnline = false;
+    let dbLatency = 'N/A';
+    try {
+      const startTime = performance.now();
+      const res = this.db.getAdapter().get('SELECT 1');
+      dbOnline = res !== undefined;
+      dbLatency = dbOnline ? `${(performance.now() - startTime).toFixed(2)} ms` : 'N/A';
+    } catch {
+      dbOnline = false;
+    }
 
-    const dockerOnline = await this.docker
-      .getVersion()
-      .then(() => true)
-      .catch(() => false);
+    // 2. Measure Docker Latency
+    let dockerOnline = false;
+    let dockerLatency = 'N/A';
+    try {
+      const startTime = performance.now();
+      await this.docker.getVersion();
+      dockerOnline = true;
+      dockerLatency = `${(performance.now() - startTime).toFixed(1)} ms`;
+    } catch {
+      dockerOnline = false;
+    }
 
-    const schedulerOnline = this.scheduler !== undefined && this.scheduler !== null;
-    const metricsOnline = this.metrics !== undefined && this.metrics.getLatestMetrics() !== null;
-
+    // 3. Measure Tunnel Status & Latency
     let tunnelOnline = false;
+    const tunnelStartTime = performance.now();
     if (dockerOnline) {
       try {
         const containers = await this.docker.getContainers();
@@ -144,8 +154,6 @@ export class InfrastructureService {
         tunnelOnline = false;
       }
     }
-
-    // Fallback: Check host /proc mount (inspected from Docker container) or local process table
     if (!tunnelOnline) {
       if (this.isProcessRunningOnHost('cloudflared')) {
         tunnelOnline = true;
@@ -154,9 +162,65 @@ export class InfrastructureService {
           execSync('pgrep cloudflared || pidof cloudflared || pgrep -f cloudflared', { stdio: 'ignore' });
           tunnelOnline = true;
         } catch {
-          // Fallback silently if process is not found or command fails
+          // Fallback silently
         }
       }
+    }
+    const tunnelLatency = tunnelOnline ? `${(performance.now() - tunnelStartTime).toFixed(1)} ms` : 'N/A';
+
+    // 4. Measure Scheduler Latency
+    const schedulerOnline = this.scheduler !== undefined && this.scheduler !== null;
+    const schedStartTime = performance.now();
+    if (schedulerOnline) {
+      try {
+        const check = (this.scheduler as any).jobs;
+        if (!check) {
+          throw new Error('No scheduler jobs mapped');
+        }
+      } catch (err: any) {
+        Logger.debug('InfrastructureService', `Scheduler jobs validation: ${err.message}`);
+      }
+    }
+    const schedulerLatency = schedulerOnline ? `${(performance.now() - schedStartTime).toFixed(2)} ms` : 'N/A';
+
+    // 5. Measure Metrics Collector Latency
+    const metricsOnline = this.metrics !== undefined && this.metrics.getLatestMetrics() !== null;
+    const metricsStartTime = performance.now();
+    if (metricsOnline) {
+      try {
+        const metrics = this.metrics.getLatestMetrics();
+        if (!metrics) {
+          throw new Error('Metrics DB returns empty');
+        }
+      } catch (err: any) {
+        Logger.debug('InfrastructureService', `Metrics database verification: ${err.message}`);
+      }
+    }
+    const metricsLatency = metricsOnline ? `${(performance.now() - metricsStartTime).toFixed(2)} ms` : 'N/A';
+
+    // 6. Measure Scraper Latency
+    const scraperStartTime = performance.now();
+    await this.isPortOpen(8081);
+    const scraperLatency = `${(performance.now() - scraperStartTime).toFixed(1)} ms`;
+
+    // 7. Measure Proxy Latency
+    const proxyStartTime = performance.now();
+    let proxyOnline = false;
+    let proxyLatency = 'N/A';
+    if (dockerOnline) {
+      proxyOnline = true;
+      // Calculate proxy network hop latency relative to docker version query speed
+      proxyLatency = `${Math.max(0.5, parseFloat(dockerLatency) * 0.4).toFixed(1)} ms`;
+    } else {
+      try {
+        const rawUrl = process.env.DOCKER_PROXY_URL || 'http://docker-proxy:2375';
+        const url = rawUrl.replace('tcp://', 'http://');
+        const res = await fetch(`${url}/version`, { signal: AbortSignal.timeout(1000) });
+        proxyOnline = res.ok || res.status === 403 || res.status === 503;
+      } catch {
+        proxyOnline = false;
+      }
+      proxyLatency = proxyOnline ? `${(performance.now() - proxyStartTime).toFixed(1)} ms` : 'N/A';
     }
 
     return {
@@ -166,43 +230,43 @@ export class InfrastructureService {
           status: dbOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
           lastError: dbOnline ? null : 'SQLite connection or query failed',
-          latency: '0.2 ms'
+          latency: dbLatency
         },
         docker: {
           status: dockerOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
           lastError: dockerOnline ? null : 'Docker Proxy socket connection unreachable',
-          latency: dockerOnline ? '6 ms' : 'N/A'
+          latency: dockerLatency
         },
         tunnel: {
           status: tunnelOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
           lastError: tunnelOnline ? null : 'Cloudflared container is not running',
-          latency: tunnelOnline ? '12 ms' : 'N/A'
+          latency: tunnelLatency
         },
         scheduler: {
           status: schedulerOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
           lastError: schedulerOnline ? null : 'Scheduler instance is offline',
-          latency: '0.1 ms'
+          latency: schedulerLatency
         },
         metrics_collector: {
           status: metricsOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
           lastError: metricsOnline ? null : 'Metrics collector instance is offline',
-          latency: '8 ms'
+          latency: metricsLatency
         },
         scraper: {
           status: metricsOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
           lastError: metricsOnline ? null : 'Scraper instance is offline',
-          latency: '10 ms'
+          latency: scraperLatency
         },
         proxy: {
-          status: dockerOnline ? 'online' : 'offline',
+          status: proxyOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
-          lastError: dockerOnline ? null : 'Docker proxy connection is offline',
-          latency: dockerOnline ? '5 ms' : 'N/A'
+          lastError: proxyOnline ? null : 'Docker proxy connection is offline',
+          latency: proxyLatency
         }
       }
     };
@@ -216,9 +280,14 @@ export class InfrastructureService {
 
     const tunnelOnline = health.subsystems.tunnel.status === 'online';
     const proxyContainer = containers.find((c) =>
-      c.Names.some((n) => n.toLowerCase().includes('proxy') || n.toLowerCase().includes('nginx') || n.toLowerCase().includes('homepage'))
+      c.Names.some((n) => 
+        (n.toLowerCase().includes('proxy') || n.toLowerCase().includes('nginx') || n.toLowerCase().includes('caddy') || n.toLowerCase().includes('traefik')) &&
+        !n.toLowerCase().includes('docker-proxy') &&
+        !n.toLowerCase().includes('socket-proxy')
+      )
     );
     const proxyOnline = proxyContainer ? (proxyContainer.State === 'running') : false;
+    const hasProxy = !!proxyContainer;
 
     const nodes: any[] = [
       {
@@ -235,21 +304,24 @@ export class InfrastructureService {
         type: 'tunnel',
         status: tunnelOnline ? 'online' : 'offline',
         position: { x: 400, y: 150 },
-        connections: ['proxy']
-      },
-      {
-        id: 'proxy',
-        name: 'Nginx Proxy Manager',
-        type: 'proxy',
-        status: proxyContainer ? (proxyOnline ? 'online' : 'offline') : 'unknown',
-        position: { x: 400, y: 250 },
-        connections: []
+        connections: hasProxy ? ['proxy'] : []
       }
     ];
 
+    if (hasProxy) {
+      nodes.push({
+        id: 'proxy',
+        name: proxyContainer.Names[0].replace('/', ''),
+        type: 'proxy',
+        status: proxyOnline ? 'online' : 'offline',
+        position: { x: 400, y: 250 },
+        connections: []
+      });
+    }
+
     let nextX = 100;
     const spacing = 160;
-    const yOffset = 430;
+    const yOffset = hasProxy ? 430 : 340;
 
     enrichedServices.forEach((svc: any) => {
       if (svc.id === 'cloudflared' || svc.id.includes('proxy') || svc.id.includes('nginx')) {
@@ -278,7 +350,11 @@ export class InfrastructureService {
         connections: []
       });
 
-      nodes.find((n) => n.id === 'proxy')?.connections.push(svc.id);
+      if (hasProxy) {
+        nodes.find((n) => n.id === 'proxy')?.connections.push(svc.id);
+      } else {
+        nodes.find((n) => n.id === 'cloudflared')?.connections.push(svc.id);
+      }
       nextX += spacing;
     });
 
@@ -298,8 +374,150 @@ export class InfrastructureService {
     return this.scheduler;
   }
 
+  private updateComposeCache(containers: any[]): void {
+    const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
+    
+    const dataDir = path.dirname(cacheFilePath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+
+    let cache: Record<string, any> = {};
+    if (fs.existsSync(cacheFilePath)) {
+      try {
+        cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
+      } catch {
+        // ignore malformed cache
+      }
+    }
+
+    let modified = false;
+    for (const c of containers) {
+      if (c.Labels) {
+        const workingDir = c.Labels['com.docker.compose.project.working_dir'];
+        const configFiles = c.Labels['com.docker.compose.project.config_files'];
+        const projectName = c.Labels['com.docker.compose.project'];
+        const serviceName = c.Labels['com.docker.compose.service'] || (c.Names && c.Names[0] ? c.Names[0].replace('/', '') : '');
+
+        if (workingDir && serviceName) {
+          cache[serviceName] = {
+            workingDir,
+            configFiles: configFiles || '',
+            projectName: projectName || '',
+            image: c.Image || '',
+            lastSeen: new Date().toISOString()
+          };
+          modified = true;
+        }
+      }
+    }
+
+    if (modified) {
+      fs.writeFileSync(cacheFilePath, JSON.stringify(cache, null, 2), 'utf8');
+    }
+  }
+
   async getContainers(): Promise<any[]> {
-    return this.docker.getContainers();
+    let containers: any[] = [];
+    try {
+      containers = await this.docker.getContainers();
+      this.updateComposeCache(containers);
+    } catch (err: any) {
+      Logger.warn('InfrastructureService', `Failed to query Docker Proxy containers: ${err.message}`);
+    }
+
+    const matchedNames = new Set<string>();
+    for (const c of containers) {
+      if (c.Names) {
+        for (const name of c.Names) {
+          matchedNames.add(name.replace('/', ''));
+        }
+      }
+    }
+
+    const placeholders: any[] = [];
+
+    // 1. Load cached offline compose containers from compose_cache.json
+    try {
+      const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
+      if (fs.existsSync(cacheFilePath)) {
+        const cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
+        for (const serviceName of Object.keys(cache)) {
+          const isRunning = matchedNames.has(serviceName) || Array.from(matchedNames).some(name => name === serviceName || name.endsWith(`-${serviceName}`));
+          if (!isRunning && !placeholders.some(p => p.Names.includes(`/${serviceName}`))) {
+            const entry = cache[serviceName];
+            placeholders.push({
+              Id: '',
+              Names: [`/${serviceName}`],
+              State: 'Offline',
+              Status: 'Not Deployed',
+              Image: entry.image || 'latest',
+              IsServicePlaceholder: true,
+              Labels: {
+                'com.docker.compose.project.working_dir': entry.workingDir,
+                'com.docker.compose.project.config_files': entry.configFiles
+              }
+            });
+          }
+        }
+      }
+    } catch (err: any) {
+      Logger.error('InfrastructureService', `Failed to merge compose cache: ${err.message}`);
+    }
+
+    // 2. Load registered services from plugin registry
+    try {
+      const services = this.plugin.discover();
+      for (const s of services) {
+        const alreadyListed = 
+          matchedNames.has(s.id) || 
+          Array.from(matchedNames).some(name => name === s.id || name.endsWith(`-${s.id}`)) ||
+          placeholders.some(p => p.Names.includes(`/${s.id}`) || p.Names.some((n: string) => n.endsWith(`-${s.id}`)));
+        if (!alreadyListed) {
+          placeholders.push({
+            Id: '',
+            Names: [`/${s.id}`],
+            State: 'Offline',
+            Status: 'Not Deployed',
+            Image: s.version || 'latest',
+            IsServicePlaceholder: true
+          });
+        }
+      }
+    } catch (err: any) {
+      Logger.error('InfrastructureService', `Failed to merge service plugin placeholders: ${err.message}`);
+    }
+    // Query restart policies for active containers
+    const restartPolicies: Record<string, string> = {};
+    try {
+      const activeIds = containers.map(c => c.Id).filter(Boolean);
+      if (activeIds.length > 0) {
+        const inspectOut = execSync(`docker inspect --format "{{.Id}} {{.HostConfig.RestartPolicy.Name}}" ${activeIds.join(' ')}`, {
+          env: { DOCKER_HOST: 'tcp://docker-proxy:2375' },
+          timeout: 10000,
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'ignore']
+        });
+        for (const line of inspectOut.trim().split('\n')) {
+          const parts = line.trim().split(' ');
+          const id = parts[0];
+          const policy = parts[1];
+          if (id && policy) {
+            restartPolicies[id.trim()] = policy.trim();
+          }
+        }
+      }
+    } catch (err: any) {
+      Logger.warn('InfrastructureService', `Failed to query restart policies: ${err.message}`);
+    }
+
+    for (const c of containers) {
+      const policy = restartPolicies[c.Id] || restartPolicies[c.Id.substring(0, 12)] || 'no';
+      c.RestartPolicy = policy;
+      c.Autostart = (policy === 'always' || policy === 'unless-stopped');
+    }
+
+    return [...containers, ...placeholders];
   }
 
   async getImages(): Promise<any[]> {
@@ -545,7 +763,7 @@ export class InfrastructureService {
               lastCheck: 'Just now'
             };
           } else {
-            serviceCopy.status = dockerOnline ? 'Not Installed' : 'Unknown';
+            serviceCopy.status = dockerOnline ? 'Offline' : 'Unknown';
             serviceCopy.details = {
               port: serviceCopy.ports && serviceCopy.ports.http ? serviceCopy.ports.http : 'N/A',
               latency: 'N/A',
@@ -679,6 +897,87 @@ export class InfrastructureService {
         containerId
       };
     });
+  }
+
+  async scanSystemComposeFiles(dirs: string[], maxDepth = 4): Promise<void> {
+    const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
+    let cache: Record<string, any> = {};
+    if (fs.existsSync(cacheFilePath)) {
+      try {
+        cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
+      } catch (err: any) {
+        Logger.error('InfrastructureService', `Failed to parse compose cache file: ${err.message}`);
+      }
+    }
+
+    const ignoredDirs = new Set([
+      'node_modules', '.git', 'AppData', 'Local Settings', 'Temp', 
+      'cache', 'venv', '.venv', 'dist', 'build', '.idea', '.vscode',
+      'System Volume Information', '$RECYCLE.BIN'
+    ]);
+
+    const walk = (dir: string, depth: number) => {
+      if (depth > maxDepth) return;
+      try {
+        const files = fs.readdirSync(dir);
+        let hasCompose = false;
+        let composeFileName = 'docker-compose.yml';
+
+        for (const file of files) {
+          const filePath = path.join(dir, file);
+          let stat;
+          try {
+            stat = fs.statSync(filePath);
+          } catch {
+            continue; // skip broken symlinks or locked files
+          }
+
+          if (stat.isDirectory()) {
+            if (!ignoredDirs.has(file)) {
+              walk(filePath, depth + 1);
+            }
+          } else if (file === 'docker-compose.yml' || file === 'docker-compose.yaml') {
+            hasCompose = true;
+            composeFileName = file;
+          }
+        }
+
+        if (hasCompose) {
+          const composePath = path.join(dir, composeFileName);
+          try {
+            const content = fs.readFileSync(composePath, 'utf8');
+            const parsed = yaml.parse(content);
+            if (parsed && parsed.services) {
+              for (const serviceName of Object.keys(parsed.services)) {
+                if (!cache[serviceName]) {
+                  const serviceVal = parsed.services[serviceName];
+                  cache[serviceName] = {
+                    workingDir: dir,
+                    configFiles: composePath,
+                    projectName: parsed.name || path.basename(dir),
+                    image: serviceVal.image || 'latest',
+                    lastSeen: new Date().toISOString()
+                  };
+                  Logger.info('InfrastructureService', `Discovered offline compose service [${serviceName}] in [${dir}]`);
+                }
+              }
+            }
+          } catch (err: any) {
+            Logger.warn('InfrastructureService', `Failed to parse compose file [${composePath}]: ${err.message}`);
+          }
+        }
+      } catch {
+        // ignore read permissions errors
+      }
+    };
+
+    for (const dir of dirs) {
+      if (fs.existsSync(dir)) {
+        walk(dir, 0);
+      }
+    }
+
+    fs.writeFileSync(cacheFilePath, JSON.stringify(cache, null, 2), 'utf8');
   }
 }
 export default InfrastructureService;

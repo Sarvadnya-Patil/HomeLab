@@ -36,7 +36,8 @@ export class NotificationsRepository extends BaseRepository<Notification> {
   }
 
   update(id: string, partial: Partial<Notification>): Notification | undefined {
-    const fields = Object.keys(partial).filter((k) => k !== 'id' && k !== 'createdAt');
+    const allowed = ['origin', 'message', 'level', 'read'];
+    const fields = Object.keys(partial).filter((k) => allowed.includes(k));
     if (fields.length === 0) return this.findById(id);
 
     const sets: string[] = [];

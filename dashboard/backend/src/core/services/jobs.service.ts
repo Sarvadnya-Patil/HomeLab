@@ -74,6 +74,9 @@ export class JobsService {
       try {
         await taskFn((prog: number, logMsg?: string) => {
           const current = this.getJob(job.id);
+          if (current?.status === 'failed' && current?.error === 'Job was manually cancelled by operator.') {
+            throw new Error('JobCancelled');
+          }
           let logs = current?.logs || '';
           if (logMsg) {
             logs = logs ? `${logs}\n[INFO] ${logMsg}` : `[INFO] ${logMsg}`;
@@ -81,11 +84,20 @@ export class JobsService {
           this.updateJob(job.id, { progress: Math.min(Math.max(prog, 5), 95), logs });
         });
         const finalJob = this.getJob(job.id);
+        if (finalJob?.status === 'failed' && finalJob?.error === 'Job was manually cancelled by operator.') {
+          return;
+        }
         const finalLogs = `${finalJob?.logs || ''}\n[SUCCESS] Job execution finished.`;
         this.updateJob(job.id, { status: 'success', progress: 100, logs: finalLogs });
       } catch (err: any) {
+        if (err.message === 'JobCancelled') {
+          return;
+        }
         Logger.error('JobEngine', `Job [${job.id}] execution failed: ${err.message}`);
         const finalJob = this.getJob(job.id);
+        if (finalJob?.status === 'failed' && finalJob?.error === 'Job was manually cancelled by operator.') {
+          return;
+        }
         const finalLogs = `${finalJob?.logs || ''}\n[ERROR] ${err.message}`;
         this.updateJob(job.id, { status: 'failed', error: err.message, logs: finalLogs });
       }
