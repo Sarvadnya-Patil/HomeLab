@@ -109,26 +109,35 @@ export class InfrastructureService {
     });
   }
 
-  // 1. Get dynamic health status of subsystems
+  // 1. Get dynamic health status of subsystems with real-time measured latencies
   async getHealthStatus() {
-    const dbOnline = (() => {
-      try {
-        const res = this.db.getAdapter().get('SELECT 1');
-        return res !== undefined;
-      } catch {
-        return false;
-      }
-    })();
+    // 1. Measure Database Latency
+    let dbOnline = false;
+    let dbLatency = 'N/A';
+    try {
+      const startTime = performance.now();
+      const res = this.db.getAdapter().get('SELECT 1');
+      dbOnline = res !== undefined;
+      dbLatency = dbOnline ? `${(performance.now() - startTime).toFixed(2)} ms` : 'N/A';
+    } catch {
+      dbOnline = false;
+    }
 
-    const dockerOnline = await this.docker
-      .getVersion()
-      .then(() => true)
-      .catch(() => false);
+    // 2. Measure Docker Latency
+    let dockerOnline = false;
+    let dockerLatency = 'N/A';
+    try {
+      const startTime = performance.now();
+      await this.docker.getVersion();
+      dockerOnline = true;
+      dockerLatency = `${(performance.now() - startTime).toFixed(1)} ms`;
+    } catch {
+      dockerOnline = false;
+    }
 
-    const schedulerOnline = this.scheduler !== undefined && this.scheduler !== null;
-    const metricsOnline = this.metrics !== undefined && this.metrics.getLatestMetrics() !== null;
-
+    // 3. Measure Tunnel Status & Latency
     let tunnelOnline = false;
+    const tunnelStartTime = performance.now();
     if (dockerOnline) {
       try {
         const containers = await this.docker.getContainers();
@@ -145,8 +154,6 @@ export class InfrastructureService {
         tunnelOnline = false;
       }
     }
-
-    // Fallback: Check host /proc mount (inspected from Docker container) or local process table
     if (!tunnelOnline) {
       if (this.isProcessRunningOnHost('cloudflared')) {
         tunnelOnline = true;
@@ -155,10 +162,41 @@ export class InfrastructureService {
           execSync('pgrep cloudflared || pidof cloudflared || pgrep -f cloudflared', { stdio: 'ignore' });
           tunnelOnline = true;
         } catch {
-          // Fallback silently if process is not found or command fails
+          // Fallback silently
         }
       }
     }
+    const tunnelLatency = tunnelOnline ? `${(performance.now() - tunnelStartTime).toFixed(1)} ms` : 'N/A';
+
+    // 4. Measure Scheduler Latency
+    const schedulerOnline = this.scheduler !== undefined && this.scheduler !== null;
+    const schedStartTime = performance.now();
+    if (schedulerOnline && this.scheduler.getIntervals) {
+      try {
+        this.scheduler.getIntervals();
+      } catch {}
+    }
+    const schedulerLatency = schedulerOnline ? `${(performance.now() - schedStartTime).toFixed(2)} ms` : 'N/A';
+
+    // 5. Measure Metrics Collector Latency
+    const metricsOnline = this.metrics !== undefined && this.metrics.getLatestMetrics() !== null;
+    const metricsStartTime = performance.now();
+    if (metricsOnline) {
+      try {
+        this.metrics.getLatestMetrics();
+      } catch {}
+    }
+    const metricsLatency = metricsOnline ? `${(performance.now() - metricsStartTime).toFixed(2)} ms` : 'N/A';
+
+    // 6. Measure Scraper Latency
+    const scraperStartTime = performance.now();
+    const isDashboardActive = await this.isPortOpen(8081);
+    const scraperLatency = `${(performance.now() - scraperStartTime).toFixed(1)} ms`;
+
+    // 7. Measure Proxy Latency
+    const proxyStartTime = performance.now();
+    const proxyOnline = dockerOnline && await this.isPortOpen(2375, 'docker-proxy');
+    const proxyLatency = proxyOnline ? `${(performance.now() - proxyStartTime).toFixed(1)} ms` : 'N/A';
 
     return {
       status: (dbOnline && dockerOnline && schedulerOnline && metricsOnline) ? 'healthy' : 'degraded',
@@ -167,43 +205,43 @@ export class InfrastructureService {
           status: dbOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
           lastError: dbOnline ? null : 'SQLite connection or query failed',
-          latency: '0.2 ms'
+          latency: dbLatency
         },
         docker: {
           status: dockerOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
           lastError: dockerOnline ? null : 'Docker Proxy socket connection unreachable',
-          latency: dockerOnline ? '6 ms' : 'N/A'
+          latency: dockerLatency
         },
         tunnel: {
           status: tunnelOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
           lastError: tunnelOnline ? null : 'Cloudflared container is not running',
-          latency: tunnelOnline ? '12 ms' : 'N/A'
+          latency: tunnelLatency
         },
         scheduler: {
           status: schedulerOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
           lastError: schedulerOnline ? null : 'Scheduler instance is offline',
-          latency: '0.1 ms'
+          latency: schedulerLatency
         },
         metrics_collector: {
           status: metricsOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
           lastError: metricsOnline ? null : 'Metrics collector instance is offline',
-          latency: '8 ms'
+          latency: metricsLatency
         },
         scraper: {
           status: metricsOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
           lastError: metricsOnline ? null : 'Scraper instance is offline',
-          latency: '10 ms'
+          latency: scraperLatency
         },
         proxy: {
-          status: dockerOnline ? 'online' : 'offline',
+          status: proxyOnline ? 'online' : 'offline',
           lastHeartbeat: new Date().toISOString(),
-          lastError: dockerOnline ? null : 'Docker proxy connection is offline',
-          latency: dockerOnline ? '5 ms' : 'N/A'
+          lastError: proxyOnline ? null : 'Docker proxy connection is offline',
+          latency: proxyLatency
         }
       }
     };
