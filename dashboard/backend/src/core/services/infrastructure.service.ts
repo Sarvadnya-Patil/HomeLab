@@ -421,7 +421,8 @@ export class InfrastructureService {
       if (fs.existsSync(cacheFilePath)) {
         const cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
         for (const serviceName of Object.keys(cache)) {
-          if (!matchedNames.has(serviceName) && !placeholders.some(p => p.Names.includes(`/${serviceName}`))) {
+          const isRunning = matchedNames.has(serviceName) || Array.from(matchedNames).some(name => name === serviceName || name.endsWith(`-${serviceName}`));
+          if (!isRunning && !placeholders.some(p => p.Names.includes(`/${serviceName}`))) {
             const entry = cache[serviceName];
             placeholders.push({
               Id: '',
@@ -446,7 +447,10 @@ export class InfrastructureService {
     try {
       const services = this.plugin.discover();
       for (const s of services) {
-        const alreadyListed = matchedNames.has(s.id) || placeholders.some(p => p.Names.includes(`/${s.id}`) || p.Names.some((n: string) => n.endsWith(`-${s.id}`)));
+        const alreadyListed = 
+          matchedNames.has(s.id) || 
+          Array.from(matchedNames).some(name => name === s.id || name.endsWith(`-${s.id}`)) ||
+          placeholders.some(p => p.Names.includes(`/${s.id}`) || p.Names.some((n: string) => n.endsWith(`-${s.id}`)));
         if (!alreadyListed) {
           placeholders.push({
             Id: '',
