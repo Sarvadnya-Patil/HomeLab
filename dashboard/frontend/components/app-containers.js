@@ -306,10 +306,14 @@ export const AppContainers = {
       `;
 
       let refName = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-      if (refName.includes('homelab') || refName === 'docker-proxy') {
-        refName = 'homelab';
+      if (refName.includes('homelab') || refName === 'docker-proxy' || refName === 'dashboard') {
+        refName = 'falcon';
+      } else if (refName === 'postgres') {
+        refName = 'postgresql';
       }
       const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${refName}.webp`;
+      const monochromeLogos = ['falcon', 'postgresql', 'postgres', 'docker-proxy', 'dashboard', 'sqlite', 'server'];
+      const filterStyle = monochromeLogos.includes(refName) ? 'filter: brightness(0) invert(1);' : '';
 
       html += `
         <tr style="border-bottom: 1px dashed rgba(255,255,255,0.02); height: 40px;" data-container-id="${c.Id}">
@@ -318,8 +322,8 @@ export const AppContainers = {
               <span style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
                 <img src="${logoUrl}" 
                      alt="${escName}" 
-                     style="width: 16px; height: 16px; object-fit: contain;" 
-                     onerror="this.onerror=null; this.outerHTML=decodeURIComponent('${encodeURIComponent(getIcon(name))}')"/>
+                     style="width: 16px; height: 16px; object-fit: contain; ${filterStyle}" 
+                     onerror="this.onerror=null; this.outerHTML=decodeURIComponent('${encodeURIComponent(getIcon(name)).replace(/'/g, '%27')}')"/>
               </span>
               <span>${escName}</span>
             </div>
