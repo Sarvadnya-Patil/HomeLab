@@ -1594,7 +1594,7 @@ input[type=number] {
 
 .switch input:checked + .slider:before {
   transform: translateX(14px);
-  background-color: var(--bg-card) !important;
+  background-color: white !important;
 }
 
 
