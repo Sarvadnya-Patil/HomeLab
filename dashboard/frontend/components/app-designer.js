@@ -404,13 +404,38 @@ export const AppDesigner = {
       this.bindNodeTooltip(nodeEl, node);
     });
   },
-
   renderConnections() {
     const svg = this.container.querySelector('#canvas-connections');
     if (!svg) return;
     svg.innerHTML = '';
 
     const searchVal = (document.getElementById("cmd-palette")?.value || '').toLowerCase().trim();
+
+    // Trace path to matching container nodes
+    const nodesOnPath = new Set();
+    if (searchVal) {
+      const matchingContainerIds = this.nodes
+        .filter(n => n.type === 'container' && (
+          n.name.toLowerCase().includes(searchVal) ||
+          n.id.toLowerCase().includes(searchVal)
+        ))
+        .map(n => n.id);
+
+      matchingContainerIds.forEach(id => nodesOnPath.add(id));
+
+      if (matchingContainerIds.length > 0) {
+        let added = true;
+        while (added) {
+          added = false;
+          this.links.forEach(link => {
+            if (nodesOnPath.has(link.target) && !nodesOnPath.has(link.source)) {
+              nodesOnPath.add(link.source);
+              added = true;
+            }
+          });
+        }
+      }
+    }
 
     this.links.forEach(link => {
       const sourceNode = this.nodes.find(n => n.id === link.source);
@@ -444,13 +469,8 @@ export const AppDesigner = {
           }
         }
 
-        // Determine if this path matches the global search query
-        const queryMatches = searchVal && (
-          sourceNode.name.toLowerCase().includes(searchVal) || 
-          targetNode.name.toLowerCase().includes(searchVal) ||
-          sourceNode.id.toLowerCase().includes(searchVal) ||
-          targetNode.id.toLowerCase().includes(searchVal)
-        );
+        // Determine if this path matches the global search query path
+        const queryMatches = searchVal && nodesOnPath.has(link.source) && nodesOnPath.has(link.target);
 
         // Determine path properties based on statuses
         const sOnline = sourceNode.status === 'online';
