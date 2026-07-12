@@ -23,6 +23,7 @@ export const AppDesigner = {
     this.nodes = [];
     this.links = [];
     this.isDragging = false;
+    this.isLoading = true;
     this.localPositions = new Map();
 
     const mainSearchBar = document.getElementById("cmd-palette");
@@ -55,6 +56,7 @@ export const AppDesigner = {
   async refreshLiveTopology(isInitial = false) {
     if (this.isDragging) return;
     await this.loadTopologyData();
+    this.isLoading = false;
     this.renderNodes();
     this.renderConnections();
     if (isInitial) {
@@ -324,7 +326,24 @@ export const AppDesigner = {
     container.innerHTML = '';
 
     if (!this.nodes || this.nodes.length === 0) {
-      container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding-top: 150px; width: 100%; font-weight: 500;">No topology discovered.</div>`;
+      if (this.isLoading) {
+        container.innerHTML = `
+          <div class="skeleton-card" style="position: absolute; left: 100px; top: 150px; width: 150px; height: 50px; padding: 0.5rem; display: flex; flex-direction: column; justify-content: center; gap: 0.3rem; border: 1px dashed var(--border-slate); background: rgba(30,41,59,0.3);">
+            <div class="skeleton-line title" style="width: 70%; height: 10px; margin: 0;"></div>
+            <div class="skeleton-line short" style="width: 40%; height: 6px; margin: 0;"></div>
+          </div>
+          <div class="skeleton-card" style="position: absolute; left: 350px; top: 150px; width: 150px; height: 50px; padding: 0.5rem; display: flex; flex-direction: column; justify-content: center; gap: 0.3rem; border: 1px dashed var(--border-slate); background: rgba(30,41,59,0.3);">
+            <div class="skeleton-line title" style="width: 80%; height: 10px; margin: 0;"></div>
+            <div class="skeleton-line short" style="width: 30%; height: 6px; margin: 0;"></div>
+          </div>
+          <div class="skeleton-card" style="position: absolute; left: 600px; top: 150px; width: 150px; height: 50px; padding: 0.5rem; display: flex; flex-direction: column; justify-content: center; gap: 0.3rem; border: 1px dashed var(--border-slate); background: rgba(30,41,59,0.3);">
+            <div class="skeleton-line title" style="width: 60%; height: 10px; margin: 0;"></div>
+            <div class="skeleton-line short" style="width: 50%; height: 6px; margin: 0;"></div>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding-top: 150px; width: 100%; font-weight: 500;">No topology discovered.</div>`;
+      }
       return;
     }
 

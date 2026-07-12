@@ -82,6 +82,25 @@ export const WidgetGrid = {
     });
   },
 
+  getSkeletonHtml(count = 3) {
+    let cards = '';
+    for (let i = 0; i < count; i++) {
+      cards += `
+        <div class="skeleton-card" style="box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+          <div class="skeleton-line title"></div>
+          <div class="skeleton-line text"></div>
+          <div class="skeleton-line text" style="width: 70%;"></div>
+          <div class="skeleton-line short"></div>
+        </div>
+      `;
+    }
+    return `
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; width: 100%; box-sizing: border-box; padding: 0.5rem 0;">
+        ${cards}
+      </div>
+    `;
+  },
+
   async loadWorkspaceLayout() {
     if (!this.container || !this.activeWorkspaceId) return;
 
@@ -90,7 +109,7 @@ export const WidgetGrid = {
       if (item.widgetObj.destroy) item.widgetObj.destroy(item.wrapperEl);
     });
     this.activeWidgets = [];
-    this.container.innerHTML = '<div style="color: var(--text-muted); padding: 2rem;">Loading workspace widgets layout...</div>';
+    this.container.innerHTML = this.getSkeletonHtml(3);
 
     try {
       const widgets = await api.get(`/api/v1/workspaces/${this.activeWorkspaceId}/widgets`);

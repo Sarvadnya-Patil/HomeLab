@@ -57,10 +57,10 @@ export const AppJobs = {
         </div>
 
         <div style="display: flex; flex: 1; gap: 1rem; min-height: 400px; height: calc(100vh - 190px);">
-          <!-- Jobs list -->
           <div class="jobs-list-panel" style="flex: 1; min-width: 280px; background: rgba(30, 41, 59, 0.2); border-radius: 8px; border: 1px solid var(--border-slate); padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto;">
-            <div id="jobs-cards-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
-              <div style="font-size: 0.75rem; color: var(--text-muted);">Loading execution threads...</div>
+            <div id="jobs-cards-container" style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
+              <div class="skeleton-card" style="padding: 0.85rem; border: 1px solid var(--border-slate); background: rgba(30, 41, 59, 0.4);"><div class="skeleton-line title" style="width: 60%;"></div><div class="skeleton-line text"></div><div class="skeleton-line short"></div></div>
+              <div class="skeleton-card" style="padding: 0.85rem; border: 1px solid var(--border-slate); background: rgba(30, 41, 59, 0.4);"><div class="skeleton-line title" style="width: 80%;"></div><div class="skeleton-line text"></div><div class="skeleton-line short"></div></div>
             </div>
           </div>
 
