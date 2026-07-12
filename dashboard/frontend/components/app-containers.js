@@ -306,6 +306,10 @@ export const AppContainers = {
       `;
 
       const guessLogoName = (id) => {
+        // Method 1: Check Docker Compose project label
+        if (c.Labels && c.Labels['com.docker.compose.project'] === 'homelab') {
+          return 'falcon';
+        }
         const ref = id.toLowerCase().replace(/[^a-z0-9]/g, '-');
         const mappings = [
           { keywords: ['homelab', 'docker-proxy', 'dashboard', 'console'], logo: 'falcon' },
