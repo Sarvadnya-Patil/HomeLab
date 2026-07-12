@@ -151,7 +151,7 @@ Running Cloudflare Tunnel inside Docker provides several operational advantages:
 HomeLab OS provides a fast, unified search bar in the header (accessible instantly using `Ctrl+K` or `Cmd+K`) that adapts to the active view:
 
 *   **Dashboard & Containers**: Filters active services and container grids.
-*   **Topology**: Highlights connection paths dynamically in **blue** (including flowing data animation) when a node or container matches the search query. Supports zoom-to-cursor scroll navigation.
+*   **Topology**: Highlights connection paths dynamically in **blue** (including flowing data animation) leading exclusively to container nodes that match the search query (ignoring root infrastructure nodes like Internet or Tunnel). Supports zoom-to-cursor scroll navigation.
 *   **Health**: Dynamically filters active subsystem health cards (e.g., database, docker, tunnel) by name or status.
 *   **Jobs**: Filters active operation threads and execution history logs. Supports advanced power-user filter prefix commands in both the Active and History lists:
     *   `/title <query>` - specifically filters jobs by their action/title (e.g., `/title system_backup`).
