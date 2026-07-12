@@ -86,7 +86,7 @@ export const AppHealth = {
       let iconName = 'activity';
       if (name === 'database') iconName = 'database';
       if (name === 'docker') iconName = 'server';
-      if (name === 'tunnel') iconName = 'link';
+      if (name === 'tunnel') iconName = 'tunnel';
       
       const iconHtml = getIcon(iconName);
 
@@ -102,7 +102,9 @@ export const AppHealth = {
           </div>
           
           <div style="font-size: 0.7rem; color: var(--text-muted); display: grid; grid-template-columns: 80px 1fr; gap: 0.25rem; margin-top: 0.5rem;">
-            <span>Latency:</span> <span style="color: #fff; font-weight: 500;">${item.latency || 'N/A'}</span>
+            ${(name !== 'scheduler' && name !== 'metrics_collector') ? `
+              <span>Latency:</span> <span style="color: #fff; font-weight: 500;">${item.latency || 'N/A'}</span>
+            ` : ''}
             <span>Heartbeat:</span> <span>${new Date(item.lastHeartbeat).toLocaleTimeString()}</span>
             <span>Errors:</span> <span style="color: ${item.lastError ? '#ef4444' : 'var(--text-muted)'};">${item.lastError || 'None'}</span>
           </div>
