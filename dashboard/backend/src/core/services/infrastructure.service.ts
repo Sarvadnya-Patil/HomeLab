@@ -171,9 +171,9 @@ export class InfrastructureService {
     // 4. Measure Scheduler Latency
     const schedulerOnline = this.scheduler !== undefined && this.scheduler !== null;
     const schedStartTime = performance.now();
-    if (schedulerOnline && this.scheduler.getIntervals) {
+    if (schedulerOnline) {
       try {
-        this.scheduler.getIntervals();
+        const check = (this.scheduler as any).jobs;
       } catch {}
     }
     const schedulerLatency = schedulerOnline ? `${(performance.now() - schedStartTime).toFixed(2)} ms` : 'N/A';
