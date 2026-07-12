@@ -39,3 +39,44 @@ export function getIcon(name) {
   }
   return icons[lower] || icons.default;
 }
+
+if (typeof window !== 'undefined') {
+  window.handleLogoLoad = function(img) {
+    if (img.dataset.logoChecked || img.src.includes('-light.webp')) return;
+    img.dataset.logoChecked = 'true';
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 8;
+      canvas.height = 8;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, 8, 8);
+      const imgData = ctx.getImageData(0, 0, 8, 8);
+      const data = imgData.data;
+      let totalBrightness = 0;
+      let visiblePixels = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const a = data[i+3];
+        if (a > 30) {
+          const r = data[i];
+          const g = data[i+1];
+          const b = data[i+2];
+          const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+          totalBrightness += brightness;
+          visiblePixels++;
+        }
+      }
+      if (visiblePixels > 0) {
+        const avgBrightness = totalBrightness / visiblePixels;
+        // If average brightness of logo is dark (< 130 out of 255), switch to -light.webp
+        if (avgBrightness < 130) {
+          const currentSrc = img.src;
+          if (currentSrc.includes('/webp/') && currentSrc.endsWith('.webp') && !currentSrc.includes('-light.webp')) {
+            img.src = currentSrc.replace('.webp', '-light.webp');
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to analyze logo brightness:', err);
+    }
+  };
+}

@@ -294,11 +294,7 @@ export default {
       return ref;
     };
 
-    let serviceRefName = guessLogoName(service.id);
-    const monochromeLogos = ['falcon', 'docker-proxy', 'dashboard', 'sqlite', 'server', 'portainer'];
-    if (monochromeLogos.includes(serviceRefName)) {
-      serviceRefName += '-light';
-    }
+    const serviceRefName = guessLogoName(service.id);
     const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${serviceRefName}.webp`;
 
     card.innerHTML = `
@@ -307,7 +303,9 @@ export default {
           <span class="card-icon" style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 18px; height: 18px;">
             <img src="${logoUrl}" 
                  alt="${escapeHtml(service.name)}" 
+                 crossorigin="anonymous"
                  style="width: 18px; height: 18px; object-fit: contain;" 
+                 onload="window.handleLogoLoad(this)"
                  onerror="this.onerror=null; this.outerHTML=decodeURIComponent('${encodeURIComponent(getIcon(service.id)).replace(/'/g, '%27')}')"/>
           </span>
           <div style="overflow: hidden;">

@@ -322,11 +322,7 @@ export const AppContainers = {
         return ref;
       };
 
-      let refName = guessLogoName(name);
-      const monochromeLogos = ['falcon', 'docker-proxy', 'dashboard', 'sqlite', 'server', 'portainer'];
-      if (monochromeLogos.includes(refName)) {
-        refName += '-light';
-      }
+      const refName = guessLogoName(name);
       const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${refName}.webp`;
 
       html += `
@@ -336,7 +332,9 @@ export const AppContainers = {
               <span style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
                 <img src="${logoUrl}" 
                      alt="${escName}" 
+                     crossorigin="anonymous"
                      style="width: 16px; height: 16px; object-fit: contain;" 
+                     onload="window.handleLogoLoad(this)"
                      onerror="this.onerror=null; this.outerHTML=decodeURIComponent('${encodeURIComponent(getIcon(name)).replace(/'/g, '%27')}')"/>
               </span>
               <span>${escName}</span>
