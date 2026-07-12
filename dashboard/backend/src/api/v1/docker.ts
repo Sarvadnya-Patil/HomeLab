@@ -69,6 +69,7 @@ export default function (fastify: any, engine: CoreEngine): void {
         
         updateProgress(30, `Scanning directories: ${scanDirs.join(', ')}`);
         await engine.infrastructure.scanSystemComposeFiles(scanDirs);
+        engine.auditRepo.log(actor, 'scan_compose', 'system', 'local', { directories: scanDirs });
         updateProgress(100, 'Successfully scanned and indexed all compose files on the host.');
       }
     );

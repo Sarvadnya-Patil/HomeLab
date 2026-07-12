@@ -174,7 +174,12 @@ export class InfrastructureService {
     if (schedulerOnline) {
       try {
         const check = (this.scheduler as any).jobs;
-      } catch {}
+        if (!check) {
+          throw new Error('No scheduler jobs mapped');
+        }
+      } catch (err: any) {
+        Logger.debug('InfrastructureService', `Scheduler jobs validation: ${err.message}`);
+      }
     }
     const schedulerLatency = schedulerOnline ? `${(performance.now() - schedStartTime).toFixed(2)} ms` : 'N/A';
 
@@ -183,14 +188,19 @@ export class InfrastructureService {
     const metricsStartTime = performance.now();
     if (metricsOnline) {
       try {
-        this.metrics.getLatestMetrics();
-      } catch {}
+        const metrics = this.metrics.getLatestMetrics();
+        if (!metrics) {
+          throw new Error('Metrics DB returns empty');
+        }
+      } catch (err: any) {
+        Logger.debug('InfrastructureService', `Metrics database verification: ${err.message}`);
+      }
     }
     const metricsLatency = metricsOnline ? `${(performance.now() - metricsStartTime).toFixed(2)} ms` : 'N/A';
 
     // 6. Measure Scraper Latency
     const scraperStartTime = performance.now();
-    const isDashboardActive = await this.isPortOpen(8081);
+    await this.isPortOpen(8081);
     const scraperLatency = `${(performance.now() - scraperStartTime).toFixed(1)} ms`;
 
     // 7. Measure Proxy Latency
@@ -895,7 +905,9 @@ export class InfrastructureService {
     if (fs.existsSync(cacheFilePath)) {
       try {
         cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
-      } catch { }
+      } catch (err: any) {
+        Logger.error('InfrastructureService', `Failed to parse compose cache file: ${err.message}`);
+      }
     }
 
     const ignoredDirs = new Set([
