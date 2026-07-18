@@ -13,7 +13,7 @@
     "generate:licenses": "node ../../scripts/generate_licenses.js"
   },
   "dependencies": {
-    "@fastify/static": "^7.0.4",
+    "@fastify/static": "^10.1.0",
     "@fastify/websocket": "^8.3.1",
     "better-sqlite3": "^12.11.1",
     "fastify": "^4.28.0",
