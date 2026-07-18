@@ -63,8 +63,16 @@ body {
 .sidebar-header {
   margin-bottom: 2rem;
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.sidebar-header img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .logo {
@@ -74,6 +82,7 @@ body {
   color: var(--text-primary);
   border-left: 2px solid var(--border-focus);
   padding-left: 0.5rem;
+  white-space: nowrap;
 }
 
 .sidebar .host-badge {
@@ -834,17 +843,11 @@ body {
 .sidebar-collapsed .sidebar-footer {
   display: none;
 }
-.sidebar-collapsed .sidebar .logo {
-  font-size: 0;
-  padding-left: 0;
-  border-left: none;
-  text-align: center;
+.sidebar-collapsed .sidebar-header {
+  justify-content: center;
 }
-.sidebar-collapsed .sidebar .logo::before {
-  content: 'H';
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--text-primary);
+.sidebar-collapsed .sidebar .logo {
+  display: none;
 }
 
 .nav-icon-svg, .widget-icon-svg {
@@ -1084,8 +1087,8 @@ body {
 
   .sidebar-header {
     margin-bottom: 2rem;
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
   }
 
   .sidebar-nav {
