@@ -241,7 +241,7 @@ export const AppDesigner = {
           box-shadow: 0 0 16px var(--term-green) !important;
         }
         .topology-tooltip {
-          position: absolute;
+          position: fixed;
           background: rgba(15, 23, 42, 0.95);
           border: 1px solid var(--border-slate);
           color: #fff;
@@ -249,7 +249,7 @@ export const AppDesigner = {
           border-radius: 6px;
           font-size: 0.65rem;
           pointer-events: none;
-          z-index: 1000;
+          z-index: 9999;
           display: none;
           box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
@@ -574,6 +574,7 @@ export const AppDesigner = {
     if (!tooltip) return;
 
     el.addEventListener('mouseenter', (e) => {
+      if (this.isDragging) return;
       tooltip.style.display = 'block';
       tooltip.innerHTML = `
         <div style="font-weight:700; color:#fff; font-size:0.75rem;">${node.name}</div>
@@ -583,9 +584,20 @@ export const AppDesigner = {
     });
 
     el.addEventListener('mousemove', (e) => {
-      const rect = this.container.querySelector('#canvas-area').getBoundingClientRect();
-      tooltip.style.left = `${e.clientX - rect.left + 15}px`;
-      tooltip.style.top = `${e.clientY - rect.top + 15}px`;
+      if (this.isDragging) {
+        tooltip.style.display = 'none';
+        return;
+      }
+      let left = e.clientX + 15;
+      let top = e.clientY + 15;
+      if (left + 160 > window.innerWidth) {
+        left = e.clientX - 170;
+      }
+      if (top + 80 > window.innerHeight) {
+        top = e.clientY - 90;
+      }
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
     });
 
     el.addEventListener('mouseleave', () => {

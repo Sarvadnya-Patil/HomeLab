@@ -442,10 +442,24 @@ export class InfrastructureService {
       const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
       if (fs.existsSync(cacheFilePath)) {
         const cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
+        const ignoredList: string[] = Array.isArray(cache._ignored) ? cache._ignored : [];
         for (const serviceName of Object.keys(cache)) {
-          const isRunning = matchedNames.has(serviceName) || Array.from(matchedNames).some(name => name === serviceName || name.endsWith(`-${serviceName}`));
-          if (!isRunning && !placeholders.some(p => p.Names.includes(`/${serviceName}`))) {
-            const entry = cache[serviceName];
+          if (serviceName === '_ignored' || ignoredList.includes(serviceName)) continue;
+          const entry = cache[serviceName];
+          const containerName = entry.containerName || serviceName;
+          const projectName = entry.projectName || '';
+
+          const isRunning = 
+            matchedNames.has(serviceName) ||
+            matchedNames.has(containerName) ||
+            Array.from(matchedNames).some(name => 
+              name === serviceName || 
+              name === containerName || 
+              name.endsWith(`-${serviceName}`) ||
+              (projectName && (name.toLowerCase() === projectName.toLowerCase() || name.toLowerCase().startsWith(`${projectName.toLowerCase()}-`)))
+            );
+
+          if (!isRunning && !placeholders.some(p => p.Names.includes(`/${serviceName}`) || p.Names.includes(`/${containerName}`))) {
             placeholders.push({
               Id: '',
               Names: [`/${serviceName}`],
@@ -948,13 +962,17 @@ export class InfrastructureService {
             const content = fs.readFileSync(composePath, 'utf8');
             const parsed = yaml.parse(content);
             if (parsed && parsed.services) {
+              const ignoredList: string[] = Array.isArray(cache._ignored) ? cache._ignored : [];
               for (const serviceName of Object.keys(parsed.services)) {
+                if (serviceName === '_ignored' || ignoredList.includes(serviceName)) continue;
+                const serviceVal = parsed.services[serviceName] || {};
+                const containerName = serviceVal.container_name || serviceName;
                 if (!cache[serviceName]) {
-                  const serviceVal = parsed.services[serviceName];
                   cache[serviceName] = {
                     workingDir: dir,
                     configFiles: composePath,
                     projectName: parsed.name || path.basename(dir),
+                    containerName: containerName,
                     image: serviceVal.image || 'latest',
                     lastSeen: new Date().toISOString()
                   };
