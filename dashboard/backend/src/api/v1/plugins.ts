@@ -52,16 +52,20 @@ export default function (fastify: any, engine: CoreEngine): void {
       id,
       async (updateProgress) => {
         updateProgress(20);
-        // Handle container removal cache pruning
+        // Handle container removal cache pruning & permanent ignoring
         if (action === 'remove') {
           try {
             const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
             if (fs.existsSync(cacheFilePath)) {
               const cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
+              cache._ignored = Array.isArray(cache._ignored) ? cache._ignored : [];
+              if (!cache._ignored.includes(id)) {
+                cache._ignored.push(id);
+              }
               if (cache[id]) {
                 delete cache[id];
-                fs.writeFileSync(cacheFilePath, JSON.stringify(cache, null, 2), 'utf8');
               }
+              fs.writeFileSync(cacheFilePath, JSON.stringify(cache, null, 2), 'utf8');
             }
           } catch (err: any) {
             Logger.error('PluginsSubsystem', `Failed to prune from compose cache: ${err.message}`);
