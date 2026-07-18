@@ -2,6 +2,7 @@
 import { CoreEngine } from '../../core/engine';
 import { execSync } from 'child_process';
 import path from 'path';
+import os from 'os';
 
 export default function (fastify: any, engine: CoreEngine): void {
   // 1. GET: /api/v1/docker/containers
@@ -60,11 +61,11 @@ export default function (fastify: any, engine: CoreEngine): void {
       'system',
       async (updateProgress) => {
         updateProgress(10, 'Resolving system directories to scan...');
-        const userprofile = process.env.USERPROFILE || 'C:\\Users\\developer';
+        const homeDir = os.homedir();
         const scanDirs = [
-          'C:\\projects',
-          path.join(userprofile, 'Documents'),
-          path.join(userprofile, 'Desktop')
+          path.resolve(process.cwd(), '..'),
+          path.join(homeDir, 'Documents'),
+          path.join(homeDir, 'Desktop')
         ];
         
         updateProgress(30, `Scanning directories: ${scanDirs.join(', ')}`);

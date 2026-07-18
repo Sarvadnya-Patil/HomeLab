@@ -95,7 +95,7 @@ export const AppContainers = {
       scanBtn.addEventListener('click', async () => {
         const confirmScan = await Dialog.confirm({
           title: 'Scan System Compose Files',
-          message: 'This will recursively scan your workspace folders (C:\\projects, Documents, Desktop) for docker-compose configurations, auto-registering any offline stacks. Continue?'
+          message: 'This will recursively scan your workspace and user folders (Documents, Desktop, and project directories) for docker-compose configurations, auto-registering any offline stacks. Continue?'
         });
         if (confirmScan) {
           try {
