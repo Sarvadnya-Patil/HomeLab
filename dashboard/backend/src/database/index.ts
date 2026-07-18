@@ -40,9 +40,9 @@ export class DatabaseManager {
       ];
       for (const sql of migrations) {
         try {
-          this.adapter.exec(sql);
+          this.adapter.db.exec(sql);
         } catch {
-          // Gracefully ignore if the column already exists
+          // Column already exists — expected on existing databases, silently ignored
         }
       }
 
