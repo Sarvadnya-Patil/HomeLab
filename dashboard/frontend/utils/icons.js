@@ -23,10 +23,10 @@ export const icons = {
   disk: `<svg class="widget-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>`,
   bell: `<svg class="widget-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"></path></svg>`,
 
-  falcon: `<svg class="logo-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><text y="0.9em" font-size="90">⚡</text></svg>`,
+  falcon: `<svg class="logo-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="h-logo-grad-f" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#c8371d"/><stop offset="50%" stop-color="#eab308"/><stop offset="100%" stop-color="#facc15"/></linearGradient></defs><path fill="url(#h-logo-grad-f)" d="M 15,5 H 43 V 37 H 57 V 5 H 85 V 95 H 57 V 63 H 43 V 95 H 15 Z"/></svg>`,
 
   // Default
-  default: `<svg class="logo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect><line x1="12" y1="2" x2="12" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line></svg>`
+  default: `<svg class="logo-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="h-logo-grad-d" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#c8371d"/><stop offset="50%" stop-color="#eab308"/><stop offset="100%" stop-color="#facc15"/></linearGradient></defs><path fill="url(#h-logo-grad-d)" d="M 15,5 H 43 V 37 H 57 V 5 H 85 V 95 H 57 V 63 H 43 V 95 H 15 Z"/></svg>`
 };
 
 export function getIcon(name) {
