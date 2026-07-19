@@ -1220,15 +1220,16 @@ input[type=number] {
 }
 
 .custom-dialog-box {
-  background: #11141c;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  background: #0e0e11;
+  border: 2px solid #ffffff;
+  border-radius: 0 !important;
   width: 92%;
   max-width: 420px;
   padding: 1.75rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.6);
+  box-shadow: 6px 6px 0px #ffffff;
   transform: scale(0.95);
   transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: var(--font-mono);
 }
 
 .custom-dialog-box.scale-out {
@@ -1246,18 +1247,21 @@ input[type=number] {
 }
 
 .custom-dialog-header {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #ffffff;
   margin-bottom: 0.6rem;
-  letter-spacing: -0.01em;
+  font-family: var(--font-mono);
 }
 
 .custom-dialog-body {
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: #a1a1aa;
   margin-bottom: 1.5rem;
   line-height: 1.5;
+  font-family: var(--font-mono);
 }
 
 .custom-dialog-input-wrapper {
@@ -1266,20 +1270,20 @@ input[type=number] {
 
 .custom-dialog-input {
   width: 100%;
-  background: #171b26;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  background: #000000;
+  border: 1px solid #33333e;
+  border-radius: 0 !important;
   padding: 0.6rem 0.85rem;
-  color: var(--text-primary);
+  color: #ffffff;
   font-size: 0.85rem;
   outline: none;
+  font-family: var(--font-mono);
   transition: all 0.15s ease;
 }
 
 .custom-dialog-input:focus {
-  border-color: var(--border-focus);
-  background: #191e2b;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
+  border-color: #ffffff;
+  box-shadow: 3px 3px 0 #ffffff;
 }
 
 .custom-dialog-actions {
@@ -1289,32 +1293,36 @@ input[type=number] {
 }
 
 .btn-dialog-cancel {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  font-weight: 500;
+  background: #000000;
+  border: 1px solid #ffffff;
+  border-radius: 0 !important;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 900;
   padding: 0.5rem 1.1rem;
   cursor: pointer;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
   transition: all 0.15s ease;
 }
 
 .btn-dialog-cancel:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: #222228;
+  color: #ffffff;
 }
 
 .btn-dialog-ok {
-  background: var(--text-primary);
-  color: #000;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 700;
+  background: #ffffff;
+  color: #000000;
+  border: 2px solid #ffffff;
+  border-radius: 0 !important;
+  font-size: 0.75rem;
+  font-weight: 900;
   padding: 0.5rem 1.25rem;
   cursor: pointer;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  box-shadow: 3px 3px 0 #555555;
   transition: all 0.15s ease;
 }
 
