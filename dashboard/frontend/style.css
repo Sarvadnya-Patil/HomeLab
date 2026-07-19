@@ -1549,6 +1549,10 @@ input[type=number] {
   padding: 1.5rem;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .modal-overlay.hidden {
   display: none !important;
 }
