@@ -361,8 +361,23 @@ export default {
           tooltip.classList.remove('hidden');
         });
         element.addEventListener('mousemove', (e) => {
-          tooltip.style.left = `${e.clientX + 14}px`;
-          tooltip.style.top = `${e.clientY + 14}px`;
+          const rect = tooltip.getBoundingClientRect();
+          const tooltipWidth = rect.width || 220;
+          const tooltipHeight = rect.height || 32;
+
+          let x = e.clientX + 14;
+          let y = e.clientY + 14;
+
+          if (x + tooltipWidth > window.innerWidth - 10) {
+            x = e.clientX - tooltipWidth - 14;
+          }
+
+          if (y + tooltipHeight > window.innerHeight - 10) {
+            y = e.clientY - tooltipHeight - 14;
+          }
+
+          tooltip.style.left = `${Math.max(10, x)}px`;
+          tooltip.style.top = `${Math.max(10, y)}px`;
         });
         element.addEventListener('mouseleave', () => {
           tooltip.classList.add('hidden');
