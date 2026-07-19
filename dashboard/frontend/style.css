@@ -450,8 +450,8 @@ body {
 
 .services-cards-grid-row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.25rem;
 }
 
 /* Dynamic sizes of cards */
@@ -461,6 +461,8 @@ body {
 
 /* Service Card Design - Blueprint White Square 3 (Oversized Port Display) */
 .service-card {
+  aspect-ratio: 1 / 1 !important;
+  min-height: 240px;
   background-color: var(--bg-shell);
   border: 2px solid #ffffff;
   border-radius: 0;
