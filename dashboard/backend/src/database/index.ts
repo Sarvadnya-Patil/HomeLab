@@ -40,7 +40,7 @@ export class DatabaseManager {
       ];
       for (const sql of migrations) {
         try {
-          this.adapter.db.exec(sql);
+          this.adapter.exec(sql);
         } catch {
           // Column already exists — expected on existing databases, silently ignored
         }
