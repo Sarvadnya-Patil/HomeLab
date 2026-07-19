@@ -1689,4 +1689,28 @@ input[type=number] {
   color: #71717a !important;
 }
 
+/* ═════════════════════════════════════════════════════════════
+   BLUEPRINT WHITE NEO-BRUTALIST CUSTOM CURSOR TOOLTIP
+   ═════════════════════════════════════════════════════════════ */
+.nb-tooltip {
+  position: fixed;
+  background-color: #000000;
+  border: 2px solid #ffffff;
+  box-shadow: 4px 4px 0 #ffffff;
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  padding: 0.35rem 0.65rem;
+  pointer-events: none;
+  z-index: 999999;
+  white-space: nowrap;
+  text-transform: uppercase;
+  transition: opacity 0.1s ease;
+  max-width: 480px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 

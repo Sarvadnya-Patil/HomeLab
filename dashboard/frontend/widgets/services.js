@@ -348,6 +348,28 @@ export default {
       });
     });
 
+    // Custom cursor tooltip for full untruncated name & image tag
+    const tooltip = document.getElementById('nb-tooltip');
+    if (tooltip) {
+      const bindTooltip = (element, text) => {
+        if (!element) return;
+        element.addEventListener('mouseenter', () => {
+          tooltip.textContent = text;
+          tooltip.classList.remove('hidden');
+        });
+        element.addEventListener('mousemove', (e) => {
+          tooltip.style.left = `${e.clientX + 14}px`;
+          tooltip.style.top = `${e.clientY + 14}px`;
+        });
+        element.addEventListener('mouseleave', () => {
+          tooltip.classList.add('hidden');
+        });
+      };
+
+      bindTooltip(card.querySelector('.sq-v3-name'), service.name);
+      bindTooltip(card.querySelector('.sq-v3-img-pill'), `IMAGE: ${imageVal}`);
+    }
+
     return card;
   },
 
