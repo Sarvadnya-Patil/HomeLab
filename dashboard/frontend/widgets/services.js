@@ -295,7 +295,8 @@ export default {
           </div>
         </div>
         <div class="sq-v3-img-pill" title="${escapeHtml(imageVal)}">
-          <span class="sq-v3-img-lbl">IMAGE</span> ${escapeHtml(imageVal)}
+          <span class="sq-v3-img-lbl">IMAGE</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escapeHtml(imageVal)}</span>
         </div>
       </div>
       <div class="sq-v3-hero">
@@ -645,6 +646,7 @@ export default {
     // Default pre-seeded category templates
     const defaultTemplates = [
       { id: 'infrastructure', name: 'Infrastructure', accent: '#3b82f6' },
+      { id: 'automation', name: 'Automation', accent: '#a855f7' },
       { id: 'monitoring', name: 'Monitoring', accent: '#10b981' },
       { id: 'ai', name: 'AI Stack', accent: '#f59e0b' },
       { id: 'networking', name: 'Networking', accent: '#06b6d4' },

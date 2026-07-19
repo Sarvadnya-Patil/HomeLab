@@ -1417,38 +1417,42 @@ input[type=number] {
    Accessibility & Skeleton Loader Additions
    ======================================================== */
 
-/* Skeleton Loading Screens */
+/* Skeleton Loading Screens - Blueprint White Neo-Brutalist */
 .skeleton-card {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-slate);
-  border-radius: 6px;
-  padding: 1.2rem;
+  aspect-ratio: 1 / 1;
+  background-color: #070709;
+  border: 2px solid #ffffff;
+  box-shadow: 4px 4px 0 #ffffff;
+  border-radius: 0 !important;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  justify-content: space-between;
   width: 100%;
+  font-family: var(--font-mono);
 }
 
 .skeleton-line {
-  height: 10px;
-  background: linear-gradient(90deg, #0d0d0d 25%, #181818 50%, #0d0d0d 75%);
+  height: 12px;
+  background: linear-gradient(90deg, #111115 25%, #2a2a35 50%, #111115 75%);
   background-size: 200% 100%;
-  animation: skeleton-pulse-animation 1.5s infinite linear;
-  border-radius: 2px;
+  animation: skeleton-pulse-animation 1.2s infinite linear;
+  border-radius: 0 !important;
+  border: 1px solid #33333e;
 }
 
 .skeleton-line.title {
-  height: 16px;
-  width: 50%;
+  height: 18px;
+  width: 60%;
   margin-bottom: 0.25rem;
 }
 
 .skeleton-line.text {
-  width: 85%;
+  width: 90%;
 }
 
 .skeleton-line.short {
-  width: 30%;
+  width: 40%;
 }
 
 @keyframes skeleton-pulse-animation {
@@ -1633,6 +1637,15 @@ input[type=number] {
 .modal-card .form-group input:focus {
   border-color: #ffffff !important;
   box-shadow: 3px 3px 0 #ffffff;
+}
+
+.form-error {
+  color: #ef4444 !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  margin-top: 0.25rem;
 }
 
 .modal-card .password-toggle-btn {
