@@ -242,7 +242,13 @@ export default {
 
     const portVal = service.ports && service.ports.http ? String(service.ports.http) : (service.ports && Object.keys(service.ports).length > 0 ? String(Object.values(service.ports)[0]) : 'N/A');
     const uptimeVal = service.details ? String(service.details.uptime || 'N/A') : 'N/A';
-    const latVal = (service.details && service.details.latency && service.details.latency !== 'N/A') ? String(service.details.latency) : '--';
+    const hasLatency = service.details && service.details.latency && service.details.latency !== 'N/A' && service.details.latency !== '--';
+    const latencyHtml = hasLatency ? `
+      <div>
+        <div class="sq-v3-k">LATENCY</div>
+        <div class="sq-v3-v">${escapeHtml(String(service.details.latency))}</div>
+      </div>
+    ` : '';
     const imageVal = service.image || service.description || service.version || service.id;
 
     const guessLogoName = (id) => {
@@ -309,10 +315,7 @@ export default {
             <div class="sq-v3-k">UPTIME</div>
             <div class="sq-v3-v">${escapeHtml(uptimeVal)}</div>
           </div>
-          <div>
-            <div class="sq-v3-k">LATENCY</div>
-            <div class="sq-v3-v">${escapeHtml(latVal)}</div>
-          </div>
+          ${latencyHtml}
         </div>
       </div>
       <div class="sq-v3-btns">
