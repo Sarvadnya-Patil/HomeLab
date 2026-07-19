@@ -1696,7 +1696,7 @@ input[type=number] {
   position: fixed;
   background-color: #000000;
   border: 2px solid #ffffff;
-  box-shadow: 4px 4px 0 #ffffff;
+  box-shadow: 2px 2px 0 #ffffff;
   color: #ffffff;
   font-family: var(--font-mono);
   font-size: 0.72rem;

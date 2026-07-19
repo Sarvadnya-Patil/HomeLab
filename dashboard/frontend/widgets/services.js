@@ -249,7 +249,8 @@ export default {
         <div class="sq-v3-v">${escapeHtml(String(service.details.latency))}</div>
       </div>
     ` : '';
-    const imageVal = service.image || service.description || service.version || service.id;
+    const rawImage = service.image || service.description || service.version || service.id;
+    const cleanImageVal = rawImage.replace(/^Docker container running image:\s*/i, '').trim();
 
     const guessLogoName = (id) => {
       const ref = id.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -300,9 +301,9 @@ export default {
             <span class="sq-v3-online ${isOnline ? 'online' : 'offline'}">${escapeHtml(service.status).toUpperCase()}</span>
           </div>
         </div>
-        <div class="sq-v3-img-pill" title="${escapeHtml(imageVal)}">
+        <div class="sq-v3-img-pill">
           <span class="sq-v3-img-lbl">IMAGE</span>
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escapeHtml(imageVal)}</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escapeHtml(cleanImageVal)}</span>
         </div>
       </div>
       <div class="sq-v3-hero">
@@ -353,6 +354,8 @@ export default {
     if (tooltip) {
       const bindTooltip = (element, text) => {
         if (!element) return;
+        element.removeAttribute('title');
+        element.querySelectorAll('*').forEach(child => child.removeAttribute('title'));
         element.addEventListener('mouseenter', () => {
           tooltip.textContent = text;
           tooltip.classList.remove('hidden');
@@ -367,7 +370,7 @@ export default {
       };
 
       bindTooltip(card.querySelector('.sq-v3-name'), service.name);
-      bindTooltip(card.querySelector('.sq-v3-img-pill'), `IMAGE: ${imageVal}`);
+      bindTooltip(card.querySelector('.sq-v3-img-pill'), `IMAGE: ${cleanImageVal}`);
     }
 
     return card;
