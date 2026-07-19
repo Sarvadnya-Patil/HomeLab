@@ -1531,4 +1531,151 @@ input[type=number] {
   background-color: white !important;
 }
 
+/* ═════════════════════════════════════════════════════════════
+   BLUEPRINT WHITE NEO-BRUTALIST AUTH & SETUP MODALS
+   ═════════════════════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(5, 5, 5, 0.92);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  padding: 1.5rem;
+}
+
+.modal-overlay.hidden {
+  display: none !important;
+}
+
+.modal-card {
+  background-color: #0e0e11;
+  border: 2px solid #ffffff;
+  box-shadow: 6px 6px 0px #ffffff;
+  width: 100%;
+  max-width: 440px;
+  padding: 2rem;
+  border-radius: 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  font-family: var(--font-sans);
+  animation: modalEnter 0.18s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes modalEnter {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-header h2 {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+  margin-bottom: 0.35rem;
+}
+
+.modal-header p {
+  color: #a1a1aa;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  font-family: var(--font-sans);
+}
+
+.modal-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal-card .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+  margin-bottom: 0 !important;
+}
+
+.modal-card .form-group label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #a1a1aa;
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.modal-card .form-group input {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  background: #000000 !important;
+  border: 1px solid #33333a !important;
+  color: #ffffff !important;
+  border-radius: 0 !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.85rem;
+  outline: none;
+  transition: all var(--transition);
+}
+
+.modal-card .form-group input:focus {
+  border-color: #ffffff !important;
+  box-shadow: 3px 3px 0 #ffffff;
+}
+
+.modal-card .password-toggle-btn {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #ffffff;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.modal-card button.btn-primary,
+.modal-card button[type="submit"] {
+  width: 100%;
+  padding: 0.8rem;
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: 2px solid #ffffff !important;
+  font-weight: 900 !important;
+  border-radius: 0 !important;
+  cursor: pointer;
+  font-family: var(--font-mono) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  box-shadow: 3px 3px 0 #555555;
+  transition: all var(--transition);
+  margin-top: 0.5rem;
+}
+
+.modal-card button.btn-primary:hover:not(:disabled),
+.modal-card button[type="submit"]:hover:not(:disabled) {
+  background: #ffffff !important;
+  color: #000000 !important;
+  box-shadow: 4px 4px 0 #ffffff;
+  transform: translate(-1px, -1px);
+}
+
+.modal-card button.btn-primary:disabled,
+.modal-card button[type="submit"]:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+  border-color: #44444e !important;
+  background: #222228 !important;
+  color: #71717a !important;
+}
+
 
