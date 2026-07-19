@@ -82,21 +82,11 @@ export const WidgetGrid = {
     });
   },
 
-  getSkeletonHtml(count = 3) {
-    let cards = '';
-    for (let i = 0; i < count; i++) {
-      cards += `
-        <div class="skeleton-card" style="box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-          <div class="skeleton-line title"></div>
-          <div class="skeleton-line text"></div>
-          <div class="skeleton-line text" style="width: 70%;"></div>
-          <div class="skeleton-line short"></div>
-        </div>
-      `;
-    }
+  getCircularLoaderHtml(text = 'INITIALIZING DASHBOARD MATRIX...') {
     return `
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; width: 100%; box-sizing: border-box; padding: 0.5rem 0;">
-        ${cards}
+      <div class="circular-loader-overlay">
+        <div class="circular-spinner"></div>
+        <span class="circular-loader-text">${text}</span>
       </div>
     `;
   },
@@ -109,7 +99,7 @@ export const WidgetGrid = {
       if (item.widgetObj.destroy) item.widgetObj.destroy(item.wrapperEl);
     });
     this.activeWidgets = [];
-    this.container.innerHTML = this.getSkeletonHtml(3);
+    this.container.innerHTML = this.getCircularLoaderHtml('INITIALIZING DASHBOARD MATRIX...');
 
     try {
       const widgets = await api.get(`/api/v1/workspaces/${this.activeWorkspaceId}/widgets`);

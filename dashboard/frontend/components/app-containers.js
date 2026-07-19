@@ -75,10 +75,9 @@ export const AppContainers = {
         </div>
       </div>
       <div class="docker-view-content" id="docker-tab-content" style="margin-top: 1rem; width: 100%;">
-        <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%;">
-          <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
-          <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
-          <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
+        <div class="circular-loader-overlay">
+          <div class="circular-spinner"></div>
+          <span class="circular-loader-text">FETCHING CONTAINER ENGINE MATRIX...</span>
         </div>
       </div>
     `;
@@ -160,12 +159,11 @@ export const AppContainers = {
     const contentEl = this.container.querySelector('#docker-tab-content');
     if (!contentEl) return;
 
-    // Render animated skeleton loaders while loading
+    // Render circular spinner while loading
     contentEl.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%;">
-        <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
-        <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
-        <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
+      <div class="circular-loader-overlay">
+        <div class="circular-spinner"></div>
+        <span class="circular-loader-text">FETCHING CONTAINER ENGINE MATRIX...</span>
       </div>
     `;
 

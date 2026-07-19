@@ -1419,51 +1419,44 @@ input[type=number] {
    Accessibility & Skeleton Loader Additions
    ======================================================== */
 
-/* Skeleton Loading Screens - Blueprint White Neo-Brutalist */
-.skeleton-card {
-  aspect-ratio: 1 / 1;
-  background-color: #070709;
-  border: 2px solid #ffffff;
-  box-shadow: 4px 4px 0 #ffffff;
-  border-radius: 0 !important;
-  padding: 1rem;
+/* ═════════════════════════════════════════════════════════════
+   BLUEPRINT WHITE NEO-BRUTALIST CIRCULAR LOADER
+   ═════════════════════════════════════════════════════════════ */
+.circular-loader-overlay {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
   width: 100%;
+  min-height: 280px;
+  padding: 3rem 1rem;
+  grid-column: 1 / -1;
+}
+
+.circular-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid #1a1a20;
+  border-top: 3px solid #ffffff;
+  border-right: 3px solid #ffffff;
+  border-radius: 50%;
+  animation: circularSpin 0.75s linear infinite;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
+}
+
+@keyframes circularSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.circular-loader-text {
   font-family: var(--font-mono);
-}
-
-.skeleton-line {
-  height: 12px;
-  background: linear-gradient(90deg, #111115 25%, #2a2a35 50%, #111115 75%);
-  background-size: 200% 100%;
-  animation: skeleton-pulse-animation 1.2s infinite linear;
-  border-radius: 0 !important;
-  border: 1px solid #33333e;
-}
-
-.skeleton-line.title {
-  height: 18px;
-  width: 60%;
-  margin-bottom: 0.25rem;
-}
-
-.skeleton-line.text {
-  width: 90%;
-}
-
-.skeleton-line.short {
-  width: 40%;
-}
-
-@keyframes skeleton-pulse-animation {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #ffffff;
+  text-transform: uppercase;
 }
 
 /* Touch targets optimization on mobile */

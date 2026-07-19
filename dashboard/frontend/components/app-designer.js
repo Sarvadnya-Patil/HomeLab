@@ -328,17 +328,9 @@ export const AppDesigner = {
     if (!this.nodes || this.nodes.length === 0) {
       if (this.isLoading) {
         container.innerHTML = `
-          <div class="skeleton-card" style="position: absolute; left: 100px; top: 150px; width: 150px; height: 50px; padding: 0.5rem; display: flex; flex-direction: column; justify-content: center; gap: 0.3rem; border: 1px dashed var(--border-slate); background: rgba(30,41,59,0.3);">
-            <div class="skeleton-line title" style="width: 70%; height: 10px; margin: 0;"></div>
-            <div class="skeleton-line short" style="width: 40%; height: 6px; margin: 0;"></div>
-          </div>
-          <div class="skeleton-card" style="position: absolute; left: 350px; top: 150px; width: 150px; height: 50px; padding: 0.5rem; display: flex; flex-direction: column; justify-content: center; gap: 0.3rem; border: 1px dashed var(--border-slate); background: rgba(30,41,59,0.3);">
-            <div class="skeleton-line title" style="width: 80%; height: 10px; margin: 0;"></div>
-            <div class="skeleton-line short" style="width: 30%; height: 6px; margin: 0;"></div>
-          </div>
-          <div class="skeleton-card" style="position: absolute; left: 600px; top: 150px; width: 150px; height: 50px; padding: 0.5rem; display: flex; flex-direction: column; justify-content: center; gap: 0.3rem; border: 1px dashed var(--border-slate); background: rgba(30,41,59,0.3);">
-            <div class="skeleton-line title" style="width: 60%; height: 10px; margin: 0;"></div>
-            <div class="skeleton-line short" style="width: 50%; height: 6px; margin: 0;"></div>
+          <div class="circular-loader-overlay" style="position: absolute; top: 30%; left: 0; right: 0;">
+            <div class="circular-spinner"></div>
+            <span class="circular-loader-text">MAPPING TOPOLOGY NODES...</span>
           </div>
         `;
       } else {

@@ -53,37 +53,16 @@ export const AppHealth = {
           <span style="font-size: 0.7rem; color: var(--text-muted);">Real-time metrics, response latency, and heartbeats</span>
         </div>
 
-        <div id="health-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
-          <div class="skeleton-card">
-            <div class="skeleton-line title"></div>
-            <div class="skeleton-line text"></div>
-            <div class="skeleton-line short"></div>
-          </div>
-          <div class="skeleton-card">
-            <div class="skeleton-line title"></div>
-            <div class="skeleton-line text"></div>
-            <div class="skeleton-line short"></div>
-          </div>
-          <div class="skeleton-card">
-            <div class="skeleton-line title"></div>
-            <div class="skeleton-line text"></div>
-            <div class="skeleton-line short"></div>
+        <div id="health-grid" style="display: flex; justify-content: center; width: 100%;">
+          <div class="circular-loader-overlay">
+            <div class="circular-spinner"></div>
+            <span class="circular-loader-text">RUNNING HEALTH & SUBSYSTEM DIAGNOSTICS...</span>
           </div>
         </div>
 
         <div style="margin-top: 1rem; border-top: 1px dashed var(--border-slate); padding-top: 1rem;">
           <h3 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; color: #fff; font-weight: 600;">System Information Overview</h3>
           <div id="system-info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
-            <div class="skeleton-card">
-              <div class="skeleton-line title"></div>
-              <div class="skeleton-line text"></div>
-              <div class="skeleton-line short"></div>
-            </div>
-            <div class="skeleton-card">
-              <div class="skeleton-line title"></div>
-              <div class="skeleton-line text"></div>
-              <div class="skeleton-line short"></div>
-            </div>
           </div>
         </div>
       </div>
