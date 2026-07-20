@@ -47,22 +47,22 @@ export const AppHealth = {
     if (!this.container) return;
 
     this.container.innerHTML = `
-      <div class="health-layout" style="display: flex; flex-direction: column; gap: 1rem; color: var(--text-slate); height: 100%;">
+      <div class="health-layout" style="display: flex; flex-direction: column; gap: 1.25rem; color: #ffffff; height: 100%; font-family: var(--font-mono);">
         <div>
-          <h2 style="margin: 0; font-size: 1.1rem; color: #fff; font-weight: 600;">System Subsystems Health Check</h2>
-          <span style="font-size: 0.7rem; color: var(--text-muted);">Real-time metrics, response latency, and heartbeats</span>
+          <h2 style="margin: 0; font-size: 1rem; color: #ffffff; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;">SYSTEM SUBSYSTEMS HEALTH MATRIX</h2>
+          <span style="font-size: 0.68rem; color: #a1a1aa; font-family: var(--font-mono);">Real-time metrics, response latency, and heartbeats</span>
         </div>
 
-        <div id="health-grid" style="display: flex; justify-content: center; width: 100%;">
-          <div class="circular-loader-overlay">
+        <div id="health-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; width: 100%;">
+          <div class="circular-loader-overlay" style="grid-column: 1 / -1;">
             <div class="circular-spinner"></div>
             <span class="circular-loader-text">RUNNING HEALTH & SUBSYSTEM DIAGNOSTICS...</span>
           </div>
         </div>
 
-        <div style="margin-top: 1rem; border-top: 1px dashed var(--border-slate); padding-top: 1rem;">
-          <h3 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; color: #fff; font-weight: 600;">System Information Overview</h3>
-          <div id="system-info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
+        <div style="margin-top: 1rem; border-top: 2px dashed #ffffff; padding-top: 1.25rem;">
+          <h3 style="margin: 0 0 1rem 0; font-size: 0.9rem; color: #ffffff; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;">System Information Overview</h3>
+          <div id="system-info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem;">
           </div>
         </div>
       </div>
@@ -85,7 +85,7 @@ export const AppHealth = {
       }
       visibleCount++;
       const isOnline = item.status === 'online';
-      const color = isOnline ? 'var(--term-green)' : '#ef4444';
+      const color = isOnline ? '#22c55e' : '#ef4444';
       
       let iconName = 'activity';
       if (name === 'database') iconName = 'database';
@@ -95,29 +95,29 @@ export const AppHealth = {
       const iconHtml = getIcon(iconName);
 
       html += `
-        <div class="res-card" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-slate); border-radius: 8px; backdrop-filter: blur(10px);">
+        <div class="res-card" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; border-radius: 0; font-family: var(--font-mono);">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: 600; text-transform: capitalize; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-weight: 900; text-transform: uppercase; color: #ffffff; display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem;">
               ${iconHtml} ${name.replace('_', ' ')}
             </span>
-            <span style="font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 4px; background: ${isOnline ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)'}; color: ${color}; font-weight: 600; text-transform: uppercase;">
+            <span style="font-size: 0.62rem; padding: 0.15rem 0.45rem; border-radius: 0; background: #000000; border: 1px solid ${color}; color: ${color}; font-weight: 900; text-transform: uppercase;">
               ${item.status}
             </span>
           </div>
           
-          <div style="font-size: 0.7rem; color: var(--text-muted); display: grid; grid-template-columns: 80px 1fr; gap: 0.25rem; margin-top: 0.5rem;">
+          <div style="font-size: 0.68rem; color: #a1a1aa; display: grid; grid-template-columns: 80px 1fr; gap: 0.35rem; margin-top: 0.5rem; font-family: var(--font-mono);">
             ${(name !== 'scheduler' && name !== 'metrics_collector') ? `
-              <span>Latency:</span> <span style="color: #fff; font-weight: 500;">${item.latency || 'N/A'}</span>
+              <span style="text-transform: uppercase; font-weight: 800;">Latency:</span> <span style="color: #ffffff; font-weight: 900;">${item.latency || 'N/A'}</span>
             ` : ''}
-            <span>Heartbeat:</span> <span>${new Date(item.lastHeartbeat).toLocaleTimeString()}</span>
-            <span>Errors:</span> <span style="color: ${item.lastError ? '#ef4444' : 'var(--text-muted)'};">${item.lastError || 'None'}</span>
+            <span style="text-transform: uppercase; font-weight: 800;">Heartbeat:</span> <span style="color: #ffffff;">${new Date(item.lastHeartbeat).toLocaleTimeString()}</span>
+            <span style="text-transform: uppercase; font-weight: 800;">Errors:</span> <span style="color: ${item.lastError ? '#ef4444' : '#a1a1aa'}; font-weight: 800;">${item.lastError || 'None'}</span>
           </div>
         </div>
       `;
     }
 
     if (visibleCount === 0) {
-      grid.innerHTML = `<div style="grid-column: 1 / -1; color: var(--text-muted); font-size: 0.75rem; text-align: center; padding: 2rem 0;">No matching health subsystems found.</div>`;
+      grid.innerHTML = `<div style="grid-column: 1 / -1; color: #a1a1aa; font-size: 0.75rem; text-align: center; padding: 2rem 0; font-family: var(--font-mono); font-weight: 800; text-transform: uppercase;">No matching health subsystems found.</div>`;
     } else {
       grid.innerHTML = html;
     }
@@ -144,30 +144,30 @@ export const AppHealth = {
 
     container.innerHTML = `
       <!-- Host Platform specs -->
-      <div class="res-card" style="padding: 1.25rem; background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-slate); border-radius: 8px; backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 0.5rem;">
-        <div style="font-weight: 700; color: #fff; font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.5rem;">
+      <div class="res-card" style="padding: 1.25rem; background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; border-radius: 0; display: flex; flex-direction: column; gap: 0.6rem; font-family: var(--font-mono);">
+        <div style="font-weight: 900; color: #ffffff; font-size: 0.8rem; text-transform: uppercase; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px dashed #33333e; padding-bottom: 0.5rem;">
           ${getIcon('server')} Host Node Platform Specification
         </div>
-        <div style="font-size: 0.7rem; color: var(--text-muted); display: grid; grid-template-columns: 110px 1fr; gap: 0.35rem; margin-top: 0.25rem;">
-          <span>Hostname:</span> <span style="color: #fff; font-weight: 600;">${host.hostname}</span>
-          <span>Operating System:</span> <span style="color: #fff; font-weight: 600;">${host.osName}</span>
-          <span>Kernel Release:</span> <span style="color: #fff; font-family: monospace;">${host.kernel}</span>
-          <span>Host Uptime:</span> <span style="color: #fff;">${host.uptime}</span>
-          <span>IP Address:</span> <span>${stats.ipAddress || '127.0.0.1'}</span>
-          <span>Hardware Model:</span> <span style="font-size: 0.65rem;">${stats.cpuModel} (${stats.cpuCores} Cores)</span>
+        <div style="font-size: 0.68rem; color: #a1a1aa; display: grid; grid-template-columns: 120px 1fr; gap: 0.4rem; margin-top: 0.25rem;">
+          <span style="text-transform: uppercase; font-weight: 800;">Hostname:</span> <span style="color: #ffffff; font-weight: 900;">${host.hostname}</span>
+          <span style="text-transform: uppercase; font-weight: 800;">Operating System:</span> <span style="color: #ffffff; font-weight: 900;">${host.osName}</span>
+          <span style="text-transform: uppercase; font-weight: 800;">Kernel Release:</span> <span style="color: #ffffff; font-family: var(--font-mono);">${host.kernel}</span>
+          <span style="text-transform: uppercase; font-weight: 800;">Host Uptime:</span> <span style="color: #ffffff;">${host.uptime}</span>
+          <span style="text-transform: uppercase; font-weight: 800;">IP Address:</span> <span style="color: #ffffff;">${stats.ipAddress || '127.0.0.1'}</span>
+          <span style="text-transform: uppercase; font-weight: 800;">Hardware Model:</span> <span style="font-size: 0.65rem; color: #ffffff;">${stats.cpuModel} (${stats.cpuCores} Cores)</span>
         </div>
       </div>
 
       <!-- Container local specs -->
-      <div class="res-card" style="padding: 1.25rem; background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border-slate); border-radius: 8px; backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 0.5rem;">
-        <div style="font-weight: 700; color: #fff; font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.5rem;">
+      <div class="res-card" style="padding: 1.25rem; background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; border-radius: 0; display: flex; flex-direction: column; gap: 0.6rem; font-family: var(--font-mono);">
+        <div style="font-weight: 900; color: #ffffff; font-size: 0.8rem; text-transform: uppercase; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px dashed #33333e; padding-bottom: 0.5rem;">
           ${getIcon('grid')} HomeLab Dashboard Container Context
         </div>
-        <div style="font-size: 0.7rem; color: var(--text-muted); display: grid; grid-template-columns: 110px 1fr; gap: 0.35rem; margin-top: 0.25rem;">
-          <span>Container Name/ID:</span> <span style="color: #fff; font-weight: 600; font-family: monospace;">${containerInfo.hostname}</span>
-          <span>Container OS:</span> <span style="color: #fff;">${containerInfo.osName}</span>
-          <span>Shared Kernel:</span> <span style="font-family: monospace;">${containerInfo.kernel}</span>
-          <span>Process Uptime:</span> <span style="color: #fff;">${containerInfo.uptime}</span>
+        <div style="font-size: 0.68rem; color: #a1a1aa; display: grid; grid-template-columns: 130px 1fr; gap: 0.4rem; margin-top: 0.25rem;">
+          <span style="text-transform: uppercase; font-weight: 800;">Container Name/ID:</span> <span style="color: #ffffff; font-weight: 900; font-family: var(--font-mono);">${containerInfo.hostname}</span>
+          <span style="text-transform: uppercase; font-weight: 800;">Container OS:</span> <span style="color: #ffffff;">${containerInfo.osName}</span>
+          <span style="text-transform: uppercase; font-weight: 800;">Shared Kernel:</span> <span style="font-family: var(--font-mono); color: #ffffff;">${containerInfo.kernel}</span>
+          <span style="text-transform: uppercase; font-weight: 800;">Process Uptime:</span> <span style="color: #ffffff;">${containerInfo.uptime}</span>
         </div>
       </div>
     `;
