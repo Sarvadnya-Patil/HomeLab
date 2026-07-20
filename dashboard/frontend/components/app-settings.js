@@ -119,27 +119,22 @@ export const AppSettings = {
             </div>
 
             <div class="detail-item">
-              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SMTP User / Email</label>
+              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SMTP User / Email (2FA Recipient)</label>
               <input type="email" id="smtp-user" value="${status.smtpUser || ''}" placeholder="user@homelab.org" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
             </div>
           </div>
 
-          <div class="detail-item">
-            <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">
-              SMTP Password ${status.hasPassword ? '<span style="color: #22c55e;">(Encrypted in DB)</span>' : ''}
-            </label>
-            <input type="password" id="smtp-pass" value="${status.hasPassword ? '••••••••' : ''}" placeholder="Enter SMTP App Password" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
-          </div>
-
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
             <div class="detail-item">
-              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">Sender Name</label>
-              <input type="text" id="sender-name" value="${status.senderName || 'HomeLab OS'}" placeholder="HomeLab Security" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">
+                SMTP Password ${status.hasPassword ? '<span style="color: #22c55e;">(Encrypted in DB)</span>' : ''}
+              </label>
+              <input type="password" id="smtp-pass" value="${status.hasPassword ? '••••••••' : ''}" placeholder="Enter SMTP App Password" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
             </div>
 
             <div class="detail-item">
-              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">Recipient 2FA Email</label>
-              <input type="email" id="target-email" value="${status.targetEmail || status.smtpUser || ''}" placeholder="admin@homelab.org" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">Sender Name</label>
+              <input type="text" id="sender-name" value="${status.senderName || 'HomeLab OS'}" placeholder="HomeLab Security" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
             </div>
           </div>
 
