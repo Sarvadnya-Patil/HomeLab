@@ -126,13 +126,18 @@ export default function (fastify: any, engine: CoreEngine): void {
     const rawOtp = generateServerOTP(recipientEmail);
 
     const htmlBody = `
-      <div style="font-family: monospace; background: #0e0e11; color: #ffffff; padding: 20px; border: 2px solid #ffffff;">
-        <h2 style="color: #ffffff; border-bottom: 2px solid #ffffff; padding-bottom: 8px;">HOMELAB OS - 2FA VERIFICATION OTP</h2>
-        <p style="color: #a1a1aa;">Use the following 6-digit One-Time Password to verify and activate Two-Factor Authentication:</p>
-        <div style="font-size: 28px; font-weight: 900; letter-spacing: 6px; background: #000000; color: #22c55e; border: 2px solid #ffffff; padding: 12px 24px; display: inline-block; margin: 15px 0;">
-          ${rawOtp}
+      <div style="font-family: 'JetBrains Mono', Consolas, monospace; background: #0e0e11; color: #ffffff; padding: 28px; border: 2px solid #ffffff; max-width: 500px; margin: 0 auto;">
+        <div style="margin-bottom: 16px; border-bottom: 2px solid #ffffff; padding-bottom: 12px;">
+          <span style="background: #ffffff; color: #000000; font-weight: 900; padding: 4px 10px; font-size: 1.1rem; margin-right: 8px; display: inline-block;">H</span>
+          <span style="color: #ffffff; font-weight: 900; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.05em;">HOMELAB OS 2FA SECURITY</span>
         </div>
-        <p style="color: #a1a1aa; font-size: 12px;">This OTP is valid for 5 minutes. Do NOT share this code with anyone.</p>
+        <p style="color: #a1a1aa; font-size: 0.85rem; line-height: 1.5; margin-bottom: 1.5rem;">Use the following 6-digit One-Time Password to verify and activate Two-Factor Authentication for your account:</p>
+        <div style="text-align: center; margin: 20px 0;">
+          <div style="font-size: 32px; font-weight: 900; letter-spacing: 8px; background: #000000; color: #22c55e; border: 2px solid #ffffff; padding: 14px 28px; display: inline-block;">
+            ${rawOtp}
+          </div>
+        </div>
+        <p style="color: #a1a1aa; font-size: 0.72rem; line-height: 1.5; margin-top: 1.5rem; border-top: 1px dashed #33333e; padding-top: 12px;">This OTP is valid for 5 minutes. If you did not request this verification code, please inspect your security audit logs immediately.</p>
       </div>
     `;
 

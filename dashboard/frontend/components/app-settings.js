@@ -138,9 +138,20 @@ export const AppSettings = {
             </div>
           </div>
 
+          <div class="detail-item">
+            <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">
+              Optional Custom 2FA Recipient Email <span style="color: #a1a1aa; font-weight: 400;">(Optional)</span>
+            </label>
+            <input type="email" id="target-email" value="${status.targetEmail || ''}" placeholder="Leave blank to send to self (SMTP User)" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+            <div style="font-size: 0.65rem; color: #a1a1aa; margin-top: 0.35rem; line-height: 1.4; background: #000000; border: 1px dashed #33333e; padding: 0.5rem;">
+              <div>• <b>If left blank</b>: The 2FA OTP code is automatically sent to self (<span style="color: #ffffff;">SMTP User / Email</span>).</div>
+              <div>• <b>If filled out</b>: The 2FA OTP code will be delivered to this custom recipient address instead.</div>
+            </div>
+          </div>
+
           <div style="display: flex; gap: 0.6rem; margin-top: 0.5rem; flex-wrap: wrap;">
             <button class="btn btn-panel btn-open" id="btn-send-2fa-otp" style="background: #ffffff; border: 2px solid #ffffff; color: #000000; font-size: 0.75rem; font-weight: 900; text-transform: uppercase; padding: 0.55rem 1rem; box-shadow: 3px 3px 0 #888888;">SAVE SMTP & SEND 2FA OTP</button>
-            ${isEnabled ? `<button class="btn btn-card-act" id="btn-disable-2fa" style="background: #ef4444; border: 2px solid #ef4444; color: #ffffff; font-size: 0.75rem; font-weight: 900; text-transform: uppercase; padding: 0.55rem 1rem;">DISABLE 2FA</button>` : ''}
+            ${isEnabled ? `<button class="btn btn-card-act" id="btn-disable-2fa" style="background: #ef4444; border: 1px solid #ef4444; color: #ffffff; font-size: 0.75rem; font-weight: 900; text-transform: uppercase; padding: 0.55rem 1rem;">DISABLE 2FA</button>` : ''}
           </div>
         </div>
 
@@ -256,28 +267,30 @@ export const AppSettings = {
       return;
     }
 
-    // First ensure SMTP settings are saved
-    await this.saveSMTPConfig();
+    // Immediately reveal the 6-digit OTP verification box for instant UX feedback
+    const otpBox = this.container.querySelector('#otp-verification-box');
+    if (otpBox) {
+      otpBox.style.display = 'block';
+      otpBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const submitBtn = otpBox.querySelector('#btn-submit-2fa-otp');
+      if (submitBtn) {
+        submitBtn.onclick = () => this.submit2FAOTP(targetEmail);
+      }
+      const otpInput = otpBox.querySelector('#input-2fa-otp');
+      if (otpInput) otpInput.focus();
+    }
 
     const btn = this.container.querySelector('#btn-send-2fa-otp');
-    if (btn) btn.textContent = 'DISPATCHING OTP...';
+    if (btn) btn.textContent = 'DISPATCHING OTP TO INBOX...';
 
     try {
+      await this.saveSMTPConfig();
       const res = await api.post('/api/v1/settings/2fa/send-otp', { targetEmail });
       alert(res.message || `OTP dispatched to ${targetEmail}. Check your inbox.`);
-      
-      const otpBox = this.container.querySelector('#otp-verification-box');
-      if (otpBox) {
-        otpBox.style.display = 'block';
-        const submitBtn = otpBox.querySelector('#btn-submit-2fa-otp');
-        if (submitBtn) {
-          submitBtn.onclick = () => this.submit2FAOTP(targetEmail);
-        }
-      }
     } catch (err) {
       alert(`OTP Dispatch Failed: ${err.message}`);
     } finally {
-      if (btn) btn.textContent = 'SEND OTP & ENABLE 2FA';
+      if (btn) btn.textContent = 'SAVE SMTP & SEND 2FA OTP';
     }
   },
 
