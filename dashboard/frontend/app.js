@@ -289,6 +289,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Timer state for OTP resend
+  let resendTimerInterval = null;
+  let confirmedEmail = null;
+
+  const startResendTimer = () => {
+    if (resendTimerInterval) clearInterval(resendTimerInterval);
+    let seconds = 60;
+    const btn = document.getElementById('btn-resend-otp');
+    const countSpan = document.getElementById('resend-timer-count');
+    if (!btn || !countSpan) return;
+
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    countSpan.textContent = seconds;
+    btn.childNodes[0].textContent = `Resend OTP (` ;
+
+    resendTimerInterval = setInterval(() => {
+      seconds -= 1;
+      if (seconds <= 0) {
+        clearInterval(resendTimerInterval);
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        btn.innerHTML = `Resend OTP`;
+      } else {
+        countSpan.textContent = seconds;
+      }
+    }, 1000);
+  };
+
   // ── STEP 2: Email Confirmation ──
   const twofaEmailForm = document.getElementById('twofa-email-form');
   const twofaEmailError = document.getElementById('twofa-email-error');
@@ -313,9 +344,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       if (res.otpDispatched) {
-        // Email confirmed — move to OTP step
+        // Email confirmed — move to OTP step and start 60s resend timer
+        confirmedEmail = email;
         document.getElementById('twofa-email-overlay').classList.add('hidden');
         document.getElementById('twofa-login-overlay').classList.remove('hidden');
+        startResendTimer();
         setTimeout(() => document.getElementById('twofa-login-otp')?.focus(), 100);
       }
     } catch (err) {
@@ -323,6 +356,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       twofaEmailError.style.display = 'block';
     }
   });
+
+  // Resend OTP Button Click
+  const btnResendOtp = document.getElementById('btn-resend-otp');
+  if (btnResendOtp) {
+    btnResendOtp.addEventListener('click', async () => {
+      if (!pendingCredentials || !confirmedEmail) return;
+      const twofaLoginError = document.getElementById('twofa-login-error');
+      try {
+        await api.post('/api/v1/auth/2fa-email-confirm', {
+          username: pendingCredentials.username,
+          password: pendingCredentials.password,
+          email: confirmedEmail
+        });
+        if (twofaLoginError) {
+          twofaLoginError.style.color = '#22c55e';
+          twofaLoginError.textContent = 'New 6-digit OTP code dispatched to your email!';
+          twofaLoginError.style.display = 'block';
+        }
+        startResendTimer();
+      } catch (err) {
+        if (twofaLoginError) {
+          twofaLoginError.style.color = '#ef4444';
+          twofaLoginError.textContent = err.message || 'Failed to resend OTP.';
+          twofaLoginError.style.display = 'block';
+        }
+      }
+    });
+  }
 
   // ── STEP 3: OTP Entry ──
   const twofaLoginForm = document.getElementById('twofa-login-form');

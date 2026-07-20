@@ -181,6 +181,11 @@
         </div>
         <div class="form-error" id="twofa-login-error" style="color: #ef4444; font-size: 0.75rem; display: none;"></div>
         <button type="submit" class="btn-primary">VERIFY & LOGIN</button>
+        <div style="margin-top: 1rem; text-align: center;">
+          <button type="button" id="btn-resend-otp" disabled style="background: transparent; border: none; color: #a1a1aa; font-family: monospace; font-size: 0.75rem; cursor: pointer; text-decoration: underline;">
+            Resend OTP (<span id="resend-timer-count">60</span>s)
+          </button>
+        </div>
       </form>
     </div>
   </div>
