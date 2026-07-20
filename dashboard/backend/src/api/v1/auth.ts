@@ -96,9 +96,15 @@ export default function (fastify: any, engine: CoreEngine): void {
     return { token };
   });
 
+  function getClientIp(req: any): string {
+    const header = req.headers['x-forwarded-for'] || req.ip || '127.0.0.1';
+    if (Array.isArray(header)) return header[0].trim();
+    return String(header).split(',')[0].trim();
+  }
+
   // 2a. POST: /api/v1/auth/2fa-email-confirm (Step 1: confirm email matches registered 2FA address, then dispatch OTP)
   fastify.post('/api/v1/auth/2fa-email-confirm', async (request: any, reply: any) => {
-    const clientIp = request.ip || request.headers['x-forwarded-for'] || 'unknown';
+    const clientIp = getClientIp(request);
 
     // IP rate limit: max 5 wrong email attempts per 10 minutes
     const rateCheck = checkIpRateLimit(emailConfirmRateStore, clientIp, MAX_EMAIL_ATTEMPTS);
@@ -166,7 +172,7 @@ export default function (fastify: any, engine: CoreEngine): void {
       }
     }
   }, async (request: any, reply: any) => {
-    const clientIp = request.ip || request.headers['x-forwarded-for'] || 'unknown';
+    const clientIp = getClientIp(request);
 
     // IP rate limit: max 5 OTP attempts per 10 minutes
     const rateCheck = checkIpRateLimit(otpVerifyRateStore, clientIp, MAX_OTP_ATTEMPTS);
@@ -194,7 +200,9 @@ export default function (fastify: any, engine: CoreEngine): void {
     }
 
     Logger.info('Auth2FA', `2FA login OTP verified for user [${username}]`);
-    engine.auditRepo.log(username, '2fa_login_verified', 'security', username);
+    // Use the actual user.id from DB — NOT username — to satisfy audit FK constraint
+    const verifiedUser = engine.usersRepo.findByUsername(username);
+    try { engine.auditRepo.log(verifiedUser?.id || 'admin', '2fa_login_verified', 'security', verifiedUser?.id || 'admin'); } catch { /* non-fatal */ }
     return { token };
   });
 
