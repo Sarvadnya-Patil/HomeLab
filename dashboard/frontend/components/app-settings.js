@@ -232,7 +232,7 @@ export const AppSettings = {
     }
   },
 
-  async saveSMTPConfig() {
+  async saveSMTPConfig(silent = false) {
     const provider = this.container.querySelector('#smtp-provider')?.value.trim();
     const smtpHost = this.container.querySelector('#smtp-host')?.value.trim();
     const smtpPort = this.container.querySelector('#smtp-port')?.value.trim();
@@ -253,10 +253,14 @@ export const AppSettings = {
         senderName,
         targetEmail
       });
-      alert(res.message || 'SMTP Settings saved successfully with encrypted password!');
-      this.loadSettings();
+      // Silent mode: skip alert + DOM re-render so the OTP box is not destroyed
+      if (!silent) {
+        alert(res.message || 'SMTP Settings saved successfully with encrypted password!');
+        this.loadSettings();
+      }
     } catch (err) {
       alert(`Failed to save SMTP configuration: ${err.message}`);
+      throw err; // Re-throw so callers like send2FAOTP can abort on failure
     }
   },
 
@@ -267,30 +271,38 @@ export const AppSettings = {
       return;
     }
 
-    // Immediately reveal the 6-digit OTP verification box for instant UX feedback
-    const otpBox = this.container.querySelector('#otp-verification-box');
-    if (otpBox) {
-      otpBox.style.display = 'block';
-      otpBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      const submitBtn = otpBox.querySelector('#btn-submit-2fa-otp');
-      if (submitBtn) {
-        submitBtn.onclick = () => this.submit2FAOTP(targetEmail);
-      }
-      const otpInput = otpBox.querySelector('#input-2fa-otp');
-      if (otpInput) otpInput.focus();
+    const btn = this.container.querySelector('#btn-send-2fa-otp');
+    if (btn) {
+      btn.textContent = 'SAVING & DISPATCHING OTP...';
+      btn.disabled = true;
     }
 
-    const btn = this.container.querySelector('#btn-send-2fa-otp');
-    if (btn) btn.textContent = 'DISPATCHING OTP TO INBOX...';
-
     try {
-      await this.saveSMTPConfig();
+      // Save SMTP silently — do NOT call loadSettings() which would destroy the OTP box
+      await this.saveSMTPConfig(true);
+
+      // Dispatch the OTP email
       const res = await api.post('/api/v1/settings/2fa/send-otp', { targetEmail });
-      alert(res.message || `OTP dispatched to ${targetEmail}. Check your inbox.`);
+
+      // Only reveal OTP box AFTER successful email dispatch
+      const otpBox = this.container.querySelector('#otp-verification-box');
+      if (otpBox) {
+        otpBox.style.display = 'block';
+        otpBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const submitBtn = otpBox.querySelector('#btn-submit-2fa-otp');
+        if (submitBtn) submitBtn.onclick = () => this.submit2FAOTP(targetEmail);
+        const otpInput = otpBox.querySelector('#input-2fa-otp');
+        if (otpInput) setTimeout(() => otpInput.focus(), 300);
+      }
+
+      alert(res.message || `OTP dispatched to ${targetEmail}. Check your inbox and enter the 6-digit code below.`);
     } catch (err) {
       alert(`OTP Dispatch Failed: ${err.message}`);
     } finally {
-      if (btn) btn.textContent = 'SAVE SMTP & SEND 2FA OTP';
+      if (btn) {
+        btn.textContent = 'SAVE SMTP & SEND 2FA OTP';
+        btn.disabled = false;
+      }
     }
   },
 
