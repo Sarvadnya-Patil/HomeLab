@@ -13,7 +13,7 @@ export const AppTerminal = {
     if (!this.container) return;
 
     this.container.innerHTML = `
-      <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+      <div class="panel-section-header" style="border-bottom: none !important; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
         <span class="panel-title" style="font-size: 0.9rem; font-weight: bold; text-transform: uppercase;">Direct System Terminal Console</span>
         <span style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);">host@homelab-os:~</span>
       </div>

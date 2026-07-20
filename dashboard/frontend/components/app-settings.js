@@ -85,7 +85,7 @@ export const AppSettings = {
           <label class="detail-label" style="margin-bottom: 0.35rem; font-weight: 900; text-transform: uppercase;">App Name Title</label>
           <input type="text" id="set-app-name" value="${appName}" style="background-color: #000000; border: 2px solid #ffffff; border-radius: 0; padding: 0.6rem; color: #ffffff; font-family: var(--font-mono); font-size: 0.75rem; width: 100%;">
         </div>
-        <button class="btn btn-panel btn-open" id="btn-save-settings" style="margin-top: 1rem; width: 140px; background: #ffffff; color: #000000; font-weight: 900; text-transform: uppercase;">Save Settings</button>
+        <button class="btn btn-panel btn-open" id="btn-save-settings" style="margin-top: 1rem; width: 140px; background: #ffffff; color: #000000; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Save Settings</button>
       `;
       formEl.querySelector('#btn-save-settings').addEventListener('click', () => this.saveFormValues());
     } else if (this.activeTab === '2fa') {
@@ -195,7 +195,7 @@ export const AppSettings = {
         </div>
         <div id="dynamic-plugin-form-fields" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
         </div>
-        <button class="btn btn-panel btn-open" id="btn-save-plugin-settings" style="margin-top: 1rem; width: 180px; display: none; background: #ffffff; color: #000000; font-weight: 900; text-transform: uppercase;">Save Plugin Config</button>
+        <button class="btn btn-panel btn-open" id="btn-save-plugin-settings" style="margin-top: 1rem; width: 180px; display: none; background: #ffffff; color: #000000; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Save Plugin Config</button>
       `;
 
       const trigger = formEl.querySelector('#plugin-dropdown-trigger');
@@ -221,7 +221,7 @@ export const AppSettings = {
         <div style="background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem; border-radius: 0;">
           <h4 style="margin: 0; font-weight: 900; text-transform: uppercase; font-size: 0.85rem; color: #ffffff;">Database & Configuration Backup Center</h4>
           <p style="font-size: 0.7rem; color: #a1a1aa; margin: 0; line-height: 1.4;">Create a complete SQL archive snapshot of your workspaces, categories, widgets, encrypted settings, and custom overrides.</p>
-          <button class="btn btn-panel btn-open" id="btn-trigger-backup" style="margin-top: 0.5rem; width: 160px; background: #ffffff; color: #000000; font-weight: 900; text-transform: uppercase;">Run Backup</button>
+          <button class="btn btn-panel btn-open" id="btn-trigger-backup" style="margin-top: 0.5rem; width: 160px; background: #ffffff; color: #000000; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Run Backup</button>
         </div>
       `;
       formEl.querySelector('#btn-trigger-backup').addEventListener('click', () => this.runBackup());

@@ -105,7 +105,7 @@ export default {
     container.style.position = 'relative';
     container.style.minHeight = '220px';
     container.innerHTML = `
-      <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; min-height: 28px; box-sizing: border-box;">
+      <div class="panel-section-header" style="border-bottom: none !important; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; min-height: 28px; box-sizing: border-box;">
         <div style="display: flex; align-items: center; gap: 0.5rem;">
           <span class="panel-title">Server Console Terminal</span>
           <button class="btn btn-panel btn-expand-terminal" style="font-size: 0.6rem; padding: 0.15rem 0.35rem; display: flex; align-items: center; gap: 0.2rem;" title="Expand Terminal Log Viewer">

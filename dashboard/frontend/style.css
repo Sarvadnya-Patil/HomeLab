@@ -339,18 +339,20 @@ body {
 .res-card {
   background-color: #0e0e11;
   border: 2px solid #ffffff !important;
-  box-shadow: none !important;
+  box-shadow: 4px 4px 0 #ffffff !important;
   border-radius: 0 !important;
   padding: 0.85rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
   font-family: var(--font-mono);
-  transition: transform var(--transition), border-color var(--transition);
+  transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
 }
 
 .res-card:hover {
   border-color: #ffffff !important;
+  box-shadow: 6px 6px 0 #ffffff !important;
+  transform: translate(-1px, -1px);
 }
 
 .res-title {
@@ -423,7 +425,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--border-slate);
+  border-bottom: none !important;
   padding-bottom: 0.5rem;
   margin-bottom: 0.25rem;
 }

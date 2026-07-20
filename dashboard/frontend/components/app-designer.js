@@ -135,21 +135,21 @@ export const AppDesigner = {
     const yProxy = Math.round(canvasHeight * 0.62);
     const yContainer = Math.round(canvasHeight * 0.82);
 
-    if (internet[0]) internet[0].position = { x: centerX - 75, y: yInternet };
+    if (internet[0]) internet[0].position = { x: centerX - 85, y: yInternet };
     
     tunnels.forEach((t, i) => {
-      t.position = { x: centerX - 75 + (i - (tunnels.length - 1) / 2) * 180, y: yTunnel };
+      t.position = { x: centerX - 85 + (i - (tunnels.length - 1) / 2) * 220, y: yTunnel };
     });
     
     if (hasProxy) {
       proxies.forEach((p, i) => {
-        p.position = { x: centerX - 75 + (i - (proxies.length - 1) / 2) * 180, y: yProxy };
+        p.position = { x: centerX - 85 + (i - (proxies.length - 1) / 2) * 220, y: yProxy };
       });
     }
 
     const totalContainers = containers.length;
-    const spacing = 170;
-    const startX = centerX - 75 - ((totalContainers - 1) * spacing) / 2;
+    const spacing = 220; // 170px node width + 50px clean gap
+    const startX = centerX - 85 - ((totalContainers - 1) * spacing) / 2;
     const targetY = hasProxy ? yContainer : yProxy;
 
     containers.forEach((c, i) => {

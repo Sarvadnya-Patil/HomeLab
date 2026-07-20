@@ -27,7 +27,7 @@ export default {
     container.style.overflowY = 'auto';
     container.style.maxHeight = '100%';
     container.innerHTML = `
-      <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+      <div class="panel-section-header" style="border-bottom: none !important; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
         <span class="panel-title">Active Environment Services</span>
         <div class="panel-quick-actions">
           <button class="btn btn-panel" id="w-btn-add-category">+ New Category</button>
