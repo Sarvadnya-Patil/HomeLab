@@ -97,7 +97,10 @@ export default function (fastify: any, engine: CoreEngine): void {
     return { success: true, message: 'SMTP Configuration saved and password encrypted securely.' };
   });
 
-  // 5. Send 2FA Verification OTP via SMTP (SERVER-SIDE ONLY)
+  // 5. Send 2FA Verification OTP via SMTP (SERVER-SIDE ONLY — rate limited: 1 per 60s per email)
+  const otpRateLimitStore = new Map<string, number>(); // email -> lastSentAt timestamp
+  const OTP_COOLDOWN_MS = 60 * 1000; // 60 seconds cooldown
+
   fastify.post('/api/v1/settings/2fa/send-otp', async (request: any, reply: any) => {
     const { targetEmail } = request.body || {};
     const recipientEmail = targetEmail || engine.settingsRepo.get('2fa.email') || engine.settingsRepo.get('smtp.user');
@@ -105,6 +108,17 @@ export default function (fastify: any, engine: CoreEngine): void {
     if (!recipientEmail) {
       return reply.status(400).send({ error: 'Recipient email address is required to send 2FA OTP.' });
     }
+
+    // --- RATE LIMITING: max 1 OTP per 60 seconds per email ---
+    const lastSent = otpRateLimitStore.get(recipientEmail.toLowerCase());
+    if (lastSent) {
+      const elapsed = Date.now() - lastSent;
+      if (elapsed < OTP_COOLDOWN_MS) {
+        const secondsLeft = Math.ceil((OTP_COOLDOWN_MS - elapsed) / 1000);
+        return reply.status(429).send({ error: `OTP rate limit: please wait ${secondsLeft}s before requesting another code.` });
+      }
+    }
+    otpRateLimitStore.set(recipientEmail.toLowerCase(), Date.now());
 
     const encPass = engine.settingsRepo.get('smtp.pass') || '';
     const rawPass = decryptSecret(encPass);

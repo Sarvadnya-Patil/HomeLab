@@ -40,6 +40,10 @@
             <span class="user-role" id="user-role" style="font-size: 0.6rem; color: var(--text-muted); font-family: var(--font-mono); text-transform: uppercase;">ADMIN</span>
           </div>
         </div>
+        <button id="btn-sign-out" title="Sign Out" style="display: flex; align-items: center; gap: 0.5rem; width: 100%; background: transparent; border: 1px solid rgba(255,255,255,0.12); color: #a1a1aa; font-family: var(--font-mono); font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 0.45rem 0.75rem; cursor: pointer; letter-spacing: 0.08em; margin-bottom: 0.5rem; transition: all 0.15s;" onmouseover="this.style.borderColor='#ef4444';this.style.color='#ef4444';" onmouseout="this.style.borderColor='rgba(255,255,255,0.12)';this.style.color='#a1a1aa';">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          SIGN OUT
+        </button>
         <div class="os-version" id="host-kernel">Kernel: Detecting...</div>
       </div>
     </aside>
@@ -140,6 +144,24 @@
         </div>
         <div class="form-error" id="login-error" style="color: #ef4444; font-size: 0.75rem; display: none;"></div>
         <button type="submit" class="btn-primary">Authenticate</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2FA Login Challenge Overlay (appears after password login when 2FA is enabled) -->
+  <div id="twofa-login-overlay" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>2FA Verification Required</h2>
+        <p>A 6-digit code has been sent to your registered email. Enter it below to complete login.</p>
+      </div>
+      <form id="twofa-login-form">
+        <div class="form-group">
+          <label for="twofa-login-otp">6-DIGIT OTP CODE</label>
+          <input type="text" id="twofa-login-otp" placeholder="123456" maxlength="6" autocomplete="one-time-code" style="text-align: center; font-size: 1.5rem; letter-spacing: 8px; font-weight: 900;" required>
+        </div>
+        <div class="form-error" id="twofa-login-error" style="color: #ef4444; font-size: 0.75rem; display: none;"></div>
+        <button type="submit" class="btn-primary">VERIFY & LOGIN</button>
       </form>
     </div>
   </div>

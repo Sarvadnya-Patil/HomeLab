@@ -243,6 +243,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Bind Login Form Submits
   const loginForm = document.getElementById('login-form');
   const loginError = document.getElementById('login-error');
+
+  // Store credentials temporarily in closure for 2FA re-verification
+  let pendingCredentials = null;
+
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     loginError.style.display = 'none';
@@ -252,9 +256,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       const res = await api.post('/api/v1/auth/login', { username, password });
+
+      if (res.twoFARequired) {
+        // 2FA is enabled — stash credentials and show OTP challenge overlay
+        pendingCredentials = { username, password };
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.getElementById('twofa-login-overlay').classList.remove('hidden');
+        setTimeout(() => document.getElementById('twofa-login-otp')?.focus(), 100);
+        return;
+      }
+
       localStorage.setItem('homelab_token', res.token);
       document.getElementById('login-overlay').classList.add('hidden');
-      
       const user = await api.get('/api/v1/auth/me');
       store.set('currentUser', user);
       if (appShell) appShell.style.display = 'flex';
@@ -264,6 +277,54 @@ document.addEventListener('DOMContentLoaded', async () => {
       loginError.style.display = 'block';
     }
   });
+
+  // 2FA Login Challenge Form
+  const twofaLoginForm = document.getElementById('twofa-login-form');
+  const twofaLoginError = document.getElementById('twofa-login-error');
+  twofaLoginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    twofaLoginError.style.display = 'none';
+    const otp = document.getElementById('twofa-login-otp').value.trim();
+
+    if (!pendingCredentials) {
+      twofaLoginError.textContent = 'Session expired. Please log in again.';
+      twofaLoginError.style.display = 'block';
+      document.getElementById('twofa-login-overlay').classList.add('hidden');
+      document.getElementById('login-overlay').classList.remove('hidden');
+      return;
+    }
+
+    try {
+      const res = await api.post('/api/v1/auth/2fa-verify', {
+        username: pendingCredentials.username,
+        password: pendingCredentials.password,
+        otp
+      });
+      pendingCredentials = null;
+      localStorage.setItem('homelab_token', res.token);
+      document.getElementById('twofa-login-overlay').classList.add('hidden');
+      const user = await api.get('/api/v1/auth/me');
+      store.set('currentUser', user);
+      if (appShell) appShell.style.display = 'flex';
+      await initializeConsole();
+    } catch (err) {
+      twofaLoginError.textContent = err.message || 'Invalid OTP. Please try again.';
+      twofaLoginError.style.display = 'block';
+    }
+  });
+
+  // Sign Out button
+  const signOutBtn = document.getElementById('btn-sign-out');
+  if (signOutBtn) {
+    signOutBtn.addEventListener('click', () => {
+      localStorage.removeItem('homelab_token');
+      store.set('currentUser', null);
+      if (appShell) appShell.style.display = 'none';
+      document.getElementById('login-overlay').classList.remove('hidden');
+      document.getElementById('login-username').value = '';
+      document.getElementById('login-password').value = '';
+    });
+  }
 
   // Boot startup check
   await checkAuthAndBoot();
