@@ -292,16 +292,21 @@ body {
 }
 
 .led {
-  width: 6px;
-  height: 6px;
-  border-radius: 0 !important;
+  width: 7px;
+  height: 7px;
+  border-radius: 50% !important;
   display: inline-block;
-  background-color: #ffffff;
+  background-color: #ef4444;
 }
 
-.led.green {
-  background-color: #ffffff;
-  box-shadow: 0 0 6px #ffffff;
+.led.green, .led.online {
+  background-color: #22c55e !important;
+  box-shadow: 0 0 6px #22c55e !important;
+}
+
+.led.red, .led.offline {
+  background-color: #ef4444 !important;
+  box-shadow: 0 0 6px #ef4444 !important;
 }
 
 .header-time-block {

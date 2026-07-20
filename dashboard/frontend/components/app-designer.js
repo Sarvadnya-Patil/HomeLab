@@ -242,16 +242,17 @@ export const AppDesigner = {
         }
         .topology-tooltip {
           position: fixed;
-          background: rgba(15, 23, 42, 0.95);
-          border: 1px solid var(--border-slate);
-          color: #fff;
-          padding: 0.5rem 0.75rem;
-          border-radius: 6px;
-          font-size: 0.65rem;
+          background: #000000 !important;
+          border: 2px solid #ffffff !important;
+          color: #ffffff !important;
+          padding: 0.65rem 0.9rem !important;
+          border-radius: 0 !important;
+          font-size: 0.65rem !important;
+          font-family: var(--font-mono) !important;
           pointer-events: none;
           z-index: 9999;
           display: none;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+          box-shadow: 3px 3px 0 #ffffff !important;
         }
       </style>
 
@@ -370,16 +371,19 @@ export const AppDesigner = {
       // Show real state colors
       const isOnline = node.status === 'online';
       const isOffline = node.status === 'offline';
-      let dotColor = '#64748b'; // unknown
-      if (isOnline) dotColor = 'var(--term-green)';
+      let dotColor = '#a1a1aa'; // unknown
+      if (isOnline) dotColor = '#22c55e';
       else if (isOffline) dotColor = '#ef4444';
 
-      let statusDot = `<span class="status-indicator-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${dotColor}; position: absolute; top: 8px; right: 8px; box-shadow: 0 0 6px ${dotColor};"></span>`;
+      let statusDot = `<span class="status-indicator-dot" style="width: 7px; height: 7px; border-radius: 50% !important; background: ${dotColor}; position: absolute; top: 6px; right: 6px; box-shadow: 0 0 6px ${dotColor}; z-index: 3;"></span>`;
       const isSelected = selectedNodeId === node.id;
+
+      nodeEl.style.padding = '0 16px 0 8px';
+      nodeEl.style.boxSizing = 'border-box';
 
       nodeEl.innerHTML = `
         ${statusDot}
-        <div class="node-title" style="font-weight: 900; font-size: 0.75rem; color: ${isSelected ? '#000000' : '#ffffff'}; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono);">${node.name}</div>
+        <div class="node-title" style="font-weight: 900; font-size: 0.72rem; color: ${isSelected ? '#000000' : '#ffffff'}; max-width: 105px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono);">${node.name}</div>
         <div class="node-type-label" style="font-size: 0.55rem; color: ${isSelected ? '#33333e' : '#a1a1aa'}; text-transform: uppercase; margin-top: 2px; font-weight: 800; font-family: var(--font-mono);">${node.type}</div>
       `;
 
@@ -563,9 +567,9 @@ export const AppDesigner = {
       if (this.isDragging) return;
       tooltip.style.display = 'block';
       tooltip.innerHTML = `
-        <div style="font-weight:700; color:#fff; font-size:0.75rem;">${node.name}</div>
-        <div style="font-size:0.6rem; color:var(--text-muted); text-transform:uppercase; margin-top:2px;">Type: ${node.type}</div>
-        <div style="font-size:0.6rem; color:${node.status === 'online' ? 'var(--term-green)' : '#ef4444'}; margin-top:2px; font-weight:700;">Status: ${node.status.toUpperCase()}</div>
+        <div style="font-weight: 900; color: #ffffff; font-size: 0.75rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em;">${node.name}</div>
+        <div style="font-size: 0.62rem; color: #a1a1aa; text-transform: uppercase; margin-top: 3px; font-weight: 800; font-family: var(--font-mono);">TYPE: ${node.type}</div>
+        <div style="font-size: 0.62rem; color: ${node.status === 'online' ? '#22c55e' : '#ef4444'}; margin-top: 3px; font-weight: 900; font-family: var(--font-mono); text-transform: uppercase;">STATUS: ${node.status.toUpperCase()}</div>
       `;
     });
 
