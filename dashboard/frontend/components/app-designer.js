@@ -83,13 +83,32 @@ export const AppDesigner = {
       });
 
       this.nodes = fetchedNodes;
+
+      // Detect if nodes are touching or saved with obsolete tight 170px spacing
+      const containers = this.nodes.filter(n => n.type === 'container' || (!['internet', 'tunnel', 'proxy'].includes(n.type)));
+      if (containers.length > 1) {
+        containers.sort((a, b) => (a.position?.x || a.x || 0) - (b.position?.x || b.x || 0));
+        let isTouching = false;
+        for (let i = 0; i < containers.length - 1; i++) {
+          const x1 = containers[i].position?.x || containers[i].x || 0;
+          const x2 = containers[i + 1].position?.x || containers[i + 1].x || 0;
+          if (Math.abs(x2 - x1) < 200) {
+            isTouching = true;
+            break;
+          }
+        }
+        if (isTouching) {
+          // Re-calculate with generous 230px spacing
+          this.autoLayout();
+          return;
+        }
+      }
       
       // Parse links dynamically from node connections array
       this.links = [];
       this.nodes.forEach(node => {
         if (node.connections && Array.isArray(node.connections)) {
           node.connections.forEach(targetId => {
-            // Verify target exists in nodes list
             if (this.nodes.some(n => n.id === targetId)) {
               this.links.push({
                 source: node.id,
@@ -118,7 +137,7 @@ export const AppDesigner = {
 
   autoLayout() {
     const canvas = this.container.querySelector('#canvas-area');
-    const canvasWidth = canvas ? canvas.clientWidth : 800;
+    const canvasWidth = canvas ? canvas.clientWidth : 850;
     const canvasHeight = canvas ? canvas.clientHeight : 450;
     const centerX = canvasWidth / 2;
 
@@ -138,17 +157,17 @@ export const AppDesigner = {
     if (internet[0]) internet[0].position = { x: centerX - 85, y: yInternet };
     
     tunnels.forEach((t, i) => {
-      t.position = { x: centerX - 85 + (i - (tunnels.length - 1) / 2) * 220, y: yTunnel };
+      t.position = { x: centerX - 85 + (i - (tunnels.length - 1) / 2) * 230, y: yTunnel };
     });
     
     if (hasProxy) {
       proxies.forEach((p, i) => {
-        p.position = { x: centerX - 85 + (i - (proxies.length - 1) / 2) * 220, y: yProxy };
+        p.position = { x: centerX - 85 + (i - (proxies.length - 1) / 2) * 230, y: yProxy };
       });
     }
 
     const totalContainers = containers.length;
-    const spacing = 220; // 170px node width + 50px clean gap
+    const spacing = 230; // 170px node width + 60px clean gap
     const startX = centerX - 85 - ((totalContainers - 1) * spacing) / 2;
     const targetY = hasProxy ? yContainer : yProxy;
 
