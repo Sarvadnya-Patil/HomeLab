@@ -637,7 +637,7 @@ button,
 .terminal-body {
   background-color: #000000;
   border: 2px solid #ffffff !important;
-  box-shadow: 4px 4px 0 #ffffff !important;
+  box-shadow: none !important;
   border-radius: 0 !important;
   padding: 0.85rem;
   font-family: var(--font-mono);
@@ -646,7 +646,7 @@ button,
   min-height: 180px;
   overflow-y: auto;
   line-height: 1.45;
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 .cyan-text { color: var(--term-cyan); }
@@ -665,19 +665,20 @@ button,
 }
 
 @keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
 
 .network-map-body {
   background-color: #000000 !important;
   border: 2px solid #ffffff !important;
-  box-shadow: 4px 4px 0 #ffffff !important;
+  box-shadow: none !important;
   border-radius: 0 !important;
   padding: 0.85rem;
   height: auto;
   flex: 1;
   overflow: hidden;
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 .network-tree-ascii {
