@@ -102,7 +102,33 @@ Open Service
 
 ---
 
-## Security
+## Quick Start (Docker Deployment)
+
+Deploy HomeLab OS in under 60 seconds using Docker Compose:
+
+```bash
+git clone https://github.com/Sarvadnya-Patil/HomeLab.git
+cd HomeLab
+docker compose up -d --build
+```
+
+Open your browser at `http://localhost:8081` to access the console!
+
+---
+
+## Security & Authentication
+
+HomeLab OS features an enterprise-grade security layer built from the ground up:
+
+- **Two-Factor Authentication (2FA)**: Mandatory 3-step authentication challenge flow (Password → Email Confirmation → 6-Digit OTP).
+- **RFC 3207 STARTTLS Engine**: Native TLS upgrade support for Gmail App Passwords, Outlook, and custom SMTP servers.
+- **Multi-Layer Rate Limiting**: Anti-bruteforce protection limiting wrong attempts to 5 per 10 minutes per IP address, plus a 60-second OTP resend cooldown.
+- **Role-Based Access Control (RBAC)**: Strict permission boundaries for `admin`, `editor`, and `viewer` roles.
+- **Sliding JWT Sessions**: Automatic session renewal with configurable expiration.
+
+---
+
+## Security & Isolation
 
 HomeLab OS only requires read access to the Cloudflare Tunnel configuration.
 
