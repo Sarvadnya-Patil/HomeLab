@@ -145,7 +145,7 @@ export const AppSettings = {
 
           <div style="display: flex; gap: 0.6rem; margin-top: 0.5rem; flex-wrap: wrap;">
             <button class="btn btn-panel" id="btn-save-smtp" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; padding: 0.5rem 0.85rem;">SAVE SMTP CONFIG</button>
-            <button class="btn btn-panel btn-open" id="btn-send-2fa-otp" style="background: #ffffff; border: 2px solid #ffffff; color: #000000; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; padding: 0.5rem 0.85rem; box-shadow: 2px 2px 0 #555555;">SEND OTP & ENABLE 2FA</button>
+            <button class="btn btn-panel btn-open" id="btn-send-2fa-otp" style="background: #ffffff; border: 2px solid #ffffff; color: #000000; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; padding: 0.5rem 0.85rem; box-shadow: 3px 3px 0 #e4e4e7;">SEND OTP & ENABLE 2FA</button>
             ${isEnabled ? `<button class="btn btn-card-act" id="btn-disable-2fa" style="background: #ef4444; border: 1px solid #ef4444; color: #ffffff; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; padding: 0.5rem 0.85rem;">DISABLE 2FA</button>` : ''}
           </div>
         </div>
@@ -155,7 +155,7 @@ export const AppSettings = {
           <h4 style="margin: 0 0 0.5rem 0; font-size: 0.85rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: #ffffff;">ENTER 6-DIGIT VERIFICATION OTP</h4>
           <p style="font-size: 0.68rem; color: #a1a1aa; margin-bottom: 1rem; line-height: 1.4;">A 6-digit code has been dispatched to your email. Enter the code below to complete strict server-side verification and activate 2FA.</p>
           <input type="text" id="input-2fa-otp" maxlength="6" placeholder="123456" style="font-size: 1.4rem; font-weight: 900; letter-spacing: 8px; text-align: center; background: #0e0e11; border: 2px solid #ffffff; color: #22c55e; padding: 0.6rem; width: 100%; font-family: var(--font-mono); text-transform: uppercase;">
-          <button class="btn btn-panel btn-open" id="btn-submit-2fa-otp" style="margin-top: 1rem; width: 100%; background: #ffffff; color: #000000; font-size: 0.78rem; font-weight: 900; text-transform: uppercase; padding: 0.6rem; box-shadow: 2px 2px 0 #555555;">VERIFY & ACTIVATE 2FA</button>
+          <button class="btn btn-panel btn-open" id="btn-submit-2fa-otp" style="margin-top: 1rem; width: 100%; background: #ffffff; color: #000000; font-size: 0.78rem; font-weight: 900; text-transform: uppercase; padding: 0.6rem; box-shadow: 3px 3px 0 #e4e4e7;">VERIFY & ACTIVATE 2FA</button>
         </div>
       `;
 

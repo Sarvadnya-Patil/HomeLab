@@ -222,7 +222,7 @@ export const AppJobs = {
       const runtime = this.calculateRuntime(job.createdAt, job.updatedAt, job.status);
 
       html += `
-        <div class="job-card-item" data-id="${job.id}" style="padding: 0.85rem; background: ${isSelected ? '#ffffff' : '#000000'}; color: ${isSelected ? '#000000' : '#ffffff'}; border: 2px solid #ffffff; box-shadow: ${isSelected ? '4px 4px 0 #ffffff' : '2px 2px 0 #555555'}; border-radius: 0; cursor: pointer; display: flex; flex-direction: column; gap: 0.4rem; font-family: var(--font-mono); transition: all 0.15s;">
+        <div class="job-card-item" data-id="${job.id}" style="padding: 0.85rem; background: ${isSelected ? '#ffffff' : '#000000'}; color: ${isSelected ? '#000000' : '#ffffff'}; border: 2px solid #ffffff; box-shadow: ${isSelected ? '4px 4px 0 #e4e4e7' : '2px 2px 0 #44444e'}; border-radius: 0; cursor: pointer; display: flex; flex-direction: column; gap: 0.4rem; font-family: var(--font-mono); transition: all 0.15s;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <span style="font-size: 0.78rem; font-weight: 900; text-transform: uppercase; color: ${isSelected ? '#000000' : '#ffffff'};">${job.type.replace(/_/g, ' ')}</span>
             <span style="font-size: 0.6rem; color: ${statusColor}; background: #000000; border: 1px solid ${statusColor}; padding: 0.15rem 0.45rem; border-radius: 0; font-weight: 900; text-transform: uppercase;">${job.status}</span>

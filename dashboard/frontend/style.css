@@ -126,7 +126,7 @@ body {
   color: #000000;
   background-color: #ffffff;
   border-color: #ffffff;
-  box-shadow: 3px 3px 0 #555555;
+  box-shadow: 3px 3px 0 #e4e4e7;
   transform: translate(-1px, -1px);
 }
 
@@ -134,7 +134,7 @@ body {
   color: #000000;
   background-color: #ffffff;
   border: 2px solid #ffffff;
-  box-shadow: 3px 3px 0 #555555;
+  box-shadow: 3px 3px 0 #e4e4e7;
 }
 
 .sidebar-svg {
@@ -1398,7 +1398,7 @@ input[type=number] {
   cursor: pointer;
   font-family: var(--font-mono);
   text-transform: uppercase;
-  box-shadow: 3px 3px 0 #555555;
+  box-shadow: 3px 3px 0 #e4e4e7;
   transition: all 0.15s ease;
 }
 
@@ -1754,7 +1754,7 @@ input[type=number] {
   font-family: var(--font-mono) !important;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  box-shadow: 3px 3px 0 #555555;
+  box-shadow: 3px 3px 0 #e4e4e7;
   transition: all var(--transition);
   margin-top: 0.5rem;
 }
@@ -1763,7 +1763,7 @@ input[type=number] {
 .modal-card button[type="submit"]:hover:not(:disabled) {
   background: #ffffff !important;
   color: #000000 !important;
-  box-shadow: 4px 4px 0 #ffffff;
+  box-shadow: 4px 4px 0 #e4e4e7;
   transform: translate(-1px, -1px);
 }
 
@@ -1784,7 +1784,7 @@ input[type=number] {
   position: fixed;
   background-color: #000000;
   border: 2px solid #ffffff;
-  box-shadow: 2px 2px 0 #ffffff;
+  box-shadow: 2px 2px 0 #e4e4e7;
   color: #ffffff;
   font-family: var(--font-mono);
   font-size: 0.72rem;
@@ -1805,8 +1805,8 @@ input[type=number] {
    BLUEPRINT WHITE NEO-BRUTALIST CONTAINERS VIEW STYLING
    ═════════════════════════════════════════════════════════════ */
 .panel-quick-actions .btn-panel {
-  background: #000000 !important;
-  color: #ffffff !important;
+  background: #ffffff !important;
+  color: #000000 !important;
   border: 2px solid #ffffff !important;
   font-family: var(--font-mono) !important;
   font-size: 0.72rem !important;
@@ -1814,7 +1814,7 @@ input[type=number] {
   text-transform: uppercase !important;
   padding: 0.4rem 0.85rem !important;
   border-radius: 0 !important;
-  box-shadow: 2px 2px 0 #555555;
+  box-shadow: 3px 3px 0 #e4e4e7 !important;
   transition: all var(--transition);
 }
 
@@ -1822,7 +1822,7 @@ input[type=number] {
 .panel-quick-actions .btn-panel:hover {
   background: #ffffff !important;
   color: #000000 !important;
-  box-shadow: 4px 4px 0 #ffffff !important;
+  box-shadow: 4px 4px 0 #e4e4e7 !important;
   transform: translate(-1px, -1px);
 }
 
