@@ -375,11 +375,12 @@ export const AppDesigner = {
       else if (isOffline) dotColor = '#ef4444';
 
       let statusDot = `<span class="status-indicator-dot" style="width: 8px; height: 8px; border-radius: 50%; background: ${dotColor}; position: absolute; top: 8px; right: 8px; box-shadow: 0 0 6px ${dotColor};"></span>`;
+      const isSelected = selectedNodeId === node.id;
 
       nodeEl.innerHTML = `
         ${statusDot}
-        <div style="font-weight: 700; font-size: 0.75rem; color: #fff; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${node.name}</div>
-        <div style="font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; margin-top: 2px; font-weight: 600;">${node.type}</div>
+        <div class="node-title" style="font-weight: 900; font-size: 0.75rem; color: ${isSelected ? '#000000' : '#ffffff'}; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono);">${node.name}</div>
+        <div class="node-type-label" style="font-size: 0.55rem; color: ${isSelected ? '#33333e' : '#a1a1aa'}; text-transform: uppercase; margin-top: 2px; font-weight: 800; font-family: var(--font-mono);">${node.type}</div>
       `;
 
       nodeEl.setAttribute('data-id', node.id);
@@ -614,12 +615,32 @@ export const AppDesigner = {
       actionsSection.style.display = 'none';
     }
 
-    // Unselect other nodes visually
+    // Instantly update node selection states on canvas
+    this.updateNodeSelectionStates();
+  },
+
+  updateNodeSelectionStates() {
+    if (!this.container) return;
     this.container.querySelectorAll('.designer-node').forEach(el => {
-      if (el.getAttribute('data-id') === node.id) {
+      const nodeId = el.getAttribute('data-id');
+      const isSelected = nodeId === this.selectedNodeId;
+      const titleEl = el.querySelector('.node-title');
+      const typeEl = el.querySelector('.node-type-label');
+
+      if (isSelected) {
         el.classList.add('selected');
+        el.style.background = '#ffffff';
+        el.style.color = '#000000';
+        el.style.boxShadow = '5px 5px 0 #ffffff';
+        if (titleEl) titleEl.style.color = '#000000';
+        if (typeEl) typeEl.style.color = '#33333e';
       } else {
         el.classList.remove('selected');
+        el.style.background = '#0e0e11';
+        el.style.color = '#ffffff';
+        el.style.boxShadow = '3px 3px 0 #ffffff';
+        if (titleEl) titleEl.style.color = '#ffffff';
+        if (typeEl) typeEl.style.color = '#a1a1aa';
       }
     });
   },
