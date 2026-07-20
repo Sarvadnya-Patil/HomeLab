@@ -353,8 +353,8 @@ export const AppDesigner = {
       nodeEl.style.left = `${node.x}px`;
       nodeEl.style.top = `${node.y}px`;
       nodeEl.style.position = 'absolute';
-      nodeEl.style.width = '150px';
-      nodeEl.style.height = '50px';
+      nodeEl.style.width = '170px';
+      nodeEl.style.height = '52px';
       nodeEl.style.borderRadius = '0';
       nodeEl.style.cursor = 'move';
       nodeEl.style.userSelect = 'none';
@@ -375,15 +375,15 @@ export const AppDesigner = {
       if (isOnline) dotColor = '#22c55e';
       else if (isOffline) dotColor = '#ef4444';
 
-      let statusDot = `<span class="status-indicator-dot" style="width: 7px; height: 7px; border-radius: 50% !important; background: ${dotColor}; position: absolute; top: 6px; right: 6px; box-shadow: 0 0 6px ${dotColor}; z-index: 3;"></span>`;
+      let statusDot = `<span class="status-indicator-dot" style="width: 7px; height: 7px; border-radius: 50% !important; background: ${dotColor}; position: absolute; top: 7px; right: 7px; box-shadow: 0 0 6px ${dotColor}; z-index: 3;"></span>`;
       const isSelected = selectedNodeId === node.id;
 
-      nodeEl.style.padding = '0 16px 0 8px';
+      nodeEl.style.padding = '0 18px 0 8px';
       nodeEl.style.boxSizing = 'border-box';
 
       nodeEl.innerHTML = `
         ${statusDot}
-        <div class="node-title" style="font-weight: 900; font-size: 0.72rem; color: ${isSelected ? '#000000' : '#ffffff'}; max-width: 105px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono);">${node.name}</div>
+        <div class="node-title" style="font-weight: 900; font-size: 0.72rem; color: ${isSelected ? '#000000' : '#ffffff'}; max-width: 125px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono);">${node.name}</div>
         <div class="node-type-label" style="font-size: 0.55rem; color: ${isSelected ? '#33333e' : '#a1a1aa'}; text-transform: uppercase; margin-top: 2px; font-weight: 800; font-family: var(--font-mono);">${node.type}</div>
       `;
 
@@ -432,30 +432,31 @@ export const AppDesigner = {
       const targetNode = this.nodes.find(n => n.id === link.target);
 
       if (sourceNode && targetNode) {
-        let x1 = sourceNode.x + 75;
-        let y1 = sourceNode.y + 25;
-        let x2 = targetNode.x + 75;
-        let y2 = targetNode.y + 25;
+        let x1 = sourceNode.x + 85;
+        let y1 = sourceNode.y + 26;
+        let x2 = targetNode.x + 85;
+        let y2 = targetNode.y + 26;
 
-        // Calculate boundary anchor points dynamically to keep lines outside semi-transparent cards
+        // Calculate boundary anchor points dynamically
         const dy = targetNode.y - sourceNode.y;
         const dx = targetNode.x - sourceNode.x;
+        const isVertical = Math.abs(dy) >= Math.abs(dx);
 
-        if (Math.abs(dy) > Math.abs(dx)) {
+        if (isVertical) {
           if (dy > 0) {
-            y1 = sourceNode.y + 50; // Bottom edge
+            y1 = sourceNode.y + 52; // Bottom edge
             y2 = targetNode.y;      // Top edge
           } else {
             y1 = sourceNode.y;      // Top edge
-            y2 = targetNode.y + 50; // Bottom edge
+            y2 = targetNode.y + 52; // Bottom edge
           }
         } else {
           if (dx > 0) {
-            x1 = sourceNode.x + 150; // Right edge
+            x1 = sourceNode.x + 170; // Right edge
             x2 = targetNode.x;       // Left edge
           } else {
             x1 = sourceNode.x;       // Left edge
-            x2 = targetNode.x + 150; // Right edge
+            x2 = targetNode.x + 170; // Right edge
           }
         }
 
@@ -468,14 +469,14 @@ export const AppDesigner = {
         const sOffline = sourceNode.status === 'offline';
         const tOffline = targetNode.status === 'offline';
 
-        let color = '#64748b'; // Gray dotted for unknown
+        let color = '#a1a1aa'; // Gray dotted for unknown
         let dasharray = '3, 4';
         let width = '2.5';
-        let opacity = '0.5';
+        let opacity = '0.6';
         let activeFlow = false;
 
         if (sOnline && tOnline) {
-          color = queryMatches ? '#3b82f6' : 'var(--term-green)'; // Blue if matches query, otherwise Green
+          color = queryMatches ? '#3b82f6' : '#22c55e'; // Blue if matches query, otherwise Green
           dasharray = 'none';
           width = '3.5';
           opacity = '0.9';
@@ -487,8 +488,17 @@ export const AppDesigner = {
           opacity = '0.8';
         }
 
-        // Draw S-curve (Cubic Bezier curve running vertical-wards)
-        const pathData = `M ${x1} ${y1} C ${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
+        // Calculate smooth Bezier curve based on orientation
+        let pathData = '';
+        if (isVertical) {
+          const cy1 = y1 + (dy > 0 ? 35 : -35);
+          const cy2 = y2 + (dy > 0 ? -35 : 35);
+          pathData = `M ${x1} ${y1} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}`;
+        } else {
+          const cx1 = x1 + (dx > 0 ? 35 : -35);
+          const cx2 = x2 + (dx > 0 ? -35 : 35);
+          pathData = `M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`;
+        }
 
         // Create main path line
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
