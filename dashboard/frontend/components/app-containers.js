@@ -352,7 +352,7 @@ export const AppContainers = {
               <span>${escName}</span>
             </div>
           </td>
-          <td style="padding: 0.5rem;"><span class="card-status ${isRunning ? 'online' : 'offline'}" style="padding: 0.1rem 0.35rem; border-radius: 3px; font-family: var(--font-mono); font-size: 0.65rem;">${escState}</span></td>
+          <td style="padding: 0.5rem;"><span class="nb-badge ${isRunning ? 'online' : 'offline'}">${escState.toUpperCase()}</span></td>
           <td style="padding: 0.5rem; color: var(--text-secondary); font-family: var(--font-mono);">${escStatus}</td>
           ${autostartTd}
           <td style="padding: 0.5rem; color: var(--text-muted); font-family: var(--font-mono); font-size: 0.65rem;">${escImage}</td>
