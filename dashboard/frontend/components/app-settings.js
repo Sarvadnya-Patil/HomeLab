@@ -139,9 +139,8 @@ export const AppSettings = {
           </div>
 
           <div style="display: flex; gap: 0.6rem; margin-top: 0.5rem; flex-wrap: wrap;">
-            <button class="btn btn-panel" id="btn-save-smtp" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; padding: 0.5rem 0.85rem;">SAVE SMTP CONFIG</button>
-            <button class="btn btn-panel btn-open" id="btn-send-2fa-otp" style="background: #ffffff; border: 2px solid #ffffff; color: #000000; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; padding: 0.5rem 0.85rem; box-shadow: 3px 3px 0 #888888;">SEND OTP & ENABLE 2FA</button>
-            ${isEnabled ? `<button class="btn btn-card-act" id="btn-disable-2fa" style="background: #ef4444; border: 1px solid #ef4444; color: #ffffff; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; padding: 0.5rem 0.85rem;">DISABLE 2FA</button>` : ''}
+            <button class="btn btn-panel btn-open" id="btn-send-2fa-otp" style="background: #ffffff; border: 2px solid #ffffff; color: #000000; font-size: 0.75rem; font-weight: 900; text-transform: uppercase; padding: 0.55rem 1rem; box-shadow: 3px 3px 0 #888888;">SAVE SMTP & SEND 2FA OTP</button>
+            ${isEnabled ? `<button class="btn btn-card-act" id="btn-disable-2fa" style="background: #ef4444; border: 2px solid #ef4444; color: #ffffff; font-size: 0.75rem; font-weight: 900; text-transform: uppercase; padding: 0.55rem 1rem;">DISABLE 2FA</button>` : ''}
           </div>
         </div>
 
@@ -155,7 +154,6 @@ export const AppSettings = {
       `;
 
       // Bind 2FA actions
-      formEl.querySelector('#btn-save-smtp').addEventListener('click', () => this.saveSMTPConfig());
       formEl.querySelector('#btn-send-2fa-otp').addEventListener('click', () => this.send2FAOTP());
       if (isEnabled) {
         formEl.querySelector('#btn-disable-2fa').addEventListener('click', () => this.disable2FA());
