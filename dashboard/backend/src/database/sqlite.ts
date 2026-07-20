@@ -61,7 +61,9 @@ export class SqliteAdapter implements DatabaseAdapter {
     try {
       this.db.exec(sql);
     } catch (err: any) {
-      Logger.error('DatabaseSubsystem', `SQL raw exec failed: ${err.message}`);
+      if (!err.message?.includes('duplicate column name')) {
+        Logger.error('DatabaseSubsystem', `SQL raw exec failed: ${err.message}`);
+      }
       throw err;
     }
   }

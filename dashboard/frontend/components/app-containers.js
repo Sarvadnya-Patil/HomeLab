@@ -59,7 +59,7 @@ export const AppContainers = {
     if (!this.container) return;
 
     this.container.innerHTML = `
-      <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+      <div class="panel-section-header" style="border-bottom: none !important; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
         <span class="panel-title" style="font-size: 0.9rem; font-weight: bold; text-transform: uppercase;">Docker Cluster Manager</span>
         <div class="panel-quick-actions" style="display: flex; gap: 0.4rem; align-items: center;">
           <button class="btn btn-panel ${this.activeTab === 'containers' ? 'btn-open' : ''}" id="tab-btn-containers">Containers</button>
@@ -75,10 +75,9 @@ export const AppContainers = {
         </div>
       </div>
       <div class="docker-view-content" id="docker-tab-content" style="margin-top: 1rem; width: 100%;">
-        <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%;">
-          <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
-          <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
-          <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
+        <div class="circular-loader-overlay">
+          <div class="circular-spinner"></div>
+          <span class="circular-loader-text">FETCHING CONTAINER ENGINE MATRIX...</span>
         </div>
       </div>
     `;
@@ -160,12 +159,11 @@ export const AppContainers = {
     const contentEl = this.container.querySelector('#docker-tab-content');
     if (!contentEl) return;
 
-    // Render animated skeleton loaders while loading
+    // Render circular spinner while loading
     contentEl.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%;">
-        <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
-        <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
-        <div class="skeleton-card"><div class="skeleton-line title"></div><div class="skeleton-line text"></div></div>
+      <div class="circular-loader-overlay">
+        <div class="circular-spinner"></div>
+        <span class="circular-loader-text">FETCHING CONTAINER ENGINE MATRIX...</span>
       </div>
     `;
 
@@ -354,7 +352,7 @@ export const AppContainers = {
               <span>${escName}</span>
             </div>
           </td>
-          <td style="padding: 0.5rem;"><span class="card-status ${isRunning ? 'online' : 'offline'}" style="padding: 0.1rem 0.35rem; border-radius: 3px; font-family: var(--font-mono); font-size: 0.65rem;">${escState}</span></td>
+          <td style="padding: 0.5rem;"><span class="nb-badge ${isRunning ? 'online' : 'offline'}">${escState.toUpperCase()}</span></td>
           <td style="padding: 0.5rem; color: var(--text-secondary); font-family: var(--font-mono);">${escStatus}</td>
           ${autostartTd}
           <td style="padding: 0.5rem; color: var(--text-muted); font-family: var(--font-mono); font-size: 0.65rem;">${escImage}</td>

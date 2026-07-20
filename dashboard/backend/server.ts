@@ -13,9 +13,25 @@ const fastify = Fastify({ logger: { level: 'error' } });
 // Register fastify websocket plugin
 fastify.register(websocketPlugin);
 
+import fs from 'fs';
+
+// Dynamically locate frontend static assets
+let frontendDir = path.join(__dirname, '../frontend');
+if (!fs.existsSync(frontendDir)) {
+  frontendDir = path.join(__dirname, 'frontend');
+}
+if (!fs.existsSync(frontendDir)) {
+  frontendDir = path.join(process.cwd(), 'frontend');
+}
+if (!fs.existsSync(frontendDir)) {
+  frontendDir = path.join(process.cwd(), 'dashboard', 'frontend');
+}
+
+Logger.info('ServerBoot', `Serving static frontend files from: ${frontendDir}`);
+
 // Serve static frontend files
 fastify.register(staticPlugin, {
-  root: path.join(__dirname, '../frontend'),
+  root: frontendDir,
   prefix: '/'
 });
 

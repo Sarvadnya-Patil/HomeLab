@@ -44,33 +44,35 @@ export const AppJobs = {
     if (!this.container) return;
 
     this.container.innerHTML = `
-      <div class="jobs-layout" style="display: flex; flex-direction: column; height: 100%; gap: 1rem; color: var(--text-slate);">
+      <div class="jobs-layout" style="display: flex; flex-direction: column; height: 100%; gap: 1.25rem; color: #ffffff; font-family: var(--font-mono);">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
           <div>
-            <h2 style="margin: 0; font-size: 1.1rem; color: #fff; font-weight: 600;">Centralized Job Execution Manager</h2>
-            <span style="font-size: 0.7rem; color: var(--text-muted);">Track long-running deployments, updates, backups, and container actions</span>
+            <h2 style="margin: 0; font-size: 1rem; color: #ffffff; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;">CENTRALIZED JOB EXECUTION MANAGER</h2>
+            <span style="font-size: 0.68rem; color: #a1a1aa; font-family: var(--font-mono);">Track long-running deployments, updates, backups, and container actions</span>
           </div>
-          <div style="display: flex; gap: 0.25rem; background: rgba(30, 41, 59, 0.4); padding: 0.2rem; border-radius: 6px; border: 1px solid var(--border-slate);">
-            <button class="btn btn-panel" id="tab-btn-active" style="padding: 0.3rem 0.6rem; font-size: 0.65rem; border: none;">Active Operations</button>
-            <button class="btn btn-panel" id="tab-btn-history" style="padding: 0.3rem 0.6rem; font-size: 0.65rem; border: none;">Execution History</button>
+          <div style="display: flex; gap: 0.4rem; background: #000000; padding: 0.25rem; border: 2px solid #ffffff; box-shadow: 3px 3px 0 #ffffff;">
+            <button class="btn btn-panel" id="tab-btn-active" style="padding: 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 900; text-transform: uppercase; border-radius: 0;">ACTIVE OPERATIONS</button>
+            <button class="btn btn-panel" id="tab-btn-history" style="padding: 0.35rem 0.75rem; font-size: 0.68rem; font-weight: 900; text-transform: uppercase; border-radius: 0;">EXECUTION HISTORY</button>
           </div>
         </div>
 
-        <div style="display: flex; flex: 1; gap: 1rem; min-height: 400px; height: calc(100vh - 190px);">
-          <div class="jobs-list-panel" style="flex: 1; min-width: 280px; background: rgba(30, 41, 59, 0.2); border-radius: 8px; border: 1px solid var(--border-slate); padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto;">
+        <div style="display: flex; flex: 1; gap: 1.25rem; min-height: 400px; height: calc(100vh - 190px);">
+          <div class="jobs-list-panel" style="flex: 1; min-width: 280px; background: #0e0e11; border-radius: 0; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto;">
             <div id="jobs-cards-container" style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
-              <div class="skeleton-card" style="padding: 0.85rem; border: 1px solid var(--border-slate); background: rgba(30, 41, 59, 0.4);"><div class="skeleton-line title" style="width: 60%;"></div><div class="skeleton-line text"></div><div class="skeleton-line short"></div></div>
-              <div class="skeleton-card" style="padding: 0.85rem; border: 1px solid var(--border-slate); background: rgba(30, 41, 59, 0.4);"><div class="skeleton-line title" style="width: 80%;"></div><div class="skeleton-line text"></div><div class="skeleton-line short"></div></div>
+              <div class="circular-loader-overlay" style="min-height: 180px;">
+                <div class="circular-spinner"></div>
+                <span class="circular-loader-text">SYNCING ACTIVE JOBS...</span>
+              </div>
             </div>
           </div>
 
           <!-- Job Console Output logs -->
-          <div class="jobs-details-panel" style="flex: 1.5; background: rgba(15, 23, 42, 0.85); border-radius: 8px; border: 1px solid var(--border-slate); padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; backdrop-filter: blur(10px);">
-            <div id="job-details-header" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.75rem; display: none;">
+          <div class="jobs-details-panel" style="flex: 1.5; background: #0e0e11; border-radius: 0; border: 2px solid #ffffff; box-shadow: 6px 6px 0 #ffffff; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <div id="job-details-header" style="border-bottom: 2px dashed #ffffff; padding-bottom: 0.75rem; display: none;">
               <!-- Dynamic Details Header -->
             </div>
             
-            <div id="job-console-output" style="flex: 1; background: #000; border-radius: 6px; padding: 0.85rem; font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 0.7rem; color: var(--term-green); overflow-y: auto; white-space: pre-wrap; border: 1px solid rgba(255,255,255,0.05); line-height: 1.4;">
+            <div id="job-console-output" style="flex: 1; background: #000000; border-radius: 0; padding: 0.85rem; font-family: var(--font-mono); font-size: 0.72rem; color: #ffffff; overflow-y: auto; white-space: pre-wrap; border: 2px solid #ffffff; box-shadow: 3px 3px 0 #ffffff; line-height: 1.45;">
               Select an execution job from the left panel to inspect real-time log output and status metrics.
             </div>
           </div>
@@ -95,15 +97,19 @@ export const AppJobs = {
     if (!btnActive || !btnHistory) return;
 
     if (this.activeTab === 'active') {
-      btnActive.style.background = 'rgba(255, 255, 255, 0.08)';
-      btnActive.style.color = '#fff';
-      btnHistory.style.background = 'transparent';
-      btnHistory.style.color = 'var(--text-muted)';
+      btnActive.style.background = '#ffffff';
+      btnActive.style.color = '#000000';
+      btnActive.style.border = '2px solid #ffffff';
+      btnHistory.style.background = '#000000';
+      btnHistory.style.color = '#ffffff';
+      btnHistory.style.border = '1px solid #ffffff';
     } else {
-      btnHistory.style.background = 'rgba(255, 255, 255, 0.08)';
-      btnHistory.style.color = '#fff';
-      btnActive.style.background = 'transparent';
-      btnActive.style.color = 'var(--text-muted)';
+      btnHistory.style.background = '#ffffff';
+      btnHistory.style.color = '#000000';
+      btnHistory.style.border = '2px solid #ffffff';
+      btnActive.style.background = '#000000';
+      btnActive.style.color = '#ffffff';
+      btnActive.style.border = '1px solid #ffffff';
     }
   },
 
@@ -216,22 +222,22 @@ export const AppJobs = {
       const runtime = this.calculateRuntime(job.createdAt, job.updatedAt, job.status);
 
       html += `
-        <div class="job-card-item" data-id="${job.id}" style="padding: 0.85rem; background: ${isSelected ? 'rgba(255, 255, 255, 0.06)' : 'rgba(30, 41, 59, 0.4)'}; border: 1px solid ${isSelected ? 'var(--term-green)' : 'var(--border-slate)'}; border-radius: 6px; cursor: pointer; display: flex; flex-direction: column; gap: 0.35rem; transition: background 0.2s;">
+        <div class="job-card-item" data-id="${job.id}" style="padding: 0.85rem; background: ${isSelected ? '#ffffff' : '#000000'}; color: ${isSelected ? '#000000' : '#ffffff'}; border: 2px solid #ffffff; box-shadow: ${isSelected ? '4px 4px 0 #888888' : '2px 2px 0 #44444e'}; border-radius: 0; cursor: pointer; display: flex; flex-direction: column; gap: 0.4rem; font-family: var(--font-mono); transition: all 0.15s;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 0.75rem; font-weight: 700; color: #fff; text-transform: capitalize;">${job.type.replace(/_/g, ' ')}</span>
-            <span style="font-size: 0.6rem; color: ${statusColor}; border: 1px solid ${statusColor}; padding: 0.1rem 0.3rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;">${job.status}</span>
+            <span style="font-size: 0.78rem; font-weight: 900; text-transform: uppercase; color: ${isSelected ? '#000000' : '#ffffff'};">${job.type.replace(/_/g, ' ')}</span>
+            <span style="font-size: 0.6rem; color: ${statusColor}; background: #000000; border: 1px solid ${statusColor}; padding: 0.15rem 0.45rem; border-radius: 0; font-weight: 900; text-transform: uppercase;">${job.status}</span>
           </div>
           
-          <div style="display: flex; justify-content: space-between; font-size: 0.6rem; color: var(--text-muted);">
-            <span>Target: <span style="color: #fff;">${job.targetId || 'System'}</span></span>
-            <span>Runtime: <span style="color: #fff;">${runtime}</span></span>
+          <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: ${isSelected ? '#33333e' : '#a1a1aa'};">
+            <span>Target: <span style="color: ${isSelected ? '#000000' : '#ffffff'}; font-weight: 800;">${job.targetId || 'System'}</span></span>
+            <span>Runtime: <span style="color: ${isSelected ? '#000000' : '#ffffff'}; font-weight: 800;">${runtime}</span></span>
           </div>
           
-          <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.15rem;">
-            <div class="res-bar-container" style="flex: 1; height: 5px; background: rgba(255, 255, 255, 0.05); border-radius: 3px; overflow: hidden;">
-              <div style="width: ${job.progress}%; background: ${job.status === 'failed' ? '#ef4444' : 'var(--term-green)'}; height: 100%;"></div>
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.2rem;">
+            <div class="res-bar-container" style="flex: 1; height: 8px; background: ${isSelected ? '#e4e4e7' : '#0e0e11'}; border: 1px solid ${isSelected ? '#000000' : '#ffffff'}; border-radius: 0; padding: 1px;">
+              <div style="width: ${job.progress}%; background: ${job.status === 'failed' ? '#ef4444' : '#ffffff'}; height: 100%;"></div>
             </div>
-            <span style="font-size: 0.65rem; color: #fff; font-weight: 600;">${job.progress}%</span>
+            <span style="font-size: 0.65rem; color: ${isSelected ? '#000000' : '#ffffff'}; font-weight: 900;">${job.progress}%</span>
           </div>
         </div>
       `;
@@ -287,13 +293,13 @@ export const AppJobs = {
         </div>
         <div style="display: flex; gap: 0.5rem;">
           ${isRunning ? `
-            <button class="btn" id="btn-job-abort" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fff; font-size: 0.65rem; font-weight: 600; padding: 0.3rem 0.6rem; border-radius: 4px;">
-              Abort Execution
+            <button class="btn" id="btn-job-abort" style="background: #ef4444; border: 2px solid #ef4444; color: #ffffff; font-size: 0.65rem; font-weight: 900; padding: 0.35rem 0.65rem; border-radius: 0; text-transform: uppercase;">
+              ABORT EXECUTION
             </button>
           ` : ''}
           ${job.status === 'failed' ? `
-            <button class="btn" id="btn-job-retry" style="background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #fff; font-size: 0.65rem; font-weight: 600; padding: 0.3rem 0.6rem; border-radius: 4px;">
-              Retry Job
+            <button class="btn" id="btn-job-retry" style="background: #ffffff; border: 2px solid #ffffff; color: #000000; font-size: 0.65rem; font-weight: 900; padding: 0.35rem 0.65rem; border-radius: 0; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">
+              RETRY JOB
             </button>
           ` : ''}
         </div>

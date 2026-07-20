@@ -1,4 +1,4 @@
-// Settings Application - Preferences & Dynamic Plugin Configurator
+// Settings Application - Preferences, 2FA SMTP Security, & Dynamic Plugin Configurator
 import { api } from '../core/api.js';
 
 export const AppSettings = {
@@ -9,6 +9,7 @@ export const AppSettings = {
   selectedPluginId: '',
   pluginSchema: [],
   pluginValues: {},
+  secStatus: null,
 
   init(containerEl) {
     this.container = containerEl;
@@ -26,6 +27,9 @@ export const AppSettings = {
         };
       });
 
+      // Fetch 2FA status
+      this.secStatus = await api.get('/api/v1/settings/2fa/status').catch(() => null);
+
       // Prefetch plugins list
       this.plugins = await api.get('/api/v1/plugins').catch(() => []);
       if (this.plugins.length > 0 && !this.selectedPluginId) {
@@ -42,21 +46,23 @@ export const AppSettings = {
     if (!this.container) return;
 
     this.container.innerHTML = `
-      <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-        <span class="panel-title" style="font-size: 0.9rem; font-weight: bold; text-transform: uppercase;">HomeLab OS Configuration Settings</span>
+      <div class="panel-section-header" style="border-bottom: none !important; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-family: var(--font-mono);">
+        <span class="panel-title" style="font-size: 0.9rem; font-weight: 900; text-transform: uppercase;">HomeLab OS Configuration & Security Settings</span>
         <div class="panel-quick-actions" style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
           <button class="btn btn-panel ${this.activeTab === 'general' ? 'btn-open' : ''}" id="tab-settings-general">General</button>
+          <button class="btn btn-panel ${this.activeTab === '2fa' ? 'btn-open' : ''}" id="tab-settings-2fa">2FA & SMTP Security</button>
           <button class="btn btn-panel ${this.activeTab === 'plugins' ? 'btn-open' : ''}" id="tab-settings-plugins">Plugins Config</button>
           <button class="btn btn-panel ${this.activeTab === 'backup' ? 'btn-open' : ''}" id="tab-settings-backup">Backup Center</button>
         </div>
       </div>
-      <div class="settings-form-content" id="settings-tab-form" style="margin-top: 1.5rem; max-width: 500px; display: flex; flex-direction: column; gap: 1rem;">
+      <div class="settings-form-content" id="settings-tab-form" style="margin-top: 1.5rem; max-width: 580px; display: flex; flex-direction: column; gap: 1rem; font-family: var(--font-mono);">
         <!-- Forms load here -->
       </div>
     `;
 
     // Bind tab clicks
     this.container.querySelector('#tab-settings-general').addEventListener('click', () => this.switchTab('general'));
+    this.container.querySelector('#tab-settings-2fa').addEventListener('click', () => this.switchTab('2fa'));
     this.container.querySelector('#tab-settings-plugins').addEventListener('click', () => this.switchTab('plugins'));
     this.container.querySelector('#tab-settings-backup').addEventListener('click', () => this.switchTab('backup'));
 
@@ -76,15 +82,96 @@ export const AppSettings = {
       const appName = this.settingsCache['app.name']?.value || 'HomeLab OS';
       formEl.innerHTML = `
         <div class="detail-item">
-          <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: bold;">App Name Title</label>
-          <input type="text" id="set-app-name" value="${appName}" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.5rem; color: var(--text-primary); font-family: inherit; font-size: 0.75rem; width: 100%;">
+          <label class="detail-label" style="margin-bottom: 0.35rem; font-weight: 900; text-transform: uppercase;">App Name Title</label>
+          <input type="text" id="set-app-name" value="${appName}" style="background-color: #000000; border: 2px solid #ffffff; border-radius: 0; padding: 0.6rem; color: #ffffff; font-family: var(--font-mono); font-size: 0.75rem; width: 100%;">
         </div>
-        <button class="btn btn-panel btn-open" id="btn-save-settings" style="margin-top: 1rem; width: 100px;">Save Settings</button>
+        <button class="btn btn-panel btn-open" id="btn-save-settings" style="margin-top: 1rem; width: 140px; background: #ffffff; color: #000000; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Save Settings</button>
       `;
       formEl.querySelector('#btn-save-settings').addEventListener('click', () => this.saveFormValues());
+    } else if (this.activeTab === '2fa') {
+      const status = this.secStatus || { enabled: false, hasPassword: false };
+      const isEnabled = status.enabled;
+      const statusBadge = isEnabled 
+        ? `<span style="background: #000000; border: 1px solid #22c55e; color: #22c55e; font-weight: 900; padding: 0.2rem 0.6rem; text-transform: uppercase; font-size: 0.68rem;">ACTIVE (VERIFIED)</span>`
+        : `<span style="background: #000000; border: 1px solid #ef4444; color: #ef4444; font-weight: 900; padding: 0.2rem 0.6rem; text-transform: uppercase; font-size: 0.68rem;">DISABLED / UNVERIFIED</span>`;
+
+      formEl.innerHTML = `
+        <div style="background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; border-radius: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #ffffff; padding-bottom: 0.75rem;">
+            <span style="font-weight: 900; text-transform: uppercase; font-size: 0.85rem;">2FA SMTP Security Status</span>
+            ${statusBadge}
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
+            <div class="detail-item">
+              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SMTP Provider</label>
+              <input type="text" id="smtp-provider" value="${status.provider || 'Custom SMTP'}" placeholder="e.g. Gmail, Outlook" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+            </div>
+
+            <div class="detail-item">
+              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SMTP Host</label>
+              <input type="text" id="smtp-host" value="${status.smtpHost || ''}" placeholder="e.g. smtp.gmail.com" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+            </div>
+
+            <div class="detail-item">
+              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SMTP Port</label>
+              <input type="number" id="smtp-port" value="${status.smtpPort || 587}" placeholder="587" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+            </div>
+
+            <div class="detail-item">
+              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SMTP User / Email (2FA Recipient)</label>
+              <input type="email" id="smtp-user" value="${status.smtpUser || ''}" placeholder="user@homelab.org" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
+            <div class="detail-item">
+              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">
+                SMTP Password ${status.hasPassword ? '<span style="color: #22c55e;">(Encrypted in DB)</span>' : ''}
+              </label>
+              <input type="password" id="smtp-pass" value="${status.hasPassword ? '••••••••' : ''}" placeholder="Enter SMTP App Password" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+            </div>
+
+            <div class="detail-item">
+              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">Sender Name</label>
+              <input type="text" id="sender-name" value="${status.senderName || 'HomeLab OS'}" placeholder="HomeLab Security" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+            </div>
+          </div>
+
+          <div class="detail-item">
+            <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">
+              Optional Custom 2FA Recipient Email <span style="color: #a1a1aa; font-weight: 400;">(Optional)</span>
+            </label>
+            <input type="email" id="target-email" value="${status.targetEmail || ''}" placeholder="Leave blank to send to self (SMTP User)" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+            <div style="font-size: 0.65rem; color: #a1a1aa; margin-top: 0.35rem; line-height: 1.4; background: #000000; border: 1px dashed #33333e; padding: 0.5rem;">
+              <div>• <b>If left blank</b>: The 2FA OTP code is automatically sent to self (<span style="color: #ffffff;">SMTP User / Email</span>).</div>
+              <div>• <b>If filled out</b>: The 2FA OTP code will be delivered to this custom recipient address instead.</div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 0.6rem; margin-top: 0.5rem; flex-wrap: wrap;">
+            <button class="btn btn-panel btn-open" id="btn-send-2fa-otp" style="background: #ffffff; border: 2px solid #ffffff; color: #000000; font-size: 0.75rem; font-weight: 900; text-transform: uppercase; padding: 0.55rem 1rem; box-shadow: 3px 3px 0 #888888;">SAVE SMTP & SEND 2FA OTP</button>
+            ${isEnabled ? `<button class="btn btn-card-act" id="btn-disable-2fa" style="background: #ef4444; border: 1px solid #ef4444; color: #ffffff; font-size: 0.75rem; font-weight: 900; text-transform: uppercase; padding: 0.55rem 1rem;">DISABLE 2FA</button>` : ''}
+          </div>
+        </div>
+
+        <!-- Inline OTP Verification Box -->
+        <div id="otp-verification-box" style="display: none; background: #000000; border: 2px solid #ffffff; box-shadow: 6px 6px 0 #ffffff; padding: 1.25rem; margin-top: 1rem; border-radius: 0;">
+          <h4 style="margin: 0 0 0.5rem 0; font-size: 0.85rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; color: #ffffff;">ENTER 6-DIGIT VERIFICATION OTP</h4>
+          <p style="font-size: 0.68rem; color: #a1a1aa; margin-bottom: 1rem; line-height: 1.4;">A 6-digit code has been dispatched to your email. Enter the code below to complete strict server-side verification and activate 2FA.</p>
+          <input type="text" id="input-2fa-otp" maxlength="6" placeholder="123456" style="font-size: 1.4rem; font-weight: 900; letter-spacing: 8px; text-align: center; background: #0e0e11; border: 2px solid #ffffff; color: #22c55e; padding: 0.6rem; width: 100%; font-family: var(--font-mono); text-transform: uppercase;">
+          <button class="btn btn-panel btn-open" id="btn-submit-2fa-otp" style="margin-top: 1rem; width: 100%; background: #ffffff; color: #000000; font-size: 0.78rem; font-weight: 900; text-transform: uppercase; padding: 0.6rem; box-shadow: 3px 3px 0 #888888;">VERIFY & ACTIVATE 2FA</button>
+        </div>
+      `;
+
+      // Bind 2FA actions
+      formEl.querySelector('#btn-send-2fa-otp').addEventListener('click', () => this.send2FAOTP());
+      if (isEnabled) {
+        formEl.querySelector('#btn-disable-2fa').addEventListener('click', () => this.disable2FA());
+      }
     } else if (this.activeTab === 'plugins') {
       if (this.plugins.length === 0) {
-        formEl.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted);">No service plugins discovered.</div>`;
+        formEl.innerHTML = `<div style="font-size: 0.75rem; color: #a1a1aa;">No service plugins discovered.</div>`;
         return;
       }
 
@@ -95,157 +182,185 @@ export const AppSettings = {
 
       formEl.innerHTML = `
         <div class="detail-item" style="position: relative;">
-          <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: bold;">Select Plugin Target</label>
+          <label class="detail-label" style="margin-bottom: 0.35rem; font-weight: 900; text-transform: uppercase;">Select Plugin Target</label>
           <div class="custom-dropdown-container">
-            <button class="custom-dropdown-trigger" id="plugin-dropdown-trigger">
+            <button class="custom-dropdown-trigger" id="plugin-dropdown-trigger" style="background: #000000; border: 2px solid #ffffff; color: #ffffff; padding: 0.6rem; width: 100%; font-family: var(--font-mono); font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
               <span class="selected-text">${activePlugin.name}</span>
               <span class="dropdown-arrow">▼</span>
             </button>
-            <div class="custom-dropdown-menu" id="plugin-dropdown-menu">
+            <div class="custom-dropdown-menu" id="plugin-dropdown-menu" style="background: #000000; border: 2px solid #ffffff; width: 100%;">
               ${this.plugins.map((p) => `
                 <div class="custom-dropdown-item ${p.id === this.selectedPluginId ? 'selected' : ''}" data-value="${p.id}">
                   <span>${p.name}</span>
-                  ${p.id === this.selectedPluginId ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><polyline points="20 6 9 17 4 12"></polyline></svg>` : ''}
                 </div>
               `).join('')}
             </div>
           </div>
         </div>
         <div id="dynamic-plugin-form-fields" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
-          <!-- Dynamically generated fields go here -->
         </div>
-        <button class="btn btn-panel btn-open" id="btn-save-plugin-settings" style="margin-top: 1rem; width: 150px; display: none;">Save Plugin Config</button>
+        <button class="btn btn-panel btn-open" id="btn-save-plugin-settings" style="margin-top: 1rem; width: 180px; display: none; background: #ffffff; color: #000000; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Save Plugin Config</button>
       `;
 
       const trigger = formEl.querySelector('#plugin-dropdown-trigger');
       const menu = formEl.querySelector('#plugin-dropdown-menu');
-      const selectedTextSpan = trigger.querySelector('.selected-text');
-      const items = formEl.querySelectorAll('.custom-dropdown-item');
-
-      trigger.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isOpen = menu.style.display === 'block';
-        if (isOpen) {
-          menu.style.display = 'none';
-          trigger.classList.remove('active');
-        } else {
-          menu.style.display = 'block';
-          trigger.classList.add('active');
-        }
-      });
-
-      // Close dropdown when clicking outside
-      document.addEventListener('click', () => {
-        menu.style.display = 'none';
-        trigger.classList.remove('active');
-      });
-
-      items.forEach(item => {
-        item.addEventListener('click', (e) => {
+      if (trigger && menu) {
+        trigger.addEventListener('click', (e) => {
           e.stopPropagation();
-          const val = item.getAttribute('data-value');
-          const name = item.querySelector('span').textContent;
-          this.selectedPluginId = val;
-          selectedTextSpan.textContent = name;
-
-          items.forEach(el => {
-            el.classList.remove('selected');
-            const svg = el.querySelector('svg');
-            if (svg) svg.remove();
-          });
-
-          item.classList.add('selected');
-          const checkSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-          checkSvg.setAttribute('viewBox', '0 0 24 24');
-          checkSvg.setAttribute('fill', 'none');
-          checkSvg.setAttribute('stroke', 'currentColor');
-          checkSvg.setAttribute('stroke-width', '2.5');
-          checkSvg.setAttribute('stroke-linecap', 'round');
-          checkSvg.setAttribute('stroke-linejoin', 'round');
-          checkSvg.style.width = '14px';
-          checkSvg.style.height = '14px';
-          checkSvg.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>';
-          item.appendChild(checkSvg);
-
-          menu.style.display = 'none';
-          trigger.classList.remove('active');
-
-          this.loadPluginSettingsSchema();
+          menu.classList.toggle('open');
         });
-      });
+        menu.querySelectorAll('.custom-dropdown-item').forEach(item => {
+          item.addEventListener('click', (e) => {
+            const val = e.currentTarget.getAttribute('data-value');
+            this.selectedPluginId = val;
+            menu.classList.remove('open');
+            this.render();
+          });
+        });
+      }
 
-      this.loadPluginSettingsSchema();
+      this.loadPluginSchema(this.selectedPluginId);
     } else if (this.activeTab === 'backup') {
       formEl.innerHTML = `
-        <div class="detail-item" style="border: 1px dashed var(--border-slate); border-radius: 6px; padding: 1rem;">
-          <h4 style="font-size: 0.8rem; font-weight: bold; margin-bottom: 0.5rem;">Database Backup Staging Center</h4>
-          <p style="font-size: 0.7rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 1rem;">
-            Executes transactional copies of the SQLite configurations. Backups staging archives are saved to the backups/ directory in your HomeLab OS root folder.
-          </p>
-          <div style="display: flex; gap: 0.5rem;">
-            <button class="btn btn-panel" id="btn-trigger-backup">Run Backup</button>
-          </div>
+        <div style="background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem; border-radius: 0;">
+          <h4 style="margin: 0; font-weight: 900; text-transform: uppercase; font-size: 0.85rem; color: #ffffff;">Database & Configuration Backup Center</h4>
+          <p style="font-size: 0.7rem; color: #a1a1aa; margin: 0; line-height: 1.4;">Create a complete SQL archive snapshot of your workspaces, categories, widgets, encrypted settings, and custom overrides.</p>
+          <button class="btn btn-panel btn-open" id="btn-trigger-backup" style="margin-top: 0.5rem; width: 160px; background: #ffffff; color: #000000; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Run Backup</button>
         </div>
       `;
       formEl.querySelector('#btn-trigger-backup').addEventListener('click', () => this.runBackup());
     }
   },
 
-  async loadPluginSettingsSchema() {
-    const fieldsContainer = this.container.querySelector('#dynamic-plugin-form-fields');
-    const saveBtn = this.container.querySelector('#btn-save-plugin-settings');
-    if (!fieldsContainer || !this.selectedPluginId) return;
-
-    fieldsContainer.innerHTML = '<span style="font-size: 0.75rem; color: var(--text-muted);">Fetching plugin settings schema...</span>';
-    saveBtn.style.display = 'none';
+  async saveSMTPConfig(silent = false) {
+    const provider = this.container.querySelector('#smtp-provider')?.value.trim();
+    const smtpHost = this.container.querySelector('#smtp-host')?.value.trim();
+    const smtpPort = this.container.querySelector('#smtp-port')?.value.trim();
+    const smtpUser = this.container.querySelector('#smtp-user')?.value.trim();
+    const smtpPass = this.container.querySelector('#smtp-pass')?.value.trim();
+    const senderEmail = this.container.querySelector('#sender-email')?.value?.trim() || smtpUser;
+    const senderName = this.container.querySelector('#sender-name')?.value.trim();
+    const targetEmail = this.container.querySelector('#target-email')?.value.trim();
 
     try {
-      const res = await api.get(`/api/v1/plugins/${this.selectedPluginId}/settings`);
-      this.pluginSchema = res.schema || [];
-      this.pluginValues = res.values || {};
+      const res = await api.post('/api/v1/settings/smtp', {
+        provider,
+        smtpHost,
+        smtpPort,
+        smtpUser,
+        smtpPass,
+        senderEmail,
+        senderName,
+        targetEmail
+      });
+      // Silent mode: skip alert + DOM re-render so the OTP box is not destroyed
+      if (!silent) {
+        alert(res.message || 'SMTP Settings saved successfully with encrypted password!');
+        this.loadSettings();
+      }
+    } catch (err) {
+      alert(`Failed to save SMTP configuration: ${err.message}`);
+      throw err; // Re-throw so callers like send2FAOTP can abort on failure
+    }
+  },
+
+  async send2FAOTP() {
+    const targetEmail = this.container.querySelector('#target-email')?.value.trim() || this.container.querySelector('#smtp-user')?.value.trim();
+    if (!targetEmail) {
+      alert('Please enter a recipient email address for 2FA OTP verification.');
+      return;
+    }
+
+    const btn = this.container.querySelector('#btn-send-2fa-otp');
+    if (btn) {
+      btn.textContent = 'SAVING & DISPATCHING OTP...';
+      btn.disabled = true;
+    }
+
+    try {
+      // Save SMTP silently — do NOT call loadSettings() which would destroy the OTP box
+      await this.saveSMTPConfig(true);
+
+      // Dispatch the OTP email
+      const res = await api.post('/api/v1/settings/2fa/send-otp', { targetEmail });
+
+      // Only reveal OTP box AFTER successful email dispatch
+      const otpBox = this.container.querySelector('#otp-verification-box');
+      if (otpBox) {
+        otpBox.style.display = 'block';
+        otpBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const submitBtn = otpBox.querySelector('#btn-submit-2fa-otp');
+        if (submitBtn) submitBtn.onclick = () => this.submit2FAOTP(targetEmail);
+        const otpInput = otpBox.querySelector('#input-2fa-otp');
+        if (otpInput) setTimeout(() => otpInput.focus(), 300);
+      }
+
+      alert(res.message || `OTP dispatched to ${targetEmail}. Check your inbox and enter the 6-digit code below.`);
+    } catch (err) {
+      alert(`OTP Dispatch Failed: ${err.message}`);
+    } finally {
+      if (btn) {
+        btn.textContent = 'SAVE SMTP & SEND 2FA OTP';
+        btn.disabled = false;
+      }
+    }
+  },
+
+  async submit2FAOTP(targetEmail) {
+    const otpInput = this.container.querySelector('#input-2fa-otp');
+    const otp = otpInput?.value.trim();
+    if (!otp || otp.length !== 6) {
+      alert('Please enter the full 6-digit OTP code sent to your email.');
+      return;
+    }
+
+    try {
+      const res = await api.post('/api/v1/settings/2fa/verify-otp', { targetEmail, otp });
+      alert(res.message || '2FA Successfully Verified & Activated!');
+      this.loadSettings();
+    } catch (err) {
+      alert(`Verification Failed: ${err.message}`);
+    }
+  },
+
+  async disable2FA() {
+    if (!confirm('Are you sure you want to disable Two-Factor Authentication?')) return;
+    try {
+      await api.post('/api/v1/settings/2fa/disable', {});
+      alert('2FA has been disabled.');
+      this.loadSettings();
+    } catch (err) {
+      alert(`Failed to disable 2FA: ${err.message}`);
+    }
+  },
+
+  async loadPluginSchema(pluginId) {
+    const fieldsContainer = this.container.querySelector('#dynamic-plugin-form-fields');
+    const saveBtn = this.container.querySelector('#btn-save-plugin-settings');
+    if (!fieldsContainer || !saveBtn) return;
+
+    try {
+      const manifest = await api.get(`/api/v1/plugins/${pluginId}`);
+      this.pluginSchema = manifest.configSchema || [];
+      this.pluginValues = await api.get(`/api/v1/plugins/${pluginId}/settings`).catch(() => ({}));
 
       if (this.pluginSchema.length === 0) {
-        fieldsContainer.innerHTML = `<span style="font-size: 0.75rem; color: var(--text-muted);">This plugin does not declare any settings parameters in its manifest.</span>`;
+        fieldsContainer.innerHTML = `<span style="color: #a1a1aa; font-size: 0.75rem;">No configurable options for this plugin.</span>`;
+        saveBtn.style.display = 'none';
         return;
       }
 
       let html = '';
       this.pluginSchema.forEach(field => {
         const val = this.pluginValues[field.key] !== undefined ? this.pluginValues[field.key] : (field.default || '');
-        
-        let inputMarkup = '';
-        if (field.type === 'toggle') {
-          const checked = val === 'true' || val === true ? 'checked' : '';
-          inputMarkup = `
-            <input type="checkbox" id="field-${field.key}" ${checked} style="width: auto;">
-            <span style="font-size: 0.65rem; color: var(--text-secondary); margin-left: 0.5rem;">${field.description || ''}</span>
-          `;
-        } else if (field.type === 'select') {
-          let opts = '';
-          (field.options || []).forEach(o => {
-            opts += `<option value="${o}" ${o === val ? 'selected' : ''}>${o}</option>`;
-          });
-          inputMarkup = `
-            <select id="field-${field.key}" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.4rem; color: var(--text-primary); font-size: 0.75rem; width: 100%;">
-              ${opts}
-            </select>
-            <span style="font-size: 0.6rem; color: var(--text-muted); display: block; margin-top: 0.2rem;">${field.description || ''}</span>
-          `;
-        } else {
-          // fallback to text / number / password
-          const inputType = field.type === 'password' ? 'password' : (field.type === 'number' ? 'number' : 'text');
-          inputMarkup = `
-            <input type="${inputType}" id="field-${field.key}" value="${val}" style="background-color: var(--bg-shell); border: 1px solid var(--border-slate); border-radius: 4px; padding: 0.4rem; color: var(--text-primary); font-family: inherit; font-size: 0.75rem; width: 100%;">
-            <span style="font-size: 0.6rem; color: var(--text-muted); display: block; margin-top: 0.2rem;">${field.description || ''}</span>
-          `;
-        }
-
         html += `
-          <div class="plugin-setting-field" style="display: flex; flex-direction: column; gap: 0.25rem;">
-            <label style="font-size: 0.7rem; font-weight: 600; color: #fff;">${field.label}</label>
-            <div style="display: flex; align-items: center;">
-              ${inputMarkup}
-            </div>
+          <div class="detail-item">
+            <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; text-transform: uppercase; font-size: 0.68rem;">${field.label}</label>
+            ${field.type === 'toggle' ? `
+              <input type="checkbox" id="field-${field.key}" ${val ? 'checked' : ''} style="margin-top: 0.25rem;">
+            ` : `
+              <input type="${field.type === 'password' ? 'password' : 'text'}" id="field-${field.key}" value="${val}" style="background-color: #000000; border: 1px solid #ffffff; padding: 0.5rem; color: #ffffff; font-family: var(--font-mono); font-size: 0.75rem; width: 100%;">
+            `}
           </div>
         `;
       });
@@ -298,7 +413,7 @@ export const AppSettings = {
 
   async runBackup() {
     const btn = this.container.querySelector('#btn-trigger-backup');
-    btn.textContent = 'Backing up...';
+    btn.textContent = 'BACKING UP...';
     btn.disabled = true;
 
     try {
@@ -307,9 +422,10 @@ export const AppSettings = {
     } catch (err) {
       alert(`Backup failed: ${err.message}`);
     } finally {
-      btn.textContent = 'Run Backup';
+      btn.textContent = 'RUN BACKUP';
       btn.disabled = false;
     }
   }
 };
+
 export default AppSettings;

@@ -42,7 +42,7 @@ export class DatabaseManager {
         try {
           this.adapter.exec(sql);
         } catch {
-          // Gracefully ignore if the column already exists
+          // Column already exists — expected on existing databases, silently ignored
         }
       }
 

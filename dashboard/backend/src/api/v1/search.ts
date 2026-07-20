@@ -76,12 +76,12 @@ export default function (fastify: any, engine: CoreEngine): void {
     }
 
     // E. Index Notifications
-    const notifications = engine.notifier.getHistory(30);
+    const notifications = engine.notifier.getHistory();
     for (const n of notifications) {
       if (n.message.toLowerCase().includes(query) || n.origin.toLowerCase().includes(query)) {
         results.push({
           type: 'notification',
-          id: String(n.time),
+          id: String(n.id),
           title: `Notification: ${n.origin}`,
           subtitle: n.message,
           action: `open-notifications`
