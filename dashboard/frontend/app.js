@@ -244,13 +244,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   const loginForm = document.getElementById('login-form');
   const loginError = document.getElementById('login-error');
 
-  // Store credentials temporarily in closure for 2FA re-verification
+  // Temporarily hold credentials across the 3-step flow (never stored in DOM or localStorage until fully verified)
   let pendingCredentials = null;
 
+  // Helper: mask an email like s****v@gmail.com for the hint text
+  const maskEmail = (email) => {
+    const [local, domain] = email.split('@');
+    if (!domain) return email;
+    const masked = local.length <= 2 ? local[0] + '*'.repeat(local.length - 1) : local[0] + '*'.repeat(local.length - 2) + local[local.length - 1];
+    return `${masked}@${domain}`;
+  };
+
+  // ── STEP 1: Username + Password ──
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     loginError.style.display = 'none';
-
     const username = document.getElementById('login-username').value;
     const password = document.getElementById('login-password').value;
 
@@ -258,11 +266,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       const res = await api.post('/api/v1/auth/login', { username, password });
 
       if (res.twoFARequired) {
-        // 2FA is enabled — stash credentials and show OTP challenge overlay
+        // Stash credentials and move to email confirmation step
         pendingCredentials = { username, password };
         document.getElementById('login-overlay').classList.add('hidden');
-        document.getElementById('twofa-login-overlay').classList.remove('hidden');
-        setTimeout(() => document.getElementById('twofa-login-otp')?.focus(), 100);
+        document.getElementById('twofa-email-overlay').classList.remove('hidden');
+        // Show a masked hint so the user knows which email to enter
+        const hintEl = document.getElementById('twofa-email-hint');
+        if (hintEl && res.emailHint) hintEl.textContent = `Hint: ${maskEmail(res.emailHint)}`;
+        setTimeout(() => document.getElementById('twofa-email-input')?.focus(), 100);
         return;
       }
 
@@ -278,7 +289,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // 2FA Login Challenge Form
+  // ── STEP 2: Email Confirmation ──
+  const twofaEmailForm = document.getElementById('twofa-email-form');
+  const twofaEmailError = document.getElementById('twofa-email-error');
+  twofaEmailForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    twofaEmailError.style.display = 'none';
+    const email = document.getElementById('twofa-email-input').value.trim();
+
+    if (!pendingCredentials) {
+      twofaEmailError.textContent = 'Session expired. Please log in again.';
+      twofaEmailError.style.display = 'block';
+      document.getElementById('twofa-email-overlay').classList.add('hidden');
+      document.getElementById('login-overlay').classList.remove('hidden');
+      return;
+    }
+
+    try {
+      const res = await api.post('/api/v1/auth/2fa-email-confirm', {
+        username: pendingCredentials.username,
+        password: pendingCredentials.password,
+        email
+      });
+
+      if (res.otpDispatched) {
+        // Email confirmed — move to OTP step
+        document.getElementById('twofa-email-overlay').classList.add('hidden');
+        document.getElementById('twofa-login-overlay').classList.remove('hidden');
+        setTimeout(() => document.getElementById('twofa-login-otp')?.focus(), 100);
+      }
+    } catch (err) {
+      twofaEmailError.textContent = err.message || 'Email does not match. Please try again.';
+      twofaEmailError.style.display = 'block';
+    }
+  });
+
+  // ── STEP 3: OTP Entry ──
   const twofaLoginForm = document.getElementById('twofa-login-form');
   const twofaLoginError = document.getElementById('twofa-login-error');
   twofaLoginForm.addEventListener('submit', async (e) => {
@@ -317,6 +363,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const signOutBtn = document.getElementById('btn-sign-out');
   if (signOutBtn) {
     signOutBtn.addEventListener('click', () => {
+      pendingCredentials = null;
       localStorage.removeItem('homelab_token');
       store.set('currentUser', null);
       if (appShell) appShell.style.display = 'none';
@@ -325,6 +372,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('login-password').value = '';
     });
   }
+
 
   // Boot startup check
   await checkAuthAndBoot();

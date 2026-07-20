@@ -4,6 +4,31 @@ import { verifyServerOTP, generateServerOTP, sendSMTPEmail, SMTPConfig, decryptS
 import { Logger } from '../../utils/logger';
 
 export default function (fastify: any, engine: CoreEngine): void {
+
+  // --- IP-BASED RATE LIMITING STORES ---
+  // email confirmation attempts: IP -> { count, windowStart }
+  const emailConfirmRateStore = new Map<string, { count: number; windowStart: number }>();
+  // OTP verify attempts: IP -> { count, windowStart }
+  const otpVerifyRateStore = new Map<string, { count: number; windowStart: number }>();
+  const RATE_WINDOW_MS = 10 * 60 * 1000; // 10-minute rolling window
+  const MAX_EMAIL_ATTEMPTS = 5;
+  const MAX_OTP_ATTEMPTS = 5;
+
+  function checkIpRateLimit(store: Map<string, { count: number; windowStart: number }>, ip: string, max: number): { blocked: boolean; remaining: number; retryAfterSec: number } {
+    const now = Date.now();
+    const entry = store.get(ip);
+    if (!entry || (now - entry.windowStart) > RATE_WINDOW_MS) {
+      store.set(ip, { count: 1, windowStart: now });
+      return { blocked: false, remaining: max - 1, retryAfterSec: 0 };
+    }
+    entry.count += 1;
+    if (entry.count > max) {
+      const retryAfterSec = Math.ceil((RATE_WINDOW_MS - (now - entry.windowStart)) / 1000);
+      return { blocked: true, remaining: 0, retryAfterSec };
+    }
+    return { blocked: false, remaining: max - entry.count, retryAfterSec: 0 };
+  }
+
   // 1. POST: /api/v1/auth/login (Verify credentials — enforces 2FA OTP challenge if enabled)
   fastify.post('/api/v1/auth/login', {
     schema: {
@@ -63,13 +88,71 @@ export default function (fastify: any, engine: CoreEngine): void {
           .catch(err => Logger.error('Auth2FA', `Failed to dispatch login OTP: ${err.message}`));
       }
       // Return a 2fa_required challenge — DO NOT return the real JWT yet
-      return reply.status(202).send({ twoFARequired: true, message: '2FA OTP dispatched to your registered email. Enter the code to complete login.' });
+      // Include a masked emailHint so the frontend can guide the user without revealing the full email
+      const emailForHint = engine.settingsRepo.get('2fa.email') || engine.settingsRepo.get('smtp.user') || '';
+      return reply.status(202).send({ twoFARequired: true, emailHint: emailForHint, message: '2FA is required. Confirm your registered email to receive an OTP.' });
     }
 
     return { token };
   });
 
-  // 2. POST: /api/v1/auth/2fa-verify (Validate login OTP and issue real JWT)
+  // 2a. POST: /api/v1/auth/2fa-email-confirm (Step 1: confirm email matches registered 2FA address, then dispatch OTP)
+  fastify.post('/api/v1/auth/2fa-email-confirm', async (request: any, reply: any) => {
+    const clientIp = request.ip || request.headers['x-forwarded-for'] || 'unknown';
+
+    // IP rate limit: max 5 wrong email attempts per 10 minutes
+    const rateCheck = checkIpRateLimit(emailConfirmRateStore, clientIp, MAX_EMAIL_ATTEMPTS);
+    if (rateCheck.blocked) {
+      return reply.status(429).send({ error: `Too many failed attempts from your IP. Try again in ${rateCheck.retryAfterSec}s.` });
+    }
+
+    const { username, password, email } = request.body || {};
+
+    // Re-verify credentials before doing anything
+    const token = engine.auth.login(username, password);
+    if (!token) {
+      return reply.status(401).send({ error: 'Invalid credentials' });
+    }
+
+    const registeredEmail = (engine.settingsRepo.get('2fa.email') || engine.settingsRepo.get('smtp.user') || '').toLowerCase().trim();
+    const submittedEmail = (email || '').toLowerCase().trim();
+
+    if (!submittedEmail || submittedEmail !== registeredEmail) {
+      Logger.warn('Auth2FA', `Email confirmation failed from IP [${clientIp}]: submitted [${submittedEmail}] vs registered`);
+      return reply.status(401).send({ error: `Email address does not match the registered 2FA address. ${rateCheck.remaining} attempt(s) remaining.` });
+    }
+
+    // Email confirmed — dispatch OTP
+    const encPass = engine.settingsRepo.get('smtp.pass') || '';
+    const smtpConfig: SMTPConfig = {
+      provider: engine.settingsRepo.get('smtp.provider') || 'Custom SMTP',
+      smtpHost: engine.settingsRepo.get('smtp.host') || 'localhost',
+      smtpPort: Number(engine.settingsRepo.get('smtp.port')) || 587,
+      smtpUser: engine.settingsRepo.get('smtp.user') || '',
+      smtpPass: decryptSecret(encPass),
+      senderEmail: engine.settingsRepo.get('smtp.senderEmail') || engine.settingsRepo.get('smtp.user') || '',
+      senderName: engine.settingsRepo.get('smtp.senderName') || 'HomeLab 2FA Security'
+    };
+    const rawOtp = generateServerOTP(registeredEmail);
+    const htmlBody = `
+      <div style="font-family:monospace;background:#0e0e11;color:#fff;padding:28px;border:2px solid #fff;max-width:500px;margin:0 auto;">
+        <div style="margin-bottom:16px;border-bottom:2px solid #fff;padding-bottom:12px;">
+          <span style="background:#fff;color:#000;font-weight:900;padding:4px 10px;font-size:1.1rem;margin-right:8px;display:inline-block;">H</span>
+          <span style="color:#fff;font-weight:900;font-size:1.1rem;text-transform:uppercase;letter-spacing:.05em;">HOMELAB OS 2FA SECURITY</span>
+        </div>
+        <p style="color:#a1a1aa;font-size:.85rem;line-height:1.5;margin-bottom:1.5rem;">A login attempt was detected. Enter the 6-digit code below to complete authentication:</p>
+        <div style="text-align:center;margin:20px 0;">
+          <div style="font-size:32px;font-weight:900;letter-spacing:8px;background:#000;color:#22c55e;border:2px solid #fff;padding:14px 28px;display:inline-block;">${rawOtp}</div>
+        </div>
+        <p style="color:#a1a1aa;font-size:.72rem;line-height:1.5;margin-top:1.5rem;border-top:1px dashed #33333e;padding-top:12px;">This OTP is valid for 5 minutes. If you did not attempt to login, secure your account immediately.</p>
+      </div>`;
+    sendSMTPEmail(smtpConfig, registeredEmail, 'HomeLab OS - Login 2FA Verification Code', htmlBody)
+      .catch(err => Logger.error('Auth2FA', `Failed to dispatch login OTP: ${err.message}`));
+
+    return { otpDispatched: true, message: `OTP dispatched to your registered email. Enter the 6-digit code to complete login.` };
+  });
+
+  // 2b. POST: /api/v1/auth/2fa-verify (Step 2: validate OTP and issue JWT — IP rate limited)
   fastify.post('/api/v1/auth/2fa-verify', {
     schema: {
       body: {
@@ -83,6 +166,14 @@ export default function (fastify: any, engine: CoreEngine): void {
       }
     }
   }, async (request: any, reply: any) => {
+    const clientIp = request.ip || request.headers['x-forwarded-for'] || 'unknown';
+
+    // IP rate limit: max 5 OTP attempts per 10 minutes
+    const rateCheck = checkIpRateLimit(otpVerifyRateStore, clientIp, MAX_OTP_ATTEMPTS);
+    if (rateCheck.blocked) {
+      return reply.status(429).send({ error: `Too many OTP attempts from your IP. Try again in ${rateCheck.retryAfterSec}s.` });
+    }
+
     const { username, password, otp } = request.body || {};
 
     // Re-verify credentials (never trust client-side state)
@@ -98,7 +189,8 @@ export default function (fastify: any, engine: CoreEngine): void {
 
     const result = verifyServerOTP(recipientEmail, otp);
     if (!result.valid) {
-      return reply.status(401).send({ error: result.message });
+      Logger.warn('Auth2FA', `OTP verification failed from IP [${clientIp}]: ${result.message}`);
+      return reply.status(401).send({ error: `${result.message} ${rateCheck.remaining} attempt(s) remaining.` });
     }
 
     Logger.info('Auth2FA', `2FA login OTP verified for user [${username}]`);

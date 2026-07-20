@@ -148,7 +148,26 @@
     </div>
   </div>
 
-  <!-- 2FA Login Challenge Overlay (appears after password login when 2FA is enabled) -->
+  <!-- 2FA Login: Step 1 — Email Confirmation -->
+  <div id="twofa-email-overlay" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Confirm Your Email</h2>
+        <p>2FA is enabled. Enter your registered email address to receive a verification code.</p>
+      </div>
+      <form id="twofa-email-form">
+        <div class="form-group">
+          <label for="twofa-email-input">REGISTERED 2FA EMAIL</label>
+          <input type="email" id="twofa-email-input" placeholder="your@email.com" autocomplete="email" required>
+          <div id="twofa-email-hint" style="font-size: 0.65rem; color: #a1a1aa; margin-top: 0.35rem; font-family: monospace;"></div>
+        </div>
+        <div class="form-error" id="twofa-email-error" style="color: #ef4444; font-size: 0.75rem; display: none;"></div>
+        <button type="submit" class="btn-primary">CONFIRM & SEND OTP</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2FA Login: Step 2 — OTP Entry -->
   <div id="twofa-login-overlay" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
