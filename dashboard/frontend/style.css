@@ -222,8 +222,8 @@ body {
 /* Row 1: Header stats bar - Blueprint White Neo-Brutalist */
 .grid-header {
   background-color: #0e0e11;
-  border: 2px solid #ffffff;
-  box-shadow: 4px 4px 0 #ffffff;
+  border: 2px solid #ffffff !important;
+  box-shadow: none !important;
   border-radius: 0 !important;
   padding: 0.85rem 1.25rem;
   display: flex;
@@ -323,20 +323,19 @@ body {
 
 .res-card {
   background-color: #0e0e11;
-  border: 2px solid #ffffff;
-  box-shadow: 4px 4px 0 #ffffff;
+  border: 2px solid #ffffff !important;
+  box-shadow: none !important;
   border-radius: 0 !important;
   padding: 0.85rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
   font-family: var(--font-mono);
-  transition: transform var(--transition), box-shadow var(--transition);
+  transition: transform var(--transition), border-color var(--transition);
 }
 
 .res-card:hover {
-  box-shadow: 6px 6px 0 #ffffff;
-  transform: translate(-1px, -1px);
+  border-color: #ffffff !important;
 }
 
 .res-title {
@@ -395,9 +394,10 @@ body {
 
 /* Row 3: Services Grid Section */
 .grid-services {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-slate);
-  border-radius: 6px;
+  background-color: #0e0e11;
+  border: 2px solid #ffffff !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   padding: 1rem;
   display: flex;
   flex-direction: column;
@@ -595,8 +595,8 @@ body {
 
 .grid-terminal, .grid-network-map {
   background-color: #0e0e11;
-  border: 2px solid #ffffff;
-  box-shadow: 4px 4px 0 #ffffff;
+  border: 2px solid #ffffff !important;
+  box-shadow: none !important;
   border-radius: 0 !important;
   padding: 1rem;
   display: flex;
