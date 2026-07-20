@@ -105,7 +105,7 @@ export default {
     container.style.position = 'relative';
     container.style.minHeight = '220px';
     container.innerHTML = `
-      <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; min-height: 28px; box-sizing: border-box;">
+      <div class="panel-section-header" style="border-bottom: none !important; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; min-height: 28px; box-sizing: border-box;">
         <div style="display: flex; align-items: center; gap: 0.5rem;">
           <span class="panel-title">Server Console Terminal</span>
           <button class="btn btn-panel btn-expand-terminal" style="font-size: 0.6rem; padding: 0.15rem 0.35rem; display: flex; align-items: center; gap: 0.2rem;" title="Expand Terminal Log Viewer">
@@ -369,12 +369,12 @@ export default {
       .replace('id="w-term-cursor"', 'id="m-term-cursor"');
 
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 1000px; width: 95%; height: 80vh; display: flex; flex-direction: column; background-color: var(--bg-panel); border: 1px solid var(--border-slate); border-radius: 8px;">
-        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border-slate);">
-          <span style="font-weight: bold; text-transform: uppercase; font-size: 0.85rem; color: #fff;">Expanded Server Console Terminal</span>
-          <button class="btn btn-close-modal" style="font-size: 1.5rem; background: transparent; border: none; color: var(--text-muted); cursor: pointer; line-height: 1;">&times;</button>
+      <div class="modal-content" style="max-width: 1000px; width: 95%; height: 80vh; display: flex; flex-direction: column; background-color: #0e0e11; border: 2px solid #ffffff; box-shadow: 6px 6px 0 #ffffff; border-radius: 0; font-family: var(--font-mono);">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 0.85rem 1.25rem; border-bottom: 2px solid #ffffff; background: #0d0d10;">
+          <span style="font-weight: 900; text-transform: uppercase; font-size: 0.9rem; color: #ffffff; letter-spacing: 0.06em;">EXPANDED SERVER CONSOLE TERMINAL</span>
+          <button class="btn btn-close-modal" style="font-size: 1.4rem; background: transparent; border: none; color: #ffffff; font-weight: 900; cursor: pointer; line-height: 1;">&times;</button>
         </div>
-        <div class="modal-body" style="flex: 1; display: flex; flex-direction: column; background: var(--bg-shell); padding: 1rem; overflow: hidden; position: relative;">
+        <div class="modal-body" style="flex: 1; display: flex; flex-direction: column; background: #050505; padding: 1rem; overflow: hidden; position: relative;">
           <div class="terminal-content" id="m-term-output" style="flex: 1; overflow-y: auto; font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.45; white-space: pre-wrap; padding-bottom: 1.5rem; color: var(--text-primary);">${currentLogs}</div>
           <input type="text" id="m-term-input" style="opacity: 0; position: absolute; width: 0; height: 0; pointer-events: none;" autocomplete="off" />
         </div>

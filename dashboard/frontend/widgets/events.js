@@ -10,7 +10,7 @@ export default {
   render(container) {
     container.className = 'grid-events widget-item';
     container.innerHTML = `
-      <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem;">
+      <div class="panel-section-header" style="border-bottom: none !important; padding-bottom: 0.5rem;">
         <span class="panel-title">System Logs & Event Feeds</span>
       </div>
       <div class="events-feed-body" id="w-events-feed" style="max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem; font-family: var(--font-mono); font-size: 0.7rem;">

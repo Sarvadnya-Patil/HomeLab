@@ -243,18 +243,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Bind Login Form Submits
   const loginForm = document.getElementById('login-form');
   const loginError = document.getElementById('login-error');
+
+  // Temporarily hold credentials across the 3-step flow (never stored in DOM or localStorage until fully verified)
+  let pendingCredentials = null;
+
+  // Helper: mask an email like s****v@gmail.com for the hint text
+  const maskEmail = (email) => {
+    const [local, domain] = email.split('@');
+    if (!domain) return email;
+    const masked = local.length <= 2 ? local[0] + '*'.repeat(local.length - 1) : local[0] + '*'.repeat(local.length - 2) + local[local.length - 1];
+    return `${masked}@${domain}`;
+  };
+
+  // ── STEP 1: Username + Password ──
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     loginError.style.display = 'none';
-
     const username = document.getElementById('login-username').value;
     const password = document.getElementById('login-password').value;
 
     try {
       const res = await api.post('/api/v1/auth/login', { username, password });
+
+      if (res.twoFARequired) {
+        // Stash credentials and move to email confirmation step
+        pendingCredentials = { username, password };
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.getElementById('twofa-email-overlay').classList.remove('hidden');
+        // Show a masked hint so the user knows which email to enter
+        const hintEl = document.getElementById('twofa-email-hint');
+        if (hintEl && res.emailHint) hintEl.textContent = `Hint: ${maskEmail(res.emailHint)}`;
+        setTimeout(() => document.getElementById('twofa-email-input')?.focus(), 100);
+        return;
+      }
+
       localStorage.setItem('homelab_token', res.token);
       document.getElementById('login-overlay').classList.add('hidden');
-      
       const user = await api.get('/api/v1/auth/me');
       store.set('currentUser', user);
       if (appShell) appShell.style.display = 'flex';
@@ -264,6 +288,152 @@ document.addEventListener('DOMContentLoaded', async () => {
       loginError.style.display = 'block';
     }
   });
+
+  // Timer state for OTP resend
+  let resendTimerInterval = null;
+  let confirmedEmail = null;
+
+  const startResendTimer = () => {
+    if (resendTimerInterval) clearInterval(resendTimerInterval);
+    let seconds = 60;
+    const btn = document.getElementById('btn-resend-otp');
+    const countSpan = document.getElementById('resend-timer-count');
+    if (!btn || !countSpan) return;
+
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    countSpan.textContent = seconds;
+    btn.childNodes[0].textContent = `Resend OTP (` ;
+
+    resendTimerInterval = setInterval(() => {
+      seconds -= 1;
+      if (seconds <= 0) {
+        clearInterval(resendTimerInterval);
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        btn.innerHTML = `Resend OTP`;
+      } else {
+        countSpan.textContent = seconds;
+      }
+    }, 1000);
+  };
+
+  // ── STEP 2: Email Confirmation ──
+  const twofaEmailForm = document.getElementById('twofa-email-form');
+  const twofaEmailError = document.getElementById('twofa-email-error');
+  twofaEmailForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    twofaEmailError.style.display = 'none';
+    const email = document.getElementById('twofa-email-input').value.trim();
+
+    if (!pendingCredentials) {
+      twofaEmailError.textContent = 'Session expired. Please log in again.';
+      twofaEmailError.style.display = 'block';
+      document.getElementById('twofa-email-overlay').classList.add('hidden');
+      document.getElementById('login-overlay').classList.remove('hidden');
+      return;
+    }
+
+    try {
+      const res = await api.post('/api/v1/auth/2fa-email-confirm', {
+        username: pendingCredentials.username,
+        password: pendingCredentials.password,
+        email
+      });
+
+      if (res.otpDispatched) {
+        // Email confirmed — move to OTP step and start 60s resend timer
+        confirmedEmail = email;
+        document.getElementById('twofa-email-overlay').classList.add('hidden');
+        document.getElementById('twofa-login-overlay').classList.remove('hidden');
+        startResendTimer();
+        setTimeout(() => document.getElementById('twofa-login-otp')?.focus(), 100);
+      }
+    } catch (err) {
+      twofaEmailError.textContent = err.message || 'Email does not match. Please try again.';
+      twofaEmailError.style.display = 'block';
+    }
+  });
+
+  // Resend OTP Button Click
+  const btnResendOtp = document.getElementById('btn-resend-otp');
+  if (btnResendOtp) {
+    btnResendOtp.addEventListener('click', async () => {
+      if (!pendingCredentials || !confirmedEmail) return;
+      const twofaLoginError = document.getElementById('twofa-login-error');
+      try {
+        await api.post('/api/v1/auth/2fa-email-confirm', {
+          username: pendingCredentials.username,
+          password: pendingCredentials.password,
+          email: confirmedEmail
+        });
+        if (twofaLoginError) {
+          twofaLoginError.style.color = '#22c55e';
+          twofaLoginError.textContent = 'New 6-digit OTP code dispatched to your email!';
+          twofaLoginError.style.display = 'block';
+        }
+        startResendTimer();
+      } catch (err) {
+        if (twofaLoginError) {
+          twofaLoginError.style.color = '#ef4444';
+          twofaLoginError.textContent = err.message || 'Failed to resend OTP.';
+          twofaLoginError.style.display = 'block';
+        }
+      }
+    });
+  }
+
+  // ── STEP 3: OTP Entry ──
+  const twofaLoginForm = document.getElementById('twofa-login-form');
+  const twofaLoginError = document.getElementById('twofa-login-error');
+  twofaLoginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    twofaLoginError.style.display = 'none';
+    const otp = document.getElementById('twofa-login-otp').value.trim();
+
+    if (!pendingCredentials) {
+      twofaLoginError.textContent = 'Session expired. Please log in again.';
+      twofaLoginError.style.display = 'block';
+      document.getElementById('twofa-login-overlay').classList.add('hidden');
+      document.getElementById('login-overlay').classList.remove('hidden');
+      return;
+    }
+
+    try {
+      const res = await api.post('/api/v1/auth/2fa-verify', {
+        username: pendingCredentials.username,
+        password: pendingCredentials.password,
+        otp
+      });
+      pendingCredentials = null;
+      localStorage.setItem('homelab_token', res.token);
+      document.getElementById('twofa-login-overlay').classList.add('hidden');
+      const user = await api.get('/api/v1/auth/me');
+      store.set('currentUser', user);
+      if (appShell) appShell.style.display = 'flex';
+      await initializeConsole();
+    } catch (err) {
+      twofaLoginError.textContent = err.message || 'Invalid OTP. Please try again.';
+      twofaLoginError.style.display = 'block';
+    }
+  });
+
+  // Sign Out button
+  const signOutBtn = document.getElementById('btn-sign-out');
+  if (signOutBtn) {
+    signOutBtn.addEventListener('click', () => {
+      pendingCredentials = null;
+      localStorage.removeItem('homelab_token');
+      store.set('currentUser', null);
+      if (appShell) appShell.style.display = 'none';
+      document.getElementById('login-overlay').classList.remove('hidden');
+      document.getElementById('login-username').value = '';
+      document.getElementById('login-password').value = '';
+    });
+  }
+
 
   // Boot startup check
   await checkAuthAndBoot();

@@ -27,7 +27,7 @@ export default {
     container.style.overflowY = 'auto';
     container.style.maxHeight = '100%';
     container.innerHTML = `
-      <div class="panel-section-header" style="border-bottom: 1px solid var(--border-slate); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+      <div class="panel-section-header" style="border-bottom: none !important; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
         <span class="panel-title">Active Environment Services</span>
         <div class="panel-quick-actions">
           <button class="btn btn-panel" id="w-btn-add-category">+ New Category</button>
@@ -236,46 +236,21 @@ export default {
     }
 
     const card = document.createElement("div");
-    card.className = "service-card";
+    card.className = "service-card sq-card-3";
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-service-id', service.id);
 
-    const isTunneled = service.permissions && service.permissions.tunnelExposed;
-    let detailsHtml = '';
-    if (isTunneled) {
-      const latVal = (service.details && service.details.latency && service.details.latency !== 'N/A') 
-        ? service.details.latency 
-        : '--';
-      const portVal = service.ports && service.ports.http ? String(service.ports.http) : 'N/A';
-      const uptimeVal = service.details ? String(service.details.uptime) : 'N/A';
-      detailsHtml = `
-        <div class="detail-item">
-          <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Exposed Port</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(portVal)}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Latency</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(latVal)}</span>
-        </div>
-        <div class="detail-item" style="grid-column: span 2;">
-          <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Uptime</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(uptimeVal)}</span>
-        </div>
-      `;
-    } else {
-      const portVal = service.ports && service.ports.http ? String(service.ports.http) : 'N/A';
-      const uptimeVal = service.details ? String(service.details.uptime) : 'N/A';
-      detailsHtml = `
-        <div class="detail-item">
-          <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Exposed Port</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(portVal)}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label" style="color: var(--text-muted); font-size: 0.6rem; text-transform: uppercase;">Uptime</span>
-          <span class="detail-val" style="font-family: var(--font-mono); color: var(--text-secondary);">${escapeHtml(uptimeVal)}</span>
-        </div>
-      `;
-    }
+    const portVal = service.ports && service.ports.http ? String(service.ports.http) : (service.ports && Object.keys(service.ports).length > 0 ? String(Object.values(service.ports)[0]) : 'N/A');
+    const uptimeVal = service.details ? String(service.details.uptime || 'N/A') : 'N/A';
+    const hasLatency = service.details && service.details.latency && service.details.latency !== 'N/A' && service.details.latency !== '--';
+    const latencyHtml = hasLatency ? `
+      <div>
+        <div class="sq-v3-k">LATENCY</div>
+        <div class="sq-v3-v">${escapeHtml(String(service.details.latency))}</div>
+      </div>
+    ` : '';
+    const rawImage = service.image || service.description || service.version || service.id;
+    const cleanImageVal = rawImage.replace(/^Docker container running image:\s*/i, '').trim();
 
     const guessLogoName = (id) => {
       const ref = id.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -306,36 +281,45 @@ export default {
              alt="${escapeHtml(service.name)}" 
              crossorigin="anonymous"
              data-cache-key="${cacheKey}"
-             style="width: 18px; height: 18px; object-fit: contain;" 
+             style="width: 20px; height: 20px; object-fit: contain;" 
              onload="window.handleLogoLoad(this)"
              onerror="this.onerror=null; const svg=decodeURIComponent('${encodeURIComponent(getIcon(service.id)).replace(/'/g, '%27')}'); if(window.logoUrlCache){window.logoUrlCache.set('${cacheKey}', svg);} this.outerHTML=svg;"/>
       `;
     }
 
     card.innerHTML = `
-      <div class="service-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;">
-        <div style="display: flex; align-items: center; gap: 0.5rem; overflow: hidden;">
-          <span class="card-icon" style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 18px; height: 18px;">
-            ${logoHtml}
-          </span>
-          <div style="overflow: hidden;">
-            <h4 class="service-name" style="margin: 0; font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">${escapeHtml(service.name)}</h4>
-            <span style="font-size: 0.6rem; color: var(--text-muted); font-family: var(--font-mono);">${escapeHtml(service.version)}</span>
+      <div class="sq-v3-head">
+        <div class="sq-v3-head-top">
+          <div style="display:flex;align-items:center;gap:0.45rem;overflow:hidden;">
+            <span class="card-icon" style="flex-shrink:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;">
+              ${logoHtml}
+            </span>
+            <span class="sq-v3-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(service.name)}</span>
+          </div>
+          <div class="sq-v3-badges">
+            <span class="sq-v3-tag">${isPublic ? 'TUNNEL' : 'LOCAL'}</span>
+            <span class="sq-v3-online ${isOnline ? 'online' : 'offline'}">${escapeHtml(service.status).toUpperCase()}</span>
           </div>
         </div>
-        <span class="card-status ${isOnline ? 'online' : 'offline'}" style="flex-shrink: 0; font-size: 0.7rem; font-family: var(--font-mono); display: flex; align-items: center; padding: 0.15rem 0.35rem; border-radius: 3px;">${escapeHtml(service.status)}</span>
+        <div class="sq-v3-img-pill">
+          <span class="sq-v3-img-lbl">IMAGE</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escapeHtml(cleanImageVal)}</span>
+        </div>
       </div>
-      <p class="service-description" style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; min-height: 32px;">${escapeHtml(service.description)}</p>
-      
-      <div class="card-badges-row" style="margin-top: 0.25rem;">
-        ${badges}
+      <div class="sq-v3-hero">
+        <div class="sq-v3-hero-left">
+          <div class="sq-v3-number">${escapeHtml(portVal)}</div>
+          <div class="sq-v3-sub">EXPOSED PORT</div>
+        </div>
+        <div class="sq-v3-hero-right">
+          <div>
+            <div class="sq-v3-k">UPTIME</div>
+            <div class="sq-v3-v">${escapeHtml(uptimeVal)}</div>
+          </div>
+          ${latencyHtml}
+        </div>
       </div>
-
-      <div class="card-grid-details" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; border-top: 1px dashed var(--border-slate); border-bottom: 1px dashed var(--border-slate); padding: 0.5rem 0; font-size: 0.7rem; margin-top: 0.5rem; margin-bottom: 0.5rem;">
-        ${detailsHtml}
-      </div>
-
-      <div class="card-actions-row" style="display: flex; gap: 0.3rem; margin-top: auto;">
+      <div class="sq-v3-btns">
         ${actionButtons}
       </div>
     `;
@@ -364,6 +348,45 @@ export default {
         this.triggerServiceAction(sId, action);
       });
     });
+
+    // Custom cursor tooltip for full untruncated name & image tag
+    const tooltip = document.getElementById('nb-tooltip');
+    if (tooltip) {
+      const bindTooltip = (element, text) => {
+        if (!element) return;
+        element.removeAttribute('title');
+        element.querySelectorAll('*').forEach(child => child.removeAttribute('title'));
+        element.addEventListener('mouseenter', () => {
+          tooltip.textContent = text;
+          tooltip.classList.remove('hidden');
+        });
+        element.addEventListener('mousemove', (e) => {
+          const rect = tooltip.getBoundingClientRect();
+          const tooltipWidth = rect.width || 220;
+          const tooltipHeight = rect.height || 32;
+
+          let x = e.clientX + 14;
+          let y = e.clientY + 14;
+
+          if (x + tooltipWidth > window.innerWidth - 10) {
+            x = e.clientX - tooltipWidth - 14;
+          }
+
+          if (y + tooltipHeight > window.innerHeight - 10) {
+            y = e.clientY - tooltipHeight - 14;
+          }
+
+          tooltip.style.left = `${Math.max(10, x)}px`;
+          tooltip.style.top = `${Math.max(10, y)}px`;
+        });
+        element.addEventListener('mouseleave', () => {
+          tooltip.classList.add('hidden');
+        });
+      };
+
+      bindTooltip(card.querySelector('.sq-v3-name'), service.name);
+      bindTooltip(card.querySelector('.sq-v3-img-pill'), `IMAGE: ${cleanImageVal}`);
+    }
 
     return card;
   },
@@ -666,6 +689,7 @@ export default {
     // Default pre-seeded category templates
     const defaultTemplates = [
       { id: 'infrastructure', name: 'Infrastructure', accent: '#3b82f6' },
+      { id: 'automation', name: 'Automation', accent: '#a855f7' },
       { id: 'monitoring', name: 'Monitoring', accent: '#10b981' },
       { id: 'ai', name: 'AI Stack', accent: '#f59e0b' },
       { id: 'networking', name: 'Networking', accent: '#06b6d4' },

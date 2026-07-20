@@ -40,6 +40,10 @@
             <span class="user-role" id="user-role" style="font-size: 0.6rem; color: var(--text-muted); font-family: var(--font-mono); text-transform: uppercase;">ADMIN</span>
           </div>
         </div>
+        <button id="btn-sign-out" title="Sign Out" style="display: flex; align-items: center; gap: 0.5rem; width: 100%; background: transparent; border: 1px solid rgba(255,255,255,0.12); color: #a1a1aa; font-family: var(--font-mono); font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 0.45rem 0.75rem; cursor: pointer; letter-spacing: 0.08em; margin-bottom: 0.5rem; transition: all 0.15s;" onmouseover="this.style.borderColor='#ef4444';this.style.color='#ef4444';" onmouseout="this.style.borderColor='rgba(255,255,255,0.12)';this.style.color='#a1a1aa';">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          SIGN OUT
+        </button>
         <div class="os-version" id="host-kernel">Kernel: Detecting...</div>
       </div>
     </aside>
@@ -90,34 +94,34 @@
   <div id="setup-wizard-overlay" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
-        <h2 style="font-size: 1.3rem; margin-bottom: 0.25rem;">Console Setup Wizard</h2>
-        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 1.5rem;">Configure the primary Super Admin account to initialize HomeLab OS.</p>
+        <h2>Console Setup Wizard</h2>
+        <p>Configure the primary Super Admin account to initialize HomeLab OS.</p>
       </div>
       <form id="setup-form">
-        <div class="form-group" style="margin-bottom: 1rem; text-align: left;">
-          <label for="setup-username" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">USERNAME</label>
-          <input type="text" id="setup-username" placeholder="admin" required autocomplete="off" style="width: 100%; padding: 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
+        <div class="form-group">
+          <label for="setup-username">USERNAME</label>
+          <input type="text" id="setup-username" placeholder="admin" required autocomplete="off">
         </div>
-        <div class="form-group" style="margin-bottom: 1rem; text-align: left;">
-          <label for="setup-display-name" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">DISPLAY NAME</label>
-          <input type="text" id="setup-display-name" placeholder="Administrator" required autocomplete="off" style="width: 100%; padding: 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
+        <div class="form-group">
+          <label for="setup-display-name">DISPLAY NAME</label>
+          <input type="text" id="setup-display-name" placeholder="Administrator" required autocomplete="off">
         </div>
-        <div class="form-group" style="margin-bottom: 1rem; text-align: left;">
-          <label for="setup-password" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">PASSWORD</label>
+        <div class="form-group">
+          <label for="setup-password">PASSWORD</label>
           <div style="position: relative; display: flex; align-items: center;">
-            <input type="password" id="setup-password" placeholder="••••••••" required style="width: 100%; padding: 0.6rem 3rem 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
-            <button type="button" class="password-toggle-btn" data-target="setup-password" style="position: absolute; right: 0.6rem; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.75rem; outline: none; font-family: var(--font-mono); user-select: none;">SHOW</button>
+            <input type="password" id="setup-password" placeholder="••••••••" required style="padding-right: 3.5rem;">
+            <button type="button" class="password-toggle-btn" data-target="setup-password" style="position: absolute; right: 0.6rem;">SHOW</button>
           </div>
         </div>
-        <div class="form-group" style="margin-bottom: 1.5rem; text-align: left;">
-          <label for="setup-confirm-password" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">CONFIRM PASSWORD</label>
+        <div class="form-group">
+          <label for="setup-confirm-password">CONFIRM PASSWORD</label>
           <div style="position: relative; display: flex; align-items: center;">
-            <input type="password" id="setup-confirm-password" placeholder="Re-enter password" required style="width: 100%; padding: 0.6rem 3rem 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
-            <button type="button" class="password-toggle-btn" data-target="setup-confirm-password" style="position: absolute; right: 0.6rem; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.75rem; outline: none; font-family: var(--font-mono); user-select: none;">SHOW</button>
+            <input type="password" id="setup-confirm-password" placeholder="Re-enter password" required style="padding-right: 3.5rem;">
+            <button type="button" class="password-toggle-btn" data-target="setup-confirm-password" style="position: absolute; right: 0.6rem;">SHOW</button>
           </div>
         </div>
-        <div class="form-error" id="setup-error" style="color: #ef4444; font-size: 0.75rem; margin-bottom: 1rem; text-align: left; display: none;"></div>
-        <button type="submit" id="btn-setup-submit" class="btn-primary" disabled style="width: 100%; padding: 0.75rem; background: var(--border-slate); color: var(--bg-shell); border: none; font-weight: 600; border-radius: 4px; cursor: not-allowed; font-family: var(--font-sans);">Initialize Credentials</button>
+        <div class="form-error" id="setup-error" style="color: #ef4444; font-size: 0.75rem; display: none;"></div>
+        <button type="submit" id="btn-setup-submit" class="btn-primary" disabled>Initialize Credentials</button>
       </form>
     </div>
   </div>
@@ -126,23 +130,68 @@
   <div id="login-overlay" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
-        <h2 style="font-size: 1.3rem; margin-bottom: 0.25rem;">Access Console</h2>
-        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 1.5rem;">Authenticate to access the HomeLab OS secure dashboard.</p>
+        <h2>Access Console</h2>
+        <p>Authenticate to access the HomeLab OS secure dashboard.</p>
       </div>
       <form id="login-form">
-        <div class="form-group" style="margin-bottom: 1rem; text-align: left;">
-          <label for="login-username" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">USERNAME</label>
-          <input type="text" id="login-username" placeholder="Username" required autocomplete="off" style="width: 100%; padding: 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
+        <div class="form-group">
+          <label for="login-username">USERNAME</label>
+          <input type="text" id="login-username" placeholder="Username" required autocomplete="off">
         </div>
-        <div class="form-group" style="margin-bottom: 1.5rem; text-align: left;">
-          <label for="login-password" style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono);">PASSWORD</label>
-          <input type="password" id="login-password" placeholder="••••••••" required style="width: 100%; padding: 0.6rem 0.8rem; background: var(--bg-shell); border: 1px solid var(--border-slate); color: var(--text-primary); border-radius: 4px; font-family: var(--font-sans); outline: none;">
+        <div class="form-group">
+          <label for="login-password">PASSWORD</label>
+          <input type="password" id="login-password" placeholder="••••••••" required>
         </div>
-        <div class="form-error" id="login-error" style="color: #ef4444; font-size: 0.75rem; margin-bottom: 1rem; text-align: left; display: none;"></div>
-        <button type="submit" class="btn-primary" style="width: 100%; padding: 0.75rem; background: var(--text-primary); color: var(--bg-shell); border: none; font-weight: 600; border-radius: 4px; cursor: pointer; font-family: var(--font-sans);">Authenticate</button>
+        <div class="form-error" id="login-error" style="color: #ef4444; font-size: 0.75rem; display: none;"></div>
+        <button type="submit" class="btn-primary">Authenticate</button>
       </form>
     </div>
   </div>
+
+  <!-- 2FA Login: Step 1 — Email Confirmation -->
+  <div id="twofa-email-overlay" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Confirm Your Email</h2>
+        <p>2FA is enabled. Enter your registered email address to receive a verification code.</p>
+      </div>
+      <form id="twofa-email-form">
+        <div class="form-group">
+          <label for="twofa-email-input">REGISTERED 2FA EMAIL</label>
+          <input type="email" id="twofa-email-input" placeholder="your@email.com" autocomplete="email" required>
+          <div id="twofa-email-hint" style="font-size: 0.65rem; color: #a1a1aa; margin-top: 0.35rem; font-family: monospace;"></div>
+        </div>
+        <div class="form-error" id="twofa-email-error" style="color: #ef4444; font-size: 0.75rem; display: none;"></div>
+        <button type="submit" class="btn-primary">CONFIRM & SEND OTP</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2FA Login: Step 2 — OTP Entry -->
+  <div id="twofa-login-overlay" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>2FA Verification Required</h2>
+        <p>A 6-digit code has been sent to your registered email. Enter it below to complete login.</p>
+      </div>
+      <form id="twofa-login-form">
+        <div class="form-group">
+          <label for="twofa-login-otp">6-DIGIT OTP CODE</label>
+          <input type="text" id="twofa-login-otp" placeholder="123456" maxlength="6" autocomplete="one-time-code" style="text-align: center; font-size: 1.5rem; letter-spacing: 8px; font-weight: 900;" required>
+        </div>
+        <div class="form-error" id="twofa-login-error" style="color: #ef4444; font-size: 0.75rem; display: none;"></div>
+        <button type="submit" class="btn-primary">VERIFY & LOGIN</button>
+        <div style="margin-top: 1rem; text-align: center;">
+          <button type="button" id="btn-resend-otp" disabled style="background: transparent; border: none; color: #a1a1aa; font-family: monospace; font-size: 0.75rem; cursor: pointer; text-decoration: underline;">
+            Resend OTP (<span id="resend-timer-count">60</span>s)
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Custom Blueprint White Cursor Tooltip -->
+  <div id="nb-tooltip" class="nb-tooltip hidden"></div>
 
   <!-- JavaScript App Bootstrapper Module -->
   <script type="module" src="app.js"></script>
