@@ -95,7 +95,7 @@ export const AppHealth = {
       const iconHtml = getIcon(iconName);
 
       html += `
-        <div class="res-card" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; border-radius: 0; font-family: var(--font-mono);">
+        <div class="res-card" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem; background: #0e0e11; border: 2px solid #ffffff; box-shadow: none; border-radius: 0; font-family: var(--font-mono);">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <span style="font-weight: 900; text-transform: uppercase; color: #ffffff; display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem;">
               ${iconHtml} ${name.replace('_', ' ')}
@@ -144,7 +144,7 @@ export const AppHealth = {
 
     container.innerHTML = `
       <!-- Host Platform specs -->
-      <div class="res-card" style="padding: 1.25rem; background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; border-radius: 0; display: flex; flex-direction: column; gap: 0.6rem; font-family: var(--font-mono);">
+      <div class="res-card" style="padding: 1.25rem; background: #0e0e11; border: 2px solid #ffffff; box-shadow: none; border-radius: 0; display: flex; flex-direction: column; gap: 0.6rem; font-family: var(--font-mono);">
         <div style="font-weight: 900; color: #ffffff; font-size: 0.8rem; text-transform: uppercase; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px dashed #33333e; padding-bottom: 0.5rem;">
           ${getIcon('server')} Host Node Platform Specification
         </div>
@@ -159,7 +159,7 @@ export const AppHealth = {
       </div>
 
       <!-- Container local specs -->
-      <div class="res-card" style="padding: 1.25rem; background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; border-radius: 0; display: flex; flex-direction: column; gap: 0.6rem; font-family: var(--font-mono);">
+      <div class="res-card" style="padding: 1.25rem; background: #0e0e11; border: 2px solid #ffffff; box-shadow: none; border-radius: 0; display: flex; flex-direction: column; gap: 0.6rem; font-family: var(--font-mono);">
         <div style="font-weight: 900; color: #ffffff; font-size: 0.8rem; text-transform: uppercase; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px dashed #33333e; padding-bottom: 0.5rem;">
           ${getIcon('grid')} HomeLab Dashboard Container Context
         </div>
