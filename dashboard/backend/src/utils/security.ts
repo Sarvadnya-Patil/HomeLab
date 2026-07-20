@@ -131,13 +131,14 @@ export function verifyServerOTP(email: string, userEnteredOtp: string): { valid:
 }
 
 /**
- * Send an email via SMTP (STARTTLS / TLS socket)
+ * Send an email via SMTP (STARTTLS / Direct TLS socket)
+ * Properly implements RFC 3207 STARTTLS: waits for TLS secureConnect before
+ * sending fresh EHLO, then AUTH PLAIN — fixing Gmail auth rejection.
  */
 export async function sendSMTPEmail(config: SMTPConfig, toEmail: string, subject: string, htmlBody: string): Promise<boolean> {
   Logger.info('SMTP', `Initiating SMTP mail transport to ${toEmail} via ${config.smtpHost}:${config.smtpPort}`);
 
   return new Promise((resolve) => {
-    // Basic socket timeout protection
     let socket: net.Socket | tls.TLSSocket;
     let resolved = false;
 
@@ -148,71 +149,90 @@ export async function sendSMTPEmail(config: SMTPConfig, toEmail: string, subject
       if (success) {
         Logger.info('SMTP', `Email successfully delivered to ${toEmail}: ${msg}`);
       } else {
-        Logger.warn('SMTP', `SMTP transport completed/fallback: ${msg}`);
+        Logger.error('SMTP', `SMTP delivery failed: ${msg}`);
       }
-      resolve(true); // Resolve gracefully so UI can proceed with verification flow
+      resolve(success);
+    };
+
+    const sendLine = (line: string) => {
+      Logger.debug('SMTP', `>> ${line.trim()}`);
+      socket.write(`${line}\r\n`);
     };
 
     try {
       const port = Number(config.smtpPort) || 587;
       const isDirectTLS = port === 465;
-
-      if (isDirectTLS) {
-        socket = tls.connect({ host: config.smtpHost, port, rejectUnauthorized: false }, () => onConnected());
-      } else {
-        socket = net.createConnection({ host: config.smtpHost, port }, () => onConnected());
-      }
-
-      socket.setTimeout(8000, () => {
-        cleanup(false, 'SMTP socket timeout - fallback notification logged');
-      });
-
-      socket.on('error', (err) => {
-        cleanup(false, `SMTP socket error (${err.message}) - simulated delivery for verification`);
-      });
-
       let step = 0;
-      const onConnected = () => {
-        // Socket opened
-      };
 
-      socket.on('data', (data) => {
-        const response = data.toString();
-        
+      const processData = (data: Buffer) => {
+        const response = data.toString().trim();
+        Logger.debug('SMTP', `<< ${response}`);
+
+        // Step 0: Server greeting 220
         if (step === 0 && response.startsWith('220')) {
-          socket.write(`EHLO ${config.smtpHost}\r\n`);
+          sendLine(`EHLO homelab`);
           step = 1;
+
+        // Step 1: EHLO response — decide STARTTLS or direct auth
         } else if (step === 1 && response.startsWith('250')) {
           if (!isDirectTLS && response.includes('STARTTLS')) {
-            socket.write(`STARTTLS\r\n`);
+            sendLine(`STARTTLS`);
             step = 2;
           } else {
-            // Send auth
             const authStr = Buffer.from(`\0${config.smtpUser}\0${config.smtpPass}`).toString('base64');
-            socket.write(`AUTH PLAIN ${authStr}\r\n`);
-            step = 3;
+            sendLine(`AUTH PLAIN ${authStr}`);
+            step = 4;
           }
+
+        // Step 2: STARTTLS acknowledged — upgrade socket to TLS
         } else if (step === 2 && response.startsWith('220')) {
-          // Upgrade to TLS
+          socket.removeAllListeners('data');
+          socket.removeAllListeners('error');
+          socket.removeAllListeners('timeout');
+
           const tlsSocket = tls.connect({
             socket: socket as net.Socket,
             host: config.smtpHost,
             rejectUnauthorized: false
           });
+
           socket = tlsSocket;
+
+          // CRITICAL: Wait for full TLS handshake before writing ANYTHING
+          tlsSocket.once('secureConnect', () => {
+            Logger.info('SMTP', 'TLS handshake complete. Sending post-STARTTLS EHLO.');
+            tlsSocket.write(`EHLO homelab\r\n`);
+            step = 3;
+          });
+
+          tlsSocket.on('data', processData);
+          tlsSocket.on('error', (err) => cleanup(false, `TLS socket error: ${err.message}`));
+          tlsSocket.setTimeout(10000, () => cleanup(false, 'TLS socket timeout'));
+          return;
+
+        // Step 3: Post-STARTTLS EHLO response — now send AUTH PLAIN
+        } else if (step === 3 && response.startsWith('250')) {
           const authStr = Buffer.from(`\0${config.smtpUser}\0${config.smtpPass}`).toString('base64');
-          tlsSocket.write(`EHLO ${config.smtpHost}\r\nAUTH PLAIN ${authStr}\r\n`);
-          step = 3;
-        } else if (step === 3 && (response.startsWith('235') || response.startsWith('250'))) {
-          socket.write(`MAIL FROM:<${config.senderEmail || config.smtpUser}>\r\n`);
+          sendLine(`AUTH PLAIN ${authStr}`);
           step = 4;
-        } else if (step === 4 && response.startsWith('250')) {
-          socket.write(`RCPT TO:<${toEmail}>\r\n`);
+
+        // Step 4: AUTH accepted (235)
+        } else if (step === 4 && response.startsWith('235')) {
+          sendLine(`MAIL FROM:<${config.senderEmail || config.smtpUser}>`);
           step = 5;
+
+        // Step 5: MAIL FROM accepted
         } else if (step === 5 && response.startsWith('250')) {
-          socket.write(`DATA\r\n`);
+          sendLine(`RCPT TO:<${toEmail}>`);
           step = 6;
-        } else if (step === 6 && response.startsWith('354')) {
+
+        // Step 6: RCPT TO accepted
+        } else if (step === 6 && response.startsWith('250')) {
+          sendLine(`DATA`);
+          step = 7;
+
+        // Step 7: DATA command accepted (354)
+        } else if (step === 7 && response.startsWith('354')) {
           const rawMessage = [
             `From: "${config.senderName || 'HomeLab Security'}" <${config.senderEmail || config.smtpUser}>`,
             `To: <${toEmail}>`,
@@ -224,12 +244,37 @@ export async function sendSMTPEmail(config: SMTPConfig, toEmail: string, subject
             `.`
           ].join('\r\n');
           socket.write(`${rawMessage}\r\n`);
-          step = 7;
-        } else if (step === 7 && response.startsWith('250')) {
-          socket.write(`QUIT\r\n`);
-          cleanup(true, '250 Message accepted');
+          step = 8;
+
+        // Step 8: Message accepted (250)
+        } else if (step === 8 && response.startsWith('250')) {
+          sendLine(`QUIT`);
+          cleanup(true, '250 Message accepted and delivered');
+
+        // Explicit auth failure
+        } else if (response.startsWith('535')) {
+          cleanup(false, `AUTH failed (535): Incorrect App Password or username. Response: ${response}`);
+
+        // Other SMTP 5xx fatal errors
+        } else if (response.startsWith('5')) {
+          cleanup(false, `SMTP server error at step ${step}: ${response}`);
         }
-      });
+      };
+
+      if (isDirectTLS) {
+        socket = tls.connect({ host: config.smtpHost, port, rejectUnauthorized: false }, () => {
+          Logger.info('SMTP', 'Direct TLS connected.');
+        });
+      } else {
+        socket = net.createConnection({ host: config.smtpHost, port }, () => {
+          Logger.info('SMTP', `TCP connected to ${config.smtpHost}:${port}. Awaiting server greeting...`);
+        });
+      }
+
+      socket.setTimeout(10000, () => cleanup(false, 'Initial SMTP connection timeout'));
+      socket.on('error', (err) => cleanup(false, `Socket error: ${err.message}`));
+      socket.on('data', processData);
+
     } catch (err: any) {
       cleanup(false, err.message);
     }
