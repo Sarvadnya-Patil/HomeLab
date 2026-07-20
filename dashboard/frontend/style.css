@@ -152,13 +152,23 @@ body {
 }
 
 .nav-item:hover .sidebar-svg,
-.nav-item.active .sidebar-svg {
-  stroke: #000000;
+.nav-item.active .sidebar-svg,
+.nav-item:hover svg,
+.nav-item.active svg {
+  stroke: #000000 !important;
+  color: #000000 !important;
+}
+
+.nav-item:hover svg *,
+.nav-item.active svg *,
+.nav-item:hover .sidebar-svg *,
+.nav-item.active .sidebar-svg * {
+  stroke: #000000 !important;
 }
 
 .nav-item:hover .sidebar-svg rect:not([fill="none"]),
 .nav-item.active .sidebar-svg rect:not([fill="none"]) {
-  fill: #000000;
+  fill: #000000 !important;
 }
 
 .sidebar-footer {
@@ -1811,11 +1821,11 @@ input[type=number] {
 }
 
 .docker-view-content {
-  background-color: #0e0e11 !important;
-  border: 2px solid #ffffff !important;
-  box-shadow: 6px 6px 0 #ffffff !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   border-radius: 0 !important;
-  padding: 1.25rem !important;
+  padding: 0 !important;
   margin-top: 1rem;
 }
 
