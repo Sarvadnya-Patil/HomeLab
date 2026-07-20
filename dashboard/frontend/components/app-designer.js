@@ -265,7 +265,7 @@ export const AppDesigner = {
           <div style="display: flex; gap: 0.5rem;">
             <button class="btn btn-panel" id="btn-auto-layout" style="background: #000000; color: #ffffff; border: 1px solid #ffffff; font-size: 0.68rem; font-weight: 900; text-transform: uppercase; padding: 0.35rem 0.75rem;">AUTO ALIGN</button>
             <button class="btn btn-panel" id="btn-fit-screen" style="background: #000000; color: #ffffff; border: 1px solid #ffffff; font-size: 0.68rem; font-weight: 900; text-transform: uppercase; padding: 0.35rem 0.75rem;">FIT VIEW</button>
-            <button class="btn btn-primary" id="btn-deploy-stack" style="background: #ffffff; color: #000000; border: 2px solid #ffffff; font-size: 0.68rem; font-weight: 900; text-transform: uppercase; padding: 0.35rem 0.85rem; box-shadow: 3px 3px 0 #e4e4e7;">DEPLOY STACK</button>
+            <button class="btn btn-primary" id="btn-deploy-stack" style="background: #ffffff; color: #000000; border: 2px solid #ffffff; font-size: 0.68rem; font-weight: 900; text-transform: uppercase; padding: 0.35rem 0.85rem; box-shadow: 3px 3px 0 #888888;">DEPLOY STACK</button>
           </div>
         </div>
 
@@ -289,7 +289,7 @@ export const AppDesigner = {
                 </div>
 
                 <div id="container-control-actions" style="margin-top: 1.25rem; display: flex; flex-direction: column; gap: 0.45rem;">
-                  <button class="btn btn-primary btn-action-trigger" data-action="start" style="background: #ffffff; border: 2px solid #ffffff; color: #000000; font-size: 0.7rem; font-weight: 900; padding: 0.45rem; text-transform: uppercase; box-shadow: 3px 3px 0 #e4e4e7;">START CONTAINER</button>
+                  <button class="btn btn-primary btn-action-trigger" data-action="start" style="background: #ffffff; border: 2px solid #ffffff; color: #000000; font-size: 0.7rem; font-weight: 900; padding: 0.45rem; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">START CONTAINER</button>
                   <button class="btn btn-card-act btn-action-trigger" data-action="stop" style="background: #ef4444; border: 2px solid #ef4444; color: #ffffff; font-size: 0.7rem; font-weight: 900; padding: 0.45rem; text-transform: uppercase;">STOP CONTAINER</button>
                   <button class="btn btn-card-act btn-action-trigger" data-action="restart" style="font-size: 0.7rem; padding: 0.45rem; background: #000000; border: 1px solid #ffffff; color: #ffffff; font-weight: 900; text-transform: uppercase;">RESTART</button>
                 </div>
