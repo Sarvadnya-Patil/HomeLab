@@ -730,20 +730,36 @@ button,
   color: var(--text-secondary);
 }
 
-/* Scrollbar Style */
+/* Blueprint White Neo-Brutalist Custom Scrollbar System */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff #000000;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
-  background: var(--bg-shell);
+  background: #000000;
+  border-left: 1px solid #1a1a20;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: var(--border-slate);
-  border-radius: 3px;
+  background: #ffffff;
+  border-radius: 0 !important;
+  border: 1px solid #000000;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.4);
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: #ffffff;
+  box-shadow: 0 0 8px #ffffff;
+}
+
+::-webkit-scrollbar-corner {
+  background: #000000;
 }
 
 /* ========================================================
