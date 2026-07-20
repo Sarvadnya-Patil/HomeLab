@@ -255,53 +255,53 @@ export const AppDesigner = {
         }
       </style>
 
-      <div class="designer-layout" style="display: flex; flex-direction: column; height: 100%; gap: 1rem; color: var(--text-slate); user-select: none;">
-        <div class="designer-toolbar" style="display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.4); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border-slate); backdrop-filter: blur(10px);">
+      <div class="designer-layout" style="display: flex; flex-direction: column; height: 100%; gap: 1.25rem; color: #ffffff; user-select: none; font-family: var(--font-mono);">
+        <div class="designer-toolbar" style="display: flex; justify-content: space-between; align-items: center; background: #0d0d10; padding: 0.85rem 1.25rem; border-radius: 0; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff;">
           <div>
-            <h2 style="margin: 0; font-size: 1.1rem; color: #fff; font-weight: 600;">Topology</h2>
-            <span style="font-size: 0.7rem; color: var(--text-muted);">Interactive status mapping, connection flow & stack control panel</span>
+            <h2 style="margin: 0; font-size: 1rem; color: #ffffff; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em;">TOPOLOGY ENGINE MATRIX</h2>
+            <span style="font-size: 0.68rem; color: #a1a1aa; font-family: var(--font-mono);">Interactive status mapping, connection flow & stack control panel</span>
           </div>
           <div style="display: flex; gap: 0.5rem;">
-            <button class="btn btn-card-act" id="btn-auto-layout" style="background: rgba(255, 255, 255, 0.05); color: #fff;">Auto Align</button>
-            <button class="btn btn-card-act" id="btn-fit-screen" style="background: rgba(255, 255, 255, 0.05); color: #fff;">Fit View</button>
-            <button class="btn btn-primary" id="btn-deploy-stack" style="background: var(--term-green); border: none; color: #000; font-weight: 600;">Deploy Stack</button>
+            <button class="btn btn-panel" id="btn-auto-layout" style="background: #000000; color: #ffffff; border: 1px solid #ffffff; font-size: 0.68rem; font-weight: 900; text-transform: uppercase; padding: 0.35rem 0.75rem;">AUTO ALIGN</button>
+            <button class="btn btn-panel" id="btn-fit-screen" style="background: #000000; color: #ffffff; border: 1px solid #ffffff; font-size: 0.68rem; font-weight: 900; text-transform: uppercase; padding: 0.35rem 0.75rem;">FIT VIEW</button>
+            <button class="btn btn-primary" id="btn-deploy-stack" style="background: #ffffff; color: #000000; border: 2px solid #ffffff; font-size: 0.68rem; font-weight: 900; text-transform: uppercase; padding: 0.35rem 0.85rem; box-shadow: 2px 2px 0 #555555;">DEPLOY STACK</button>
           </div>
         </div>
 
-        <div style="display: flex; flex: 1; gap: 1rem; min-height: 450px; position: relative;">
+        <div style="display: flex; flex: 1; gap: 1.25rem; min-height: 450px; position: relative;">
           <!-- Left sidebar (Properties Panel) -->
-          <div class="designer-sidebar" style="width: 250px; background: rgba(30, 41, 59, 0.3); border-radius: 8px; border: 1px solid var(--border-slate); padding: 0.85rem; display: flex; flex-direction: column; gap: 0.75rem; z-index: 10;">
+          <div class="designer-sidebar" style="width: 260px; background: #0e0e11; border-radius: 0; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; z-index: 10;">
             <div id="node-config-panel" style="display: none;">
-              <span style="font-size: 0.75rem; font-weight: 600; color: #fff; display: block; margin-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.25rem;">Node Properties</span>
-              <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              <span style="font-size: 0.8rem; font-weight: 900; color: #ffffff; text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 0.75rem; border-bottom: 2px solid #ffffff; padding-bottom: 0.4rem;">NODE PROPERTIES</span>
+              <div style="display: flex; flex-direction: column; gap: 0.6rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span style="font-size: 0.65rem; color: var(--text-muted);">Identifier:</span>
-                  <span id="node-prop-id" style="font-family: monospace; font-size: 0.7rem; color: #fff;"></span>
+                  <span style="font-size: 0.65rem; color: #a1a1aa; text-transform: uppercase;">Identifier:</span>
+                  <span id="node-prop-id" style="font-family: var(--font-mono); font-size: 0.7rem; color: #ffffff; font-weight: 800;"></span>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span style="font-size: 0.65rem; color: var(--text-muted);">Type:</span>
-                  <span id="node-prop-type" style="text-transform: uppercase; font-size: 0.65rem; color: #fff;"></span>
+                  <span style="font-size: 0.65rem; color: #a1a1aa; text-transform: uppercase;">Type:</span>
+                  <span id="node-prop-type" style="text-transform: uppercase; font-size: 0.65rem; color: #ffffff; font-weight: 900;"></span>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span style="font-size: 0.65rem; color: var(--text-muted);">Status:</span>
-                  <span id="node-prop-status-badge" style="font-size: 0.6rem; font-weight: 700; border: 1px solid #fff; padding: 0.1rem 0.3rem; border-radius: 4px;"></span>
+                  <span style="font-size: 0.65rem; color: #a1a1aa; text-transform: uppercase;">Status:</span>
+                  <span id="node-prop-status-badge" style="font-size: 0.6rem; font-weight: 900; border: 1px solid #ffffff; padding: 0.15rem 0.45rem; border-radius: 0; text-transform: uppercase;"></span>
                 </div>
 
-                <div id="container-control-actions" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.4rem;">
-                  <button class="btn btn-primary btn-action-trigger" data-action="start" style="background: var(--term-green); border: none; color: #000; font-size: 0.7rem; font-weight: 600; padding: 0.35rem;">Start Container</button>
-                  <button class="btn btn-card-act btn-action-trigger" data-action="stop" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fff; font-size: 0.7rem; font-weight: 600; padding: 0.35rem;">Stop Container</button>
-                  <button class="btn btn-card-act btn-action-trigger" data-action="restart" style="font-size: 0.7rem; padding: 0.35rem; background: rgba(255,255,255,0.05);">Restart</button>
+                <div id="container-control-actions" style="margin-top: 1.25rem; display: flex; flex-direction: column; gap: 0.45rem;">
+                  <button class="btn btn-primary btn-action-trigger" data-action="start" style="background: #ffffff; border: 2px solid #ffffff; color: #000000; font-size: 0.7rem; font-weight: 900; padding: 0.45rem; text-transform: uppercase; box-shadow: 2px 2px 0 #555555;">START CONTAINER</button>
+                  <button class="btn btn-card-act btn-action-trigger" data-action="stop" style="background: #ef4444; border: 2px solid #ef4444; color: #ffffff; font-size: 0.7rem; font-weight: 900; padding: 0.45rem; text-transform: uppercase;">STOP CONTAINER</button>
+                  <button class="btn btn-card-act btn-action-trigger" data-action="restart" style="font-size: 0.7rem; padding: 0.45rem; background: #000000; border: 1px solid #ffffff; color: #ffffff; font-weight: 900; text-transform: uppercase;">RESTART</button>
                 </div>
               </div>
             </div>
             
-            <div id="no-selected-panel" style="font-size: 0.7rem; color: var(--text-muted); text-align: center; margin-top: 2rem;">
-              Click on a node in the topology view to configure properties and trigger live container controls.
+            <div id="no-selected-panel" style="font-size: 0.72rem; color: #a1a1aa; text-align: center; margin-top: 2rem; font-family: var(--font-mono); font-weight: 800; text-transform: uppercase; line-height: 1.5;">
+              Select a node in the topology canvas to inspect properties and execute controls.
             </div>
           </div>
 
           <!-- Canvas container -->
-          <div class="designer-canvas" id="canvas-area" style="flex: 1; background: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 20px 20px; border-radius: 8px; border: 1px solid var(--border-slate); position: relative; overflow: hidden; min-height: 400px; cursor: grab;">
+          <div class="designer-canvas" id="canvas-area" style="flex: 1; background-color: #050505; background-image: radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px); background-size: 20px 20px; border-radius: 0; border: 2px solid #ffffff; box-shadow: 6px 6px 0 #ffffff; position: relative; overflow: hidden; min-height: 400px; cursor: grab;">
             <div id="canvas-transform-wrapper" style="position: absolute; top:0; left:0; width:100%; height:100%; transform-origin: 0 0;">
               <svg id="canvas-connections" style="position: absolute; top:0; left:0; width:3000px; height:3000px; pointer-events:none; z-index: 1;"></svg>
               <div id="nodes-container" style="position: absolute; top:0; left:0; width:3000px; height:3000px; z-index: 2;"></div>
@@ -354,7 +354,7 @@ export const AppDesigner = {
       nodeEl.style.position = 'absolute';
       nodeEl.style.width = '150px';
       nodeEl.style.height = '50px';
-      nodeEl.style.borderRadius = '8px';
+      nodeEl.style.borderRadius = '0';
       nodeEl.style.cursor = 'move';
       nodeEl.style.userSelect = 'none';
       nodeEl.style.display = 'flex';
@@ -362,17 +362,10 @@ export const AppDesigner = {
       nodeEl.style.justifyContent = 'center';
       nodeEl.style.alignItems = 'center';
       nodeEl.style.textAlign = 'center';
-
-      let border = '1px solid var(--border-slate)';
-      let bg = 'rgba(30, 41, 59, 0.95)';
-      if (node.type === 'internet') { border = '1px solid #3b82f6'; bg = 'rgba(59, 130, 246, 0.15)'; }
-      else if (node.type === 'tunnel') { border = '1px solid #f97316'; bg = 'rgba(249, 115, 22, 0.15)'; }
-      else if (node.type === 'proxy') { border = '1px solid #a855f7'; bg = 'rgba(168, 85, 247, 0.15)'; }
-      else if (node.type === 'container') { border = '1px solid var(--term-green)'; bg = 'rgba(34, 197, 94, 0.12)'; }
-
-      nodeEl.style.border = border;
-      nodeEl.style.background = bg;
-      nodeEl.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
+      nodeEl.style.border = '2px solid #ffffff';
+      nodeEl.style.background = selectedNodeId === node.id ? '#ffffff' : '#0e0e11';
+      nodeEl.style.boxShadow = selectedNodeId === node.id ? '5px 5px 0 #ffffff' : '3px 3px 0 #ffffff';
+      nodeEl.style.fontFamily = 'var(--font-mono)';
 
       // Show real state colors
       const isOnline = node.status === 'online';

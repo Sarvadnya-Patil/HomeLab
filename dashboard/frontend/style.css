@@ -402,13 +402,13 @@ body {
   padding-top: 0.35rem;
 }
 
-/* Row 3: Services Grid Section */
+/* Row 3: Services Grid Section - Blueprint White Neo-Brutalist */
 .grid-services {
   background-color: #0e0e11;
   border: 2px solid #ffffff !important;
   border-radius: 0 !important;
-  box-shadow: none !important;
-  padding: 1rem;
+  box-shadow: 6px 6px 0 #ffffff !important;
+  padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
