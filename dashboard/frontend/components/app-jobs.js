@@ -293,13 +293,13 @@ export const AppJobs = {
         </div>
         <div style="display: flex; gap: 0.5rem;">
           ${isRunning ? `
-            <button class="btn" id="btn-job-abort" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fff; font-size: 0.65rem; font-weight: 600; padding: 0.3rem 0.6rem; border-radius: 4px;">
-              Abort Execution
+            <button class="btn" id="btn-job-abort" style="background: #ef4444; border: 2px solid #ef4444; color: #ffffff; font-size: 0.65rem; font-weight: 900; padding: 0.35rem 0.65rem; border-radius: 0; text-transform: uppercase;">
+              ABORT EXECUTION
             </button>
           ` : ''}
           ${job.status === 'failed' ? `
-            <button class="btn" id="btn-job-retry" style="background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #fff; font-size: 0.65rem; font-weight: 600; padding: 0.3rem 0.6rem; border-radius: 4px;">
-              Retry Job
+            <button class="btn" id="btn-job-retry" style="background: #ffffff; border: 2px solid #ffffff; color: #000000; font-size: 0.65rem; font-weight: 900; padding: 0.35rem 0.65rem; border-radius: 0; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">
+              RETRY JOB
             </button>
           ` : ''}
         </div>
