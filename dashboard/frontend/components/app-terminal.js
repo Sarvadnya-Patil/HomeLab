@@ -137,7 +137,7 @@ export const AppTerminal = {
       copyOnSelection: true,
       fontFamily: 'Consolas, "Cascadia Code", "Courier New", Courier, monospace',
       fontSize: 13,
-      lineHeight: 1.25,
+      lineHeight: 1.0,
       scrollback: 3000,
       theme: {
         background: '#000000',

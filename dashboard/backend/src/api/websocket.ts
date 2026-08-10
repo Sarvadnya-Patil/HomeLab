@@ -46,8 +46,7 @@ export default function (fastify: any, engine: CoreEngine): void {
       const shellProcess = spawn(shellCmd, shellArgs, {
         env: {
           ...process.env,
-          TERM: 'xterm-color',
-          COLORTERM: 'truecolor'
+          TERM: 'xterm-color'
         },
         shell: true
       });
