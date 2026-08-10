@@ -47,7 +47,8 @@ export default function (fastify: any, engine: CoreEngine): void {
         env: {
           ...process.env,
           TERM: 'xterm-color',
-          COLORTERM: 'truecolor'
+          COLORTERM: 'truecolor',
+          FORCE_COLOR: '3'
         },
         shell: true
       });
