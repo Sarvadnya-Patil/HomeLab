@@ -1504,17 +1504,17 @@ input[type=number] {
   height: 8px !important;
 }
 .xterm .xterm-viewport::-webkit-scrollbar-track {
-  background: #012456 !important;
+  background: #000000 !important;
   border: none !important;
 }
 .xterm .xterm-viewport::-webkit-scrollbar-thumb {
-  background: #235d9f !important;
+  background: #33333e !important;
   border-radius: 4px !important;
   border: none !important;
   box-shadow: none !important;
 }
 .xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
-  background: #3275c6 !important;
+  background: #474756 !important;
 }
 
 @keyframes dropdownEnter {
