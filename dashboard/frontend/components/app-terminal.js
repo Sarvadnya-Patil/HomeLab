@@ -8,6 +8,7 @@ export const AppTerminal = {
   ws: null,
   resizeHandler: null,
   config: null,
+  sessionActive: false,
 
   async init(containerEl) {
     this.container = containerEl;
@@ -91,7 +92,7 @@ export const AppTerminal = {
           <span id="ssh-status-text">Connecting...</span>
         </span>
       </div>
-      <div class="terminal-body" style="background-color: #0e0e11; border: 1px solid var(--border-slate); border-radius: 6px; padding: 0.75rem; height: calc(100vh - 200px); margin-top: 1rem; box-sizing: border-box; overflow: hidden; position: relative;">
+      <div class="terminal-body" style="background-color: #0e0e11; border: 1px solid var(--border-slate); border-radius: 6px; padding: 0.75rem; height: calc(100vh - 145px); margin-top: 1rem; box-sizing: border-box; overflow: hidden; position: relative;">
         <div id="xterm-container" style="height: 100%; width: 100%;"></div>
       </div>
     `;
@@ -179,9 +180,13 @@ export const AppTerminal = {
       } catch {}
       
       // Update UI state to green on first output response from SSH stream
-      if (statusDot && statusDot.style.background !== 'rgb(34, 197, 94)') {
-        statusDot.style.background = '#22c55e';
+      if (!this.sessionActive) {
+        this.sessionActive = true;
+        if (statusDot) statusDot.style.background = '#22c55e';
         if (statusText) statusText.textContent = `${username}@${this.config.sshHost}`;
+        
+        // Trigger resize once the shell is active to synchronize dimensions
+        setTimeout(() => this.resizeTerminal(), 150);
       }
 
       this.term.write(event.data);
@@ -252,6 +257,7 @@ export const AppTerminal = {
     
     this.fitAddon = null;
     this.config = null;
+    this.sessionActive = false;
   }
 };
 
