@@ -1,4 +1,4 @@
-// Terminal Application - WebSocket xterm.js interactive SSH console
+// Terminal Application - WebSocket xterm.js interactive SSH console (Dynamic In-Memory Auth)
 import { api } from '../core/api.js';
 
 export const AppTerminal = {
@@ -7,48 +7,114 @@ export const AppTerminal = {
   fitAddon: null,
   ws: null,
   resizeHandler: null,
+  config: null,
 
-  init(containerEl) {
+  async init(containerEl) {
     this.container = containerEl;
-    this.destroy(); // Teardown any leftover instances
-    this.render();
-    this.initTerminal();
+    this.destroy(); // Clean up existing sockets/terminal instances
+    
+    this.container.innerHTML = `<div style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); padding: 2rem; text-align: center;">Querying terminal connection status...</div>`;
+    
+    try {
+      this.config = await api.get('/api/v1/settings/ssh');
+      if (!this.config || !this.config.sshHost) {
+        this.renderConfigureNotice();
+      } else {
+        this.renderLogin();
+      }
+    } catch (err) {
+      this.container.innerHTML = `<div style="font-family: var(--font-mono); font-size: 0.8rem; color: #ef4444; padding: 2rem;">Error: Failed to fetch SSH terminal configuration settings.</div>`;
+    }
   },
 
-  render() {
-    if (!this.container) return;
+  renderConfigureNotice() {
+    this.container.innerHTML = `
+      <div style="max-width: 480px; margin: 4rem auto; background: #000; border: 2px solid #ef4444; box-shadow: 6px 6px 0 #ef4444; padding: 2rem; font-family: var(--font-mono); text-align: center;">
+        <h3 style="margin-top: 0; font-size: 0.95rem; font-weight: 900; text-transform: uppercase; color: #ef4444; border-bottom: 2px dashed #ef4444; padding-bottom: 0.75rem;">SSH Settings Missing</h3>
+        <p style="font-size: 0.72rem; color: #a1a1aa; line-height: 1.5; margin-bottom: 1.5rem;">Host connection details have not been configured yet. Please configure the SSH connection before launching the console.</p>
+        <button class="btn btn-panel btn-open" onclick="document.getElementById('sidebar-nav-menu').querySelector('[data-app-id=\x27settings\x27]').click()" style="background: #ef4444; color: #fff; border: 2px solid #ef4444; font-weight: 900; text-transform: uppercase; padding: 0.6rem 1.2rem; cursor: pointer;">Go to Settings</button>
+      </div>
+    `;
+  },
 
+  renderLogin() {
+    const isKeyAuth = this.config.sshAuthType === 'privateKey';
+    
+    this.container.innerHTML = `
+      <div style="max-width: 480px; margin: 4rem auto; background: #000; border: 2px solid #fff; box-shadow: 6px 6px 0 #fff; padding: 2rem; font-family: var(--font-mono); border-radius: 0;">
+        <h3 style="margin-top: 0; font-size: 0.85rem; font-weight: 900; text-transform: uppercase; color: #fff; border-bottom: 2px dashed #fff; padding-bottom: 0.75rem; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center;">
+          <span>SSH Host Authentication</span>
+          <span style="font-size: 0.65rem; color: #a1a1aa;">${this.config.sshHost}:${this.config.sshPort}</span>
+        </h3>
+        <p style="font-size: 0.68rem; color: #a1a1aa; line-height: 1.4; margin-bottom: 1.5rem; background: #0e0e11; border: 1px dashed #33333e; padding: 0.5rem;">
+          🔒 <b>Security Policy</b>: Login credentials are kept strictly in-memory inside the browser and connection socket. They are never saved to the database or written to server logs.
+        </p>
+        
+        <form id="term-login-form">
+          <div class="form-group" style="margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.35rem;">
+            <label style="font-size: 0.65rem; color: #fff; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">SSH Username</label>
+            <input type="text" id="term-ssh-user" placeholder="e.g. root, operator" required style="background: #0e0e11; border: 1px solid #fff; color: #fff; padding: 0.5rem; width: 100%; font-family: var(--font-mono); font-size: 0.75rem; border-radius: 0; box-sizing: border-box;" autocomplete="username">
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
+            <label style="font-size: 0.65rem; color: #fff; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">
+              ${isKeyAuth ? 'SSH Private Key' : 'SSH Password'}
+            </label>
+            ${isKeyAuth 
+              ? `<textarea id="term-ssh-secret" rows="6" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----\\n..." required style="background: #0e0e11; border: 1px solid #fff; color: #fff; padding: 0.5rem; width: 100%; font-family: var(--font-mono); font-size: 0.72rem; border-radius: 0; box-sizing: border-box; resize: vertical;"></textarea>`
+              : `<input type="password" id="term-ssh-secret" placeholder="Enter password" required style="background: #0e0e11; border: 1px solid #fff; color: #fff; padding: 0.5rem; width: 100%; font-family: var(--font-mono); font-size: 0.75rem; border-radius: 0; box-sizing: border-box;" autocomplete="current-password">`
+            }
+          </div>
+          
+          <button type="submit" class="btn btn-panel btn-open" id="btn-establish-ssh" style="width: 100%; background: #fff; color: #000; font-weight: 900; text-transform: uppercase; padding: 0.75rem; border: 2px solid #fff; box-shadow: 3px 3px 0 #888888; font-size: 0.75rem; cursor: pointer;">Connect to Server</button>
+        </form>
+      </div>
+    `;
+
+    const form = this.container.querySelector('#term-login-form');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const username = this.container.querySelector('#term-ssh-user').value.trim();
+      const secret = this.container.querySelector('#term-ssh-secret').value.trim();
+      if (username && secret) {
+        this.renderTerminalFrame(username, secret);
+      }
+    });
+  },
+
+  renderTerminalFrame(username, secret) {
     this.container.innerHTML = `
       <div class="panel-section-header" style="border-bottom: none !important; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono);">
-        <span class="panel-title" style="font-size: 0.9rem; font-weight: bold; text-transform: uppercase;">Direct Host SSH Terminal Console</span>
+        <span class="panel-title" style="font-size: 0.9rem; font-weight: bold; text-transform: uppercase; color: #fff;">Direct Host SSH Terminal Console</span>
         <span style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: flex; align-items: center; gap: 0.5rem;">
-          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e;" id="ssh-status-dot"></span>
-          SSH Gateway Session
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #eab308; transition: all 0.2s;" id="ssh-status-dot"></span>
+          <span id="ssh-status-text">Connecting...</span>
         </span>
       </div>
       <div class="terminal-body" style="background-color: #0e0e11; border: 1px solid var(--border-slate); border-radius: 6px; padding: 0.75rem; height: calc(100vh - 200px); margin-top: 1rem; box-sizing: border-box; overflow: hidden; position: relative;">
         <div id="xterm-container" style="height: 100%; width: 100%;"></div>
       </div>
     `;
+
+    this.initTerminal(username, secret);
   },
 
-  initTerminal() {
+  initTerminal(username, secret) {
     const xtermBox = this.container.querySelector('#xterm-container');
     if (!xtermBox) return;
 
-    // Check if xterm.js CDN loaded correctly
     if (typeof Terminal === 'undefined') {
-      xtermBox.innerHTML = `<span style="color: var(--border-focus); font-family: var(--font-mono); font-size: 0.8rem;">Error: Failed to load xterm.js library from CDN. Check your internet connection.</span>`;
+      xtermBox.innerHTML = `<span style="color: var(--border-focus); font-family: var(--font-mono); font-size: 0.8rem;">Error: Failed to load xterm.js library from CDN. Check your network configuration.</span>`;
       return;
     }
 
-    // Initialize xterm Terminal instance
+    // Allocate xterm terminal emulator instance
     this.term = new Terminal({
       cursorBlink: true,
       fontFamily: 'JetBrains Mono, Consolas, monospace',
       fontSize: 13,
       lineHeight: 1.25,
-      scrollback: 2000,
+      scrollback: 3000,
       theme: {
         background: '#0e0e11',
         foreground: '#ffffff',
@@ -79,7 +145,7 @@ export const AppTerminal = {
     this.term.open(xtermBox);
     this.fitAddon.fit();
 
-    // Setup WebSockets
+    // Open socket bridge
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const token = localStorage.getItem('token') || '';
     const wsUrl = `${wsProtocol}//${window.location.host}/ws/terminal?token=${encodeURIComponent(token)}`;
@@ -87,13 +153,17 @@ export const AppTerminal = {
     this.ws = new WebSocket(wsUrl);
 
     const statusDot = this.container.querySelector('#ssh-status-dot');
+    const statusText = this.container.querySelector('#ssh-status-text');
 
     this.ws.onopen = () => {
-      this.term.write('\r\n\x1b[32m*** WebSocket Connection Established. Authenticating SSH Shell Session... ***\x1b[0m\r\n\r\n');
-      if (statusDot) statusDot.style.background = '#22c55e';
+      this.term.write('\r\n\x1b[33m*** WebSocket Socket Connected. Sending SSH Handshake Payload... ***\x1b[0m\r\n');
       
-      // Request initial terminal dimensions
-      setTimeout(() => this.resizeTerminal(), 300);
+      // Dispatch in-memory credentials immediately upon socket connection open
+      this.ws.send(JSON.stringify({
+        type: 'auth',
+        username: username,
+        secret: secret
+      }));
     };
 
     this.ws.onmessage = (event) => {
@@ -102,25 +172,33 @@ export const AppTerminal = {
         if (payload.type === 'error') {
           this.term.write(`\r\n\x1b[31mError: ${payload.message}\x1b[0m\r\n`);
           if (statusDot) statusDot.style.background = '#ef4444';
+          if (statusText) statusText.textContent = 'Auth Failed';
           return;
         }
       } catch {}
       
-      // Render terminal streams to xterm
+      // Update UI state to green on first output response from SSH stream
+      if (statusDot && statusDot.style.background !== 'rgb(34, 197, 94)') {
+        statusDot.style.background = '#22c55e';
+        if (statusText) statusText.textContent = `${username}@${this.config.sshHost}`;
+      }
+
       this.term.write(event.data);
     };
 
     this.ws.onclose = () => {
-      this.term.write('\r\n\x1b[31m*** SSH Shell Connection Terminated. ***\x1b[0m\r\n');
+      this.term.write('\r\n\x1b[31m*** SSH Shell Gateway Connection Terminated. ***\x1b[0m\r\n');
       if (statusDot) statusDot.style.background = '#ef4444';
+      if (statusText) statusText.textContent = 'Disconnected';
     };
 
     this.ws.onerror = (err) => {
-      this.term.write(`\r\n\x1b[31m*** Socket connection error: ${err.message || 'Unknown network error'} ***\x1b[0m\r\n`);
+      this.term.write(`\r\n\x1b[31m*** Socket connection error: ${err.message || 'Unknown network failure'} ***\x1b[0m\r\n`);
       if (statusDot) statusDot.style.background = '#ef4444';
+      if (statusText) statusText.textContent = 'Error';
     };
 
-    // Forward raw key codes to host terminal stream
+    // Forward raw typed terminal characters to host shell
     this.term.onData((data) => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         this.ws.send(JSON.stringify({ type: 'data', data: data }));
@@ -147,18 +225,16 @@ export const AppTerminal = {
         }));
       }
     } catch (err) {
-      console.warn('Terminal resize execution failed:', err);
+      console.warn('Terminal resizing request failed:', err);
     }
   },
 
   destroy() {
-    // Tear down window event listener
     if (this.resizeHandler) {
       window.removeEventListener('resize', this.resizeHandler);
       this.resizeHandler = null;
     }
 
-    // Close WebSocket
     if (this.ws) {
       try {
         this.ws.close();
@@ -166,7 +242,6 @@ export const AppTerminal = {
       this.ws = null;
     }
 
-    // Dispose terminal canvas elements
     if (this.term) {
       try {
         this.term.dispose();
@@ -175,6 +250,7 @@ export const AppTerminal = {
     }
     
     this.fitAddon = null;
+    this.config = null;
   }
 };
 
