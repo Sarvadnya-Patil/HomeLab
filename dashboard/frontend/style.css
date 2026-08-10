@@ -1499,21 +1499,25 @@ input[type=number] {
 }
 
 /* Custom terminal-only scrollbar overrides to prevent stark white thumbs */
-.xterm .xterm-viewport::-webkit-scrollbar {
+.xterm-viewport {
+  scrollbar-width: thin !important;
+  scrollbar-color: #33333e #000000 !important;
+}
+.xterm-viewport::-webkit-scrollbar {
   width: 8px !important;
   height: 8px !important;
 }
-.xterm .xterm-viewport::-webkit-scrollbar-track {
+.xterm-viewport::-webkit-scrollbar-track {
   background: #000000 !important;
   border: none !important;
 }
-.xterm .xterm-viewport::-webkit-scrollbar-thumb {
+.xterm-viewport::-webkit-scrollbar-thumb {
   background: #33333e !important;
   border-radius: 4px !important;
   border: none !important;
   box-shadow: none !important;
 }
-.xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
+.xterm-viewport::-webkit-scrollbar-thumb:hover {
   background: #474756 !important;
 }
 
