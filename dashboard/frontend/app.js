@@ -44,10 +44,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // 2. Register dynamic view router
-  store.on('activeApp', ({ value }) => {
-    console.log(`Routing active viewport application: [${value}]`);
-    
+    const appShell = document.querySelector('.app-shell');
+    if (appShell) {
+      if (value === 'terminal') {
+        appShell.classList.add('pure-terminal-mode');
+      } else {
+        appShell.classList.remove('pure-terminal-mode');
+      }
+    }
+
     const cmdBar = document.querySelector('.command-bar');
     if (cmdBar) {
       cmdBar.style.display = value === 'terminal' ? 'none' : 'flex';
