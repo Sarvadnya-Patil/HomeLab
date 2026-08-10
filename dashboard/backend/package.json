@@ -15,7 +15,7 @@
   "dependencies": {
     "@fastify/static": "^7.0.4",
     "@fastify/websocket": "^8.3.1",
-    "better-sqlite3": "^12.11.1",
+    "better-sqlite3": "^13.0.3",
     "fastify": "^4.28.0",
     "ssh2": "^1.17.0",
     "yaml": "^2.4.5"
