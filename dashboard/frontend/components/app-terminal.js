@@ -33,9 +33,19 @@ export const AppTerminal = {
       <div style="max-width: 480px; margin: 4rem auto; background: #000; border: 2px solid #ef4444; box-shadow: 6px 6px 0 #ef4444; padding: 2rem; font-family: var(--font-mono); text-align: center;">
         <h3 style="margin-top: 0; font-size: 0.95rem; font-weight: 900; text-transform: uppercase; color: #ef4444; border-bottom: 2px dashed #ef4444; padding-bottom: 0.75rem;">SSH Settings Missing</h3>
         <p style="font-size: 0.72rem; color: #a1a1aa; line-height: 1.5; margin-bottom: 1.5rem;">Host connection details or SSH Username have not been configured yet. Please configure the SSH connection settings before launching the console.</p>
-        <button class="btn btn-panel btn-open" onclick="document.getElementById('sidebar-nav-menu').querySelector('[data-app-id=\x27settings\x27]').click()" style="background: #ef4444; color: #fff; border: 2px solid #ef4444; font-weight: 900; text-transform: uppercase; padding: 0.6rem 1.2rem; cursor: pointer;">Go to Settings</button>
+        <button class="btn btn-panel btn-open" id="btn-go-to-settings" style="background: #ef4444; color: #fff; border: 2px solid #ef4444; font-weight: 900; text-transform: uppercase; padding: 0.6rem 1.2rem; cursor: pointer;">Go to Settings</button>
       </div>
     `;
+
+    const btn = this.container.querySelector('#btn-go-to-settings');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        const settingsNav = document.getElementById('sidebar-nav-menu')?.querySelector('[data-app-id="settings"]');
+        if (settingsNav) {
+          settingsNav.click();
+        }
+      });
+    }
   },
 
   renderLogin() {
