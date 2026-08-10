@@ -95,7 +95,7 @@ export const AppTerminal = {
 
   renderTerminalFrame(username, secret) {
     this.container.innerHTML = `
-      <div style="border: 2px solid #ffffff; border-radius: 0; box-shadow: 6px 6px 0 #000000; overflow: hidden; display: flex; flex-direction: column; height: calc(100vh - 180px); margin-top: 0.5rem; background-color: #000000;">
+      <div style="border: 2px solid #ffffff; border-radius: 0; box-shadow: 6px 6px 0 #000000; overflow: hidden; display: flex; flex-direction: column; height: calc(100vh - 130px); margin-top: 0.5rem; background-color: #000000;">
         <!-- Window title bar representing native PowerShell shell frame -->
         <div style="background: #ffffff; color: #000000; padding: 0.35rem 0.75rem; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 0.72rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ffffff; user-select: none;">
           <div style="display: flex; align-items: center; gap: 0.45rem; font-weight: bold;">

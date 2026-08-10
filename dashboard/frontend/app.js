@@ -48,6 +48,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   store.on('activeApp', ({ value }) => {
     console.log(`Routing active viewport application: [${value}]`);
     
+    const cmdBar = document.querySelector('.command-bar');
+    if (cmdBar) {
+      cmdBar.style.display = value === 'terminal' ? 'none' : 'flex';
+    }
+
     // Clear active polling intervals on switch
     if (window.activeAppDestroy && typeof window.activeAppDestroy === 'function') {
       window.activeAppDestroy();
