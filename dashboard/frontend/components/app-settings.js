@@ -249,15 +249,15 @@ export const AppSettings = {
             <div class="detail-item" style="position: relative;">
               <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">Authentication Method</label>
               <div class="custom-dropdown-container">
-                <button class="custom-dropdown-trigger" id="ssh-dropdown-trigger" style="height: 31px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 0.72rem; padding: 0.5rem; box-sizing: border-box; width: 100%;">
+                <button class="custom-dropdown-trigger" id="ssh-dropdown-trigger" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; width: 100%; font-family: var(--font-mono); font-size: 0.72rem; display: flex; justify-content: space-between; align-items: center; border-radius: 0; box-sizing: border-box; height: 31px; outline: none; cursor: pointer;">
                   <span class="selected-text">${this.selectedAuthType === 'privateKey' ? 'SSH Private Key' : 'Password'}</span>
-                  <span class="dropdown-arrow" style="font-size: 0.55rem;">▼</span>
+                  <span class="dropdown-arrow" style="font-size: 0.55rem; color: #ffffff;">▼</span>
                 </button>
-                <div class="custom-dropdown-menu" id="ssh-dropdown-menu">
-                  <div class="custom-dropdown-item ${this.selectedAuthType === 'password' ? 'selected' : ''}" data-value="password" style="font-size: 0.72rem; padding: 0.5rem 0.75rem;">
+                <div class="custom-dropdown-menu" id="ssh-dropdown-menu" style="background: #000000; border: 1px solid #ffffff; border-radius: 0; width: 100%; margin-top: 4px; box-shadow: 4px 4px 0 #888888;">
+                  <div class="custom-dropdown-item ${this.selectedAuthType === 'password' ? 'selected' : ''}" data-value="password" style="font-size: 0.72rem; padding: 0.55rem 0.85rem; border-radius: 0; color: ${this.selectedAuthType === 'password' ? '#000000' : '#ffffff'}; background: ${this.selectedAuthType === 'password' ? '#ffffff' : '#000000'}; transition: none;">
                     <span>Password</span>
                   </div>
-                  <div class="custom-dropdown-item ${this.selectedAuthType === 'privateKey' ? 'selected' : ''}" data-value="privateKey" style="font-size: 0.72rem; padding: 0.5rem 0.75rem;">
+                  <div class="custom-dropdown-item ${this.selectedAuthType === 'privateKey' ? 'selected' : ''}" data-value="privateKey" style="font-size: 0.72rem; padding: 0.55rem 0.85rem; border-radius: 0; color: ${this.selectedAuthType === 'privateKey' ? '#000000' : '#ffffff'}; background: ${this.selectedAuthType === 'privateKey' ? '#ffffff' : '#000000'}; transition: none;">
                     <span>SSH Private Key</span>
                   </div>
                 </div>
@@ -282,14 +282,33 @@ export const AppSettings = {
         });
 
         menu.querySelectorAll('.custom-dropdown-item').forEach(item => {
+          item.addEventListener('mouseenter', () => {
+            if (!item.classList.contains('selected')) {
+              item.style.background = '#ffffff';
+              item.style.color = '#000000';
+            }
+          });
+          item.addEventListener('mouseleave', () => {
+            if (!item.classList.contains('selected')) {
+              item.style.background = '#000000';
+              item.style.color = '#ffffff';
+            }
+          });
+
           item.addEventListener('click', (e) => {
             const val = e.currentTarget.getAttribute('data-value');
             this.selectedAuthType = val;
             menu.classList.remove('open');
             trigger.querySelector('.selected-text').textContent = val === 'privateKey' ? 'SSH Private Key' : 'Password';
             
-            menu.querySelectorAll('.custom-dropdown-item').forEach(i => i.classList.remove('selected'));
+            menu.querySelectorAll('.custom-dropdown-item').forEach(i => {
+              i.classList.remove('selected');
+              i.style.background = '#000000';
+              i.style.color = '#ffffff';
+            });
             e.currentTarget.classList.add('selected');
+            e.currentTarget.style.background = '#ffffff';
+            e.currentTarget.style.color = '#000000';
           });
         });
 
