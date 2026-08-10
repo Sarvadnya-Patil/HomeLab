@@ -1494,6 +1494,10 @@ input[type=number] {
   animation: dropdownEnter 0.12s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+.custom-dropdown-menu.open {
+  display: block;
+}
+
 @keyframes dropdownEnter {
   from {
     opacity: 0;

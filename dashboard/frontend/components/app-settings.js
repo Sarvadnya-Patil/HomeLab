@@ -247,17 +247,17 @@ export const AppSettings = {
             </div>
 
             <div class="detail-item" style="position: relative;">
-              <label class="detail-label" style="margin-bottom: 0.35rem; font-weight: 900; text-transform: uppercase;">Authentication Method</label>
+              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">Authentication Method</label>
               <div class="custom-dropdown-container">
-                <button class="custom-dropdown-trigger" id="ssh-dropdown-trigger" style="background: #000000; border: 2px solid #ffffff; color: #ffffff; padding: 0.6rem; width: 100%; font-family: var(--font-mono); font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center; border-radius: 0;">
+                <button class="custom-dropdown-trigger" id="ssh-dropdown-trigger" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; width: 100%; font-family: var(--font-mono); font-size: 0.72rem; display: flex; justify-content: space-between; align-items: center; border-radius: 0; box-sizing: border-box; height: 31px;">
                   <span class="selected-text">${this.selectedAuthType === 'privateKey' ? 'SSH Private Key' : 'Password'}</span>
-                  <span class="dropdown-arrow">▼</span>
+                  <span class="dropdown-arrow" style="font-size: 0.55rem;">▼</span>
                 </button>
-                <div class="custom-dropdown-menu" id="ssh-dropdown-menu" style="background: #000000; border: 2px solid #ffffff; width: 100%;">
-                  <div class="custom-dropdown-item ${this.selectedAuthType === 'password' ? 'selected' : ''}" data-value="password">
+                <div class="custom-dropdown-menu" id="ssh-dropdown-menu" style="background: #000000; border: 1px solid #ffffff; width: 100%;">
+                  <div class="custom-dropdown-item ${this.selectedAuthType === 'password' ? 'selected' : ''}" data-value="password" style="font-size: 0.72rem; padding: 0.5rem 0.75rem;">
                     <span>Password</span>
                   </div>
-                  <div class="custom-dropdown-item ${this.selectedAuthType === 'privateKey' ? 'selected' : ''}" data-value="privateKey">
+                  <div class="custom-dropdown-item ${this.selectedAuthType === 'privateKey' ? 'selected' : ''}" data-value="privateKey" style="font-size: 0.72rem; padding: 0.5rem 0.75rem;">
                     <span>SSH Private Key</span>
                   </div>
                 </div>
