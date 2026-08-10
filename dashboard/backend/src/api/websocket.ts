@@ -2,6 +2,8 @@
 import { CoreEngine } from '../core/engine';
 import { Client as SSHClient } from 'ssh2';
 import { decryptSecret } from '../utils/security';
+import { spawn } from 'child_process';
+import * as os from 'os';
 
 export default function (fastify: any, engine: CoreEngine): void {
   // Register /ws/terminal socket route for real-time interactive SSH
@@ -33,6 +35,56 @@ export default function (fastify: any, engine: CoreEngine): void {
         })
       );
       socket.close();
+      return;
+    }
+
+    if (sshHost === 'local') {
+      const isWindows = os.platform() === 'win32';
+      const shellCmd = isWindows ? 'powershell.exe' : 'bash';
+      const shellArgs = isWindows ? ['-NoLogo', '-NoExit'] : ['-i'];
+
+      const shellProcess = spawn(shellCmd, shellArgs, {
+        env: {
+          ...process.env,
+          TERM: 'xterm-color',
+          COLORTERM: 'truecolor'
+        },
+        shell: true
+      });
+
+      shellProcess.stdout.on('data', (data: Buffer) => {
+        socket.send(data.toString('utf-8'));
+      });
+      shellProcess.stderr.on('data', (data: Buffer) => {
+        socket.send(data.toString('utf-8'));
+      });
+
+      shellProcess.on('error', (err) => {
+        socket.send(JSON.stringify({ type: 'error', message: `Local shell error: ${err.message}` }));
+        socket.close();
+      });
+
+      shellProcess.on('close', () => {
+        socket.close();
+      });
+
+      socket.on('message', (message: string) => {
+        try {
+          const payload = JSON.parse(message);
+          if (payload.type === 'data') {
+            shellProcess.stdin.write(payload.data);
+          }
+        } catch {
+          shellProcess.stdin.write(message);
+        }
+      });
+
+      socket.on('close', () => {
+        try {
+          shellProcess.kill();
+        } catch {}
+      });
+
       return;
     }
 
