@@ -18,8 +18,11 @@ export const AppTerminal = {
     
     try {
       this.config = await api.get('/api/v1/settings/ssh');
-      if (!this.config || !this.config.sshHost || !this.config.sshUser) {
+      const isLocal = this.config && this.config.sshHost === 'local';
+      if (!this.config || !this.config.sshHost || (!isLocal && !this.config.sshUser)) {
         this.renderConfigureNotice();
+      } else if (isLocal) {
+        this.renderTerminalFrame('local', 'local');
       } else {
         this.renderLogin();
       }

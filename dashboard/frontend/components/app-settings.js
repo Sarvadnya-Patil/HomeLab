@@ -237,7 +237,7 @@ export const AppSettings = {
             <div style="display: grid; grid-template-columns: 1.5fr 1fr 0.8fr; gap: 0.85rem;">
               <div class="detail-item">
                 <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SSH Host (IP / Domain)</label>
-                <input type="text" id="ssh-host" value="${status.sshHost || ''}" placeholder="e.g. 172.17.0.1 or host.docker.internal" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+                <input type="text" id="ssh-host" value="${status.sshHost || ''}" placeholder="e.g. local (direct PowerShell), 172.17.0.1" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
               </div>
 
               <div class="detail-item">
