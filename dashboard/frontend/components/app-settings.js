@@ -249,11 +249,11 @@ export const AppSettings = {
             <div class="detail-item" style="position: relative;">
               <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">Authentication Method</label>
               <div class="custom-dropdown-container">
-                <button class="custom-dropdown-trigger" id="ssh-dropdown-trigger" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; width: 100%; font-family: var(--font-mono); font-size: 0.72rem; display: flex; justify-content: space-between; align-items: center; border-radius: 0; box-sizing: border-box; height: 31px;">
+                <button class="custom-dropdown-trigger" id="ssh-dropdown-trigger" style="height: 31px; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 0.72rem; padding: 0.5rem; box-sizing: border-box; width: 100%;">
                   <span class="selected-text">${this.selectedAuthType === 'privateKey' ? 'SSH Private Key' : 'Password'}</span>
                   <span class="dropdown-arrow" style="font-size: 0.55rem;">▼</span>
                 </button>
-                <div class="custom-dropdown-menu" id="ssh-dropdown-menu" style="background: #000000; border: 1px solid #ffffff; width: 100%;">
+                <div class="custom-dropdown-menu" id="ssh-dropdown-menu">
                   <div class="custom-dropdown-item ${this.selectedAuthType === 'password' ? 'selected' : ''}" data-value="password" style="font-size: 0.72rem; padding: 0.5rem 0.75rem;">
                     <span>Password</span>
                   </div>

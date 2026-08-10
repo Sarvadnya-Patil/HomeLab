@@ -111,6 +111,7 @@ export const AppTerminal = {
     // Allocate xterm terminal emulator instance
     this.term = new Terminal({
       cursorBlink: true,
+      copyOnSelection: true,
       fontFamily: 'JetBrains Mono, Consolas, monospace',
       fontSize: 13,
       lineHeight: 1.25,
@@ -147,7 +148,7 @@ export const AppTerminal = {
 
     // Open socket bridge
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const token = localStorage.getItem('token') || '';
+    const token = localStorage.getItem('homelab_token') || '';
     const wsUrl = `${wsProtocol}//${window.location.host}/ws/terminal?token=${encodeURIComponent(token)}`;
 
     this.ws = new WebSocket(wsUrl);
