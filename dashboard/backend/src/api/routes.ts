@@ -266,10 +266,17 @@ export default function (fastify: any, engine: CoreEngine): void {
         permissions: ['admin', 'editor']
       },
       {
+        id: 'terminal',
+        name: 'Terminal',
+        icon: 'terminal',
+        displayOrder: 6,
+        permissions: ['admin']
+      },
+      {
         id: 'settings',
         name: 'Settings',
         icon: 'settings',
-        displayOrder: 6,
+        displayOrder: 7,
         permissions: ['admin']
       }
     ];
