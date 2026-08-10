@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (value === 'terminal') {
       viewport.className = 'app-viewport';
       AppTerminal.init(viewport);
+      window.activeAppDestroy = () => AppTerminal.destroy();
     }
   });
 
