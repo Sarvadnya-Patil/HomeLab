@@ -95,28 +95,28 @@ export const AppTerminal = {
 
   renderTerminalFrame(username, secret) {
     this.container.innerHTML = `
-      <div style="border: 2px solid #002b36; border-radius: 0; box-shadow: 6px 6px 0 #000000; overflow: hidden; display: flex; flex-direction: column; height: calc(100vh - 145px); margin-top: 0.5rem; background-color: #012456;">
+      <div style="border: 2px solid #ffffff; border-radius: 0; box-shadow: 6px 6px 0 #000000; overflow: hidden; display: flex; flex-direction: column; height: calc(100vh - 180px); margin-top: 0.5rem; background-color: #000000;">
         <!-- Window title bar representing native PowerShell shell frame -->
-        <div style="background: #ffffff; color: #000000; padding: 0.35rem 0.75rem; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 0.72rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000000; user-select: none;">
+        <div style="background: #ffffff; color: #000000; padding: 0.35rem 0.75rem; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 0.72rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ffffff; user-select: none;">
           <div style="display: flex; align-items: center; gap: 0.45rem; font-weight: bold;">
-            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #012456;">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #000000;">
               <polyline points="4 12 9 8 4 4"></polyline>
               <line x1="9" y1="12" x2="14" y2="12"></line>
             </svg>
-            <span>Administrator: Windows PowerShell</span>
+            <span>Administrator: PowerShell Console</span>
           </div>
-          <div style="display: flex; gap: 0.75rem; font-weight: 500; font-size: 0.8rem; color: #555555; align-items: center;">
-            <span style="font-family: var(--font-mono); font-size: 0.65rem; color: #666666; font-weight: 800; text-transform: uppercase; margin-right: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
+          <div style="display: flex; gap: 0.75rem; font-weight: 500; font-size: 0.8rem; color: #000000; align-items: center;">
+            <span style="font-family: var(--font-mono); font-size: 0.65rem; color: #333333; font-weight: 800; text-transform: uppercase; margin-right: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
               <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #eab308; transition: all 0.2s;" id="ssh-status-dot"></span>
               <span id="ssh-status-text">Connecting...</span>
             </span>
             <span style="cursor: pointer; line-height: 1;" title="Minimize">─</span>
             <span style="cursor: pointer; line-height: 1;" title="Maximize">▢</span>
-            <span style="cursor: pointer; line-height: 1; padding: 0 0.15rem; font-weight: bold; transition: color 0.1s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#555555'" onclick="document.getElementById('sidebar-nav-menu')?.querySelector('[data-app-id=dashboard]')?.click()" title="Close Terminal">✕</span>
+            <span style="cursor: pointer; line-height: 1; padding: 0 0.15rem; font-weight: bold; transition: color 0.1s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#000000'" onclick="document.getElementById('sidebar-nav-menu')?.querySelector('[data-app-id=dashboard]')?.click()" title="Close Terminal">✕</span>
           </div>
         </div>
-        <!-- Terminal Canvas Container with PowerShell Royal Blue background -->
-        <div class="terminal-body" style="background-color: #012456; flex: 1; padding: 0.5rem; box-sizing: border-box; overflow: hidden; position: relative;">
+        <!-- Terminal Canvas Container -->
+        <div class="terminal-body" style="background-color: #000000; flex: 1; padding: 0.5rem; box-sizing: border-box; overflow: hidden; position: relative;">
           <div id="xterm-container" style="height: 100%; width: 100%;"></div>
         </div>
       </div>
@@ -143,7 +143,7 @@ export const AppTerminal = {
       lineHeight: 1.25,
       scrollback: 3000,
       theme: {
-        background: '#012456',
+        background: '#000000',
         foreground: '#ffffff',
         cursor: '#ffffff',
         black: '#000000',
