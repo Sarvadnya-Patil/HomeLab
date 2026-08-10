@@ -234,10 +234,15 @@ export const AppSettings = {
               <span style="font-weight: 900; text-transform: uppercase; font-size: 0.85rem; color: #ffffff;">SSH Connection Configuration</span>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr 0.8fr; gap: 0.85rem;">
               <div class="detail-item">
                 <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SSH Host (IP / Domain)</label>
                 <input type="text" id="ssh-host" value="${status.sshHost || ''}" placeholder="e.g. 172.17.0.1 or host.docker.internal" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+              </div>
+
+              <div class="detail-item">
+                <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SSH Username</label>
+                <input type="text" id="ssh-user" value="${status.sshUser || ''}" placeholder="e.g. root" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
               </div>
 
               <div class="detail-item">
@@ -363,6 +368,7 @@ export const AppSettings = {
   async saveSSHConfig() {
     const sshHost = this.container.querySelector('#ssh-host')?.value.trim();
     const sshPort = this.container.querySelector('#ssh-port')?.value.trim();
+    const sshUser = this.container.querySelector('#ssh-user')?.value.trim();
     const sshAuthType = this.selectedAuthType || 'password';
 
     if (!sshHost) {
@@ -374,6 +380,7 @@ export const AppSettings = {
       const res = await api.post('/api/v1/settings/ssh', {
         sshHost,
         sshPort,
+        sshUser,
         sshAuthType
       });
       alert(res.message || 'SSH Settings saved successfully!');

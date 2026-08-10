@@ -261,7 +261,7 @@ export default function (fastify: any, engine: CoreEngine): void {
       {
         id: 'jobs',
         name: 'Job Center',
-        icon: 'terminal',
+        icon: 'zap',
         displayOrder: 5,
         permissions: ['admin', 'editor']
       },

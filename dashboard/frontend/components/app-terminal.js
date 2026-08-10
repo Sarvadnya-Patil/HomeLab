@@ -18,7 +18,7 @@ export const AppTerminal = {
     
     try {
       this.config = await api.get('/api/v1/settings/ssh');
-      if (!this.config || !this.config.sshHost) {
+      if (!this.config || !this.config.sshHost || !this.config.sshUser) {
         this.renderConfigureNotice();
       } else {
         this.renderLogin();
@@ -32,7 +32,7 @@ export const AppTerminal = {
     this.container.innerHTML = `
       <div style="max-width: 480px; margin: 4rem auto; background: #000; border: 2px solid #ef4444; box-shadow: 6px 6px 0 #ef4444; padding: 2rem; font-family: var(--font-mono); text-align: center;">
         <h3 style="margin-top: 0; font-size: 0.95rem; font-weight: 900; text-transform: uppercase; color: #ef4444; border-bottom: 2px dashed #ef4444; padding-bottom: 0.75rem;">SSH Settings Missing</h3>
-        <p style="font-size: 0.72rem; color: #a1a1aa; line-height: 1.5; margin-bottom: 1.5rem;">Host connection details have not been configured yet. Please configure the SSH connection before launching the console.</p>
+        <p style="font-size: 0.72rem; color: #a1a1aa; line-height: 1.5; margin-bottom: 1.5rem;">Host connection details or SSH Username have not been configured yet. Please configure the SSH connection settings before launching the console.</p>
         <button class="btn btn-panel btn-open" onclick="document.getElementById('sidebar-nav-menu').querySelector('[data-app-id=\x27settings\x27]').click()" style="background: #ef4444; color: #fff; border: 2px solid #ef4444; font-weight: 900; text-transform: uppercase; padding: 0.6rem 1.2rem; cursor: pointer;">Go to Settings</button>
       </div>
     `;
@@ -48,13 +48,13 @@ export const AppTerminal = {
           <span style="font-size: 0.65rem; color: #a1a1aa;">${this.config.sshHost}:${this.config.sshPort}</span>
         </h3>
         <p style="font-size: 0.68rem; color: #a1a1aa; line-height: 1.4; margin-bottom: 1.5rem; background: #0e0e11; border: 1px dashed #33333e; padding: 0.5rem;">
-          🔒 <b>Security Policy</b>: Login credentials are kept strictly in-memory inside the browser and connection socket. They are never saved to the database or written to server logs.
+          <b>Security Policy</b>: Login credentials are kept strictly in-memory inside the browser and connection socket. They are never saved to the database or written to server logs.
         </p>
         
         <form id="term-login-form">
           <div class="form-group" style="margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.35rem;">
             <label style="font-size: 0.65rem; color: #fff; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">SSH Username</label>
-            <input type="text" id="term-ssh-user" placeholder="e.g. root, operator" required style="background: #0e0e11; border: 1px solid #fff; color: #fff; padding: 0.5rem; width: 100%; font-family: var(--font-mono); font-size: 0.75rem; border-radius: 0; box-sizing: border-box;" autocomplete="username">
+            <div style="background: #0e0e11; border: 1px solid #33333e; color: #fff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.75rem; border-radius: 0; box-sizing: border-box;">${this.config.sshUser}</div>
           </div>
           
           <div class="form-group" style="margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
@@ -75,7 +75,7 @@ export const AppTerminal = {
     const form = this.container.querySelector('#term-login-form');
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const username = this.container.querySelector('#term-ssh-user').value.trim();
+      const username = this.config.sshUser;
       const secret = this.container.querySelector('#term-ssh-secret').value.trim();
       if (username && secret) {
         this.renderTerminalFrame(username, secret);

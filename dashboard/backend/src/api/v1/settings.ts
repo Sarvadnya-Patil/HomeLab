@@ -212,22 +212,24 @@ export default function (fastify: any, engine: CoreEngine): void {
     return engine.auditRepo.findAll(limit);
   });
 
-  // 9. Get SSH Configuration status (IP, Port, AuthType only)
+  // 9. Get SSH Configuration status (IP, Port, Username, AuthType only)
   fastify.get('/api/v1/settings/ssh', async () => {
     const sshHost = engine.settingsRepo.get('ssh.host') || '';
     const sshPort = engine.settingsRepo.get('ssh.port') || '22';
+    const sshUser = engine.settingsRepo.get('ssh.user') || '';
     const sshAuthType = engine.settingsRepo.get('ssh.authType') || 'password';
 
     return {
       sshHost,
       sshPort,
+      sshUser,
       sshAuthType
     };
   });
 
   // 10. Save SSH Configuration
   fastify.post('/api/v1/settings/ssh', async (request: any, reply: any) => {
-    const { sshHost, sshPort, sshAuthType } = request.body || {};
+    const { sshHost, sshPort, sshUser, sshAuthType } = request.body || {};
 
     if (!sshHost) {
       return reply.status(400).send({ error: 'SSH Host IP/Domain is required.' });
@@ -235,6 +237,7 @@ export default function (fastify: any, engine: CoreEngine): void {
 
     engine.settingsRepo.set('ssh.host', sshHost, 'ssh');
     engine.settingsRepo.set('ssh.port', String(sshPort || 22), 'ssh');
+    engine.settingsRepo.set('ssh.user', sshUser || '', 'ssh');
     engine.settingsRepo.set('ssh.authType', sshAuthType || 'password', 'ssh');
 
     const actor = request.user?.id || 'admin';
