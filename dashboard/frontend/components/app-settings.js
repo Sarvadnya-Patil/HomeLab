@@ -226,10 +226,12 @@ export const AppSettings = {
       formEl.innerHTML = `<div style="font-size: 0.75rem; color: #a1a1aa;">Loading SSH configuration...</div>`;
       try {
         const status = await api.get('/api/v1/settings/ssh');
+        this.selectedAuthType = status.sshAuthType || 'password';
+
         formEl.innerHTML = `
           <div style="background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; border-radius: 0;">
             <div style="border-bottom: 2px dashed #ffffff; padding-bottom: 0.75rem;">
-              <span style="font-weight: 900; text-transform: uppercase; font-size: 0.85rem; color: #ffffff;">SSH Host Shell Connection</span>
+              <span style="font-weight: 900; text-transform: uppercase; font-size: 0.85rem; color: #ffffff;">SSH Connection Configuration</span>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
@@ -244,51 +246,51 @@ export const AppSettings = {
               </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
-              <div class="detail-item">
-                <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SSH Username</label>
-                <input type="text" id="ssh-user" value="${status.sshUser || ''}" placeholder="e.g. root, admin" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+            <div class="detail-item" style="position: relative;">
+              <label class="detail-label" style="margin-bottom: 0.35rem; font-weight: 900; text-transform: uppercase;">Authentication Method</label>
+              <div class="custom-dropdown-container">
+                <button class="custom-dropdown-trigger" id="ssh-dropdown-trigger" style="background: #000000; border: 2px solid #ffffff; color: #ffffff; padding: 0.6rem; width: 100%; font-family: var(--font-mono); font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center; border-radius: 0;">
+                  <span class="selected-text">${this.selectedAuthType === 'privateKey' ? 'SSH Private Key' : 'Password'}</span>
+                  <span class="dropdown-arrow">▼</span>
+                </button>
+                <div class="custom-dropdown-menu" id="ssh-dropdown-menu" style="background: #000000; border: 2px solid #ffffff; width: 100%;">
+                  <div class="custom-dropdown-item ${this.selectedAuthType === 'password' ? 'selected' : ''}" data-value="password">
+                    <span>Password</span>
+                  </div>
+                  <div class="custom-dropdown-item ${this.selectedAuthType === 'privateKey' ? 'selected' : ''}" data-value="privateKey">
+                    <span>SSH Private Key</span>
+                  </div>
+                </div>
               </div>
-
-              <div class="detail-item">
-                <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">Authentication Method</label>
-                <select id="ssh-authtype" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%; height: 31px; border-radius: 0; box-sizing: border-box;">
-                  <option value="password" ${status.sshAuthType === 'password' ? 'selected' : ''}>Password</option>
-                  <option value="privateKey" ${status.sshAuthType === 'privateKey' ? 'selected' : ''}>SSH Private Key</option>
-                </select>
-              </div>
-            </div>
-
-            <div id="ssh-password-group" class="detail-item" style="display: ${status.sshAuthType === 'password' ? 'block' : 'none'};">
-              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">
-                SSH Password ${status.hasPassword ? '<span style="color: #22c55e;">(Encrypted in DB)</span>' : ''}
-              </label>
-              <input type="password" id="ssh-pass" value="${status.hasPassword ? '••••••••' : ''}" placeholder="Enter SSH Password" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
-            </div>
-
-            <div id="ssh-key-group" class="detail-item" style="display: ${status.sshAuthType === 'privateKey' ? 'block' : 'none'};">
-              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">
-                SSH Private Key ${status.hasPrivateKey ? '<span style="color: #22c55e;">(Encrypted in DB)</span>' : ''}
-              </label>
-              <textarea id="ssh-key" rows="6" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----\n..." style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%; resize: vertical; box-sizing: border-box;">${status.hasPrivateKey ? '••••••••' : ''}</textarea>
             </div>
 
             <button class="btn btn-panel btn-open" id="btn-save-ssh" style="margin-top: 0.5rem; width: 160px; background: #ffffff; color: #000000; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Save SSH Config</button>
           </div>
         `;
 
-        // Toggle fields dynamically
-        const authSelect = formEl.querySelector('#ssh-authtype');
-        const passGroup = formEl.querySelector('#ssh-password-group');
-        const keyGroup = formEl.querySelector('#ssh-key-group');
-        authSelect.addEventListener('change', (e) => {
-          if (e.target.value === 'password') {
-            passGroup.style.display = 'block';
-            keyGroup.style.display = 'none';
-          } else {
-            passGroup.style.display = 'none';
-            keyGroup.style.display = 'block';
-          }
+        // Toggle custom dropdown list visibility
+        const trigger = formEl.querySelector('#ssh-dropdown-trigger');
+        const menu = formEl.querySelector('#ssh-dropdown-menu');
+        
+        trigger.addEventListener('click', (e) => {
+          e.stopPropagation();
+          menu.classList.toggle('open');
+        });
+
+        document.addEventListener('click', () => {
+          menu.classList.remove('open');
+        });
+
+        menu.querySelectorAll('.custom-dropdown-item').forEach(item => {
+          item.addEventListener('click', (e) => {
+            const val = e.currentTarget.getAttribute('data-value');
+            this.selectedAuthType = val;
+            menu.classList.remove('open');
+            trigger.querySelector('.selected-text').textContent = val === 'privateKey' ? 'SSH Private Key' : 'Password';
+            
+            menu.querySelectorAll('.custom-dropdown-item').forEach(i => i.classList.remove('selected'));
+            e.currentTarget.classList.add('selected');
+          });
         });
 
         formEl.querySelector('#btn-save-ssh').addEventListener('click', () => this.saveSSHConfig());
@@ -342,13 +344,10 @@ export const AppSettings = {
   async saveSSHConfig() {
     const sshHost = this.container.querySelector('#ssh-host')?.value.trim();
     const sshPort = this.container.querySelector('#ssh-port')?.value.trim();
-    const sshUser = this.container.querySelector('#ssh-user')?.value.trim();
-    const sshAuthType = this.container.querySelector('#ssh-authtype')?.value.trim();
-    const sshPass = this.container.querySelector('#ssh-pass')?.value.trim();
-    const sshKey = this.container.querySelector('#ssh-key')?.value.trim();
+    const sshAuthType = this.selectedAuthType || 'password';
 
-    if (!sshHost || !sshUser) {
-      alert('SSH Host and Username are required.');
+    if (!sshHost) {
+      alert('SSH Host IP/Domain is required.');
       return;
     }
 
@@ -356,10 +355,7 @@ export const AppSettings = {
       const res = await api.post('/api/v1/settings/ssh', {
         sshHost,
         sshPort,
-        sshUser,
-        sshAuthType,
-        sshPass,
-        sshKey
+        sshAuthType
       });
       alert(res.message || 'SSH Settings saved successfully!');
       this.loadSettings();
