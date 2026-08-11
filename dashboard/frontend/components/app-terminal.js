@@ -13,6 +13,8 @@ export const AppTerminal = {
   lastCols: null,
   lastRows: null,
   resizeTimeout: null,
+  writeBuffer: [],
+  writeAnimationFrame: null,
 
   async init(containerEl) {
     this.container = containerEl;
@@ -209,6 +211,17 @@ export const AppTerminal = {
       }));
     };
 
+    this.writeBuffer = [];
+    this.writeAnimationFrame = null;
+
+    const flushWriteBuffer = () => {
+      if (this.writeBuffer.length > 0 && this.term) {
+        this.term.write(this.writeBuffer.join(''));
+        this.writeBuffer = [];
+      }
+      this.writeAnimationFrame = null;
+    };
+
     this.ws.onmessage = (event) => {
       const rawData = event.data;
       if (typeof rawData === 'string' && rawData.startsWith('{')) {
@@ -241,7 +254,10 @@ export const AppTerminal = {
         setTimeout(() => this.resizeTerminal(), 150);
       }
 
-      this.term.write(event.data);
+      this.writeBuffer.push(event.data);
+      if (!this.writeAnimationFrame) {
+        this.writeAnimationFrame = requestAnimationFrame(flushWriteBuffer);
+      }
     };
 
     this.ws.onclose = () => {
@@ -345,6 +361,12 @@ export const AppTerminal = {
       this.term = null;
     }
     
+    if (this.writeAnimationFrame) {
+      cancelAnimationFrame(this.writeAnimationFrame);
+      this.writeAnimationFrame = null;
+    }
+    this.writeBuffer = [];
+
     this.fitAddon = null;
     this.sessionActive = false;
     this.isRedirecting = false;
