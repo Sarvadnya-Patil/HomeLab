@@ -1976,32 +1976,4 @@ input[type=number] {
   box-shadow: 2px 2px 0 #ffffff !important;
 }
 
-/* Pure Terminal Mode overrides */
-.app-shell.pure-terminal-mode .sidebar {
-  display: none !important;
-}
-.app-shell.pure-terminal-mode .grid-header {
-  display: none !important;
-}
-.app-shell.pure-terminal-mode .main-content {
-  padding: 0 !important;
-  gap: 0 !important;
-  height: 100vh !important;
-  width: 100vw !important;
-  max-width: 100vw !important;
-  overflow: hidden !important;
-}
-.app-shell.pure-terminal-mode .dashboard-grid {
-  gap: 0 !important;
-  height: 100vh !important;
-  width: 100vw !important;
-}
-.app-shell.pure-terminal-mode .app-viewport {
-  margin: 0 !important;
-  padding: 0 !important;
-  height: 100vh !important;
-  width: 100vw !important;
-  max-width: 100vw !important;
-}
-
 
