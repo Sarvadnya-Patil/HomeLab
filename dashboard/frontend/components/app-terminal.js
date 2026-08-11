@@ -181,7 +181,9 @@ export const AppTerminal = {
         this.ws.send(JSON.stringify({
           type: 'auth',
           username: username,
-          secret: enteredSecret
+          secret: enteredSecret,
+          cols: this.term.cols,
+          rows: this.term.rows
         }));
       };
 
