@@ -105,8 +105,7 @@ export default function (fastify: any, engine: CoreEngine): void {
       sshClient = new SSHClient();
 
       sshClient.on('ready', () => {
-        // Open interactive shell channel
-        sshClient!.shell({ term: 'xterm-color', cols: 80, rows: 24 }, (err, stream) => {
+        sshClient!.shell({ term: 'xterm-256color', cols: 80, rows: 24 }, (err, stream) => {
           if (err) {
             socket.send(JSON.stringify({ type: 'error', message: `SSH Shell error: ${err.message}` }));
             socket.close();
