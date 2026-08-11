@@ -59,7 +59,7 @@ export const AppTerminal = {
     if (errorMsg) {
       errorBanner = `
         <div style="background: #ef4444; color: #ffffff; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #000000; padding: 0.75rem; font-family: var(--font-mono); font-size: 0.72rem; font-weight: bold; margin-bottom: 1.5rem; text-align: center; text-transform: uppercase;">
-          ⚠️ ${errorMsg}
+          [ERROR] ${errorMsg}
         </div>
       `;
     }
