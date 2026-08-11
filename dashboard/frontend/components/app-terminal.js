@@ -142,7 +142,11 @@ export const AppTerminal = {
     const statusText = this.container.querySelector('#ssh-status-text');
 
     const promptForReconnect = () => {
+      if (this.isAuthInputActive) return;
       if (this.ws) {
+        this.ws.onclose = null;
+        this.ws.onerror = null;
+        this.ws.onmessage = null;
         try { this.ws.close(); } catch {}
         this.ws = null;
       }
@@ -333,6 +337,9 @@ export const AppTerminal = {
 
     if (this.ws) {
       try {
+        this.ws.onclose = null;
+        this.ws.onerror = null;
+        this.ws.onmessage = null;
         this.ws.close();
       } catch {}
       this.ws = null;
