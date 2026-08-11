@@ -53,12 +53,24 @@ export default function (fastify: any, engine: CoreEngine): void {
         shell: true
       });
 
-      shellProcess.stdout.on('data', (data: Buffer) => {
-        socket.send(data.toString('utf-8'));
-      });
-      shellProcess.stderr.on('data', (data: Buffer) => {
-        socket.send(data.toString('utf-8'));
-      });
+      let localBuffer: string[] = [];
+      let localFlushImmediate: NodeJS.Immediate | null = null;
+
+      const queueLocalOutput = (data: Buffer) => {
+        localBuffer.push(data.toString('utf-8'));
+        if (!localFlushImmediate) {
+          localFlushImmediate = setImmediate(() => {
+            if (socket.readyState === 1) { // WebSocket.OPEN
+              socket.send(localBuffer.join(''));
+            }
+            localBuffer = [];
+            localFlushImmediate = null;
+          });
+        }
+      };
+
+      shellProcess.stdout.on('data', queueLocalOutput);
+      shellProcess.stderr.on('data', queueLocalOutput);
 
       shellProcess.on('error', (err) => {
         socket.send(JSON.stringify({ type: 'error', message: `Local shell error: ${err.message}` }));
@@ -66,6 +78,10 @@ export default function (fastify: any, engine: CoreEngine): void {
       });
 
       shellProcess.on('close', () => {
+        if (localFlushImmediate) {
+          clearImmediate(localFlushImmediate);
+          localFlushImmediate = null;
+        }
         socket.close();
       });
 
@@ -113,11 +129,27 @@ export default function (fastify: any, engine: CoreEngine): void {
           }
 
           // Forward shell stdout/stderr back to the client WebSocket
+          let sshBuffer: string[] = [];
+          let sshFlushImmediate: NodeJS.Immediate | null = null;
+
           stream.on('data', (data: Buffer) => {
-            socket.send(data.toString('utf-8'));
+            sshBuffer.push(data.toString('utf-8'));
+            if (!sshFlushImmediate) {
+              sshFlushImmediate = setImmediate(() => {
+                if (socket.readyState === 1) { // WebSocket.OPEN
+                  socket.send(sshBuffer.join(''));
+                }
+                sshBuffer = [];
+                sshFlushImmediate = null;
+              });
+            }
           });
 
           stream.on('close', () => {
+            if (sshFlushImmediate) {
+              clearImmediate(sshFlushImmediate);
+              sshFlushImmediate = null;
+            }
             socket.close();
           });
 

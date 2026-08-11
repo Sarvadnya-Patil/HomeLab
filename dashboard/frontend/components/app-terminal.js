@@ -10,6 +10,9 @@ export const AppTerminal = {
   config: null,
   sessionActive: false,
   isRedirecting: false,
+  lastCols: null,
+  lastRows: null,
+  resizeTimeout: null,
 
   async init(containerEl) {
     this.container = containerEl;
@@ -207,23 +210,26 @@ export const AppTerminal = {
     };
 
     this.ws.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (payload.type === 'error') {
-          this.term.write(`\r\n\x1b[31mError: ${payload.message}\x1b[0m\r\n`);
-          if (statusDot) statusDot.style.background = '#ef4444';
-          if (statusText) statusText.textContent = 'Auth Failed';
-          
-          if (!this.isRedirecting) {
-            this.isRedirecting = true;
-            setTimeout(() => {
-              this.destroy();
-              this.renderLogin(`Authentication Failed: ${payload.message}`);
-            }, 2500);
+      const rawData = event.data;
+      if (typeof rawData === 'string' && rawData.startsWith('{')) {
+        try {
+          const payload = JSON.parse(rawData);
+          if (payload.type === 'error') {
+            this.term.write(`\r\n\x1b[31mError: ${payload.message}\x1b[0m\r\n`);
+            if (statusDot) statusDot.style.background = '#ef4444';
+            if (statusText) statusText.textContent = 'Auth Failed';
+            
+            if (!this.isRedirecting) {
+              this.isRedirecting = true;
+              setTimeout(() => {
+                this.destroy();
+                this.renderLogin(`Authentication Failed: ${payload.message}`);
+              }, 2500);
+            }
+            return;
           }
-          return;
-        }
-      } catch {}
+        } catch {}
+      }
       
       // Update UI state to green on first output response from SSH stream
       if (!this.sessionActive) {
@@ -273,8 +279,14 @@ export const AppTerminal = {
       }
     });
 
-    // Handle container resizing
-    this.resizeHandler = () => this.resizeTerminal();
+    // Throttled container resizing (runs at most once every 100ms)
+    this.resizeHandler = () => {
+      if (this.resizeTimeout) return;
+      this.resizeTimeout = setTimeout(() => {
+        this.resizeTerminal();
+        this.resizeTimeout = null;
+      }, 100);
+    };
     window.addEventListener('resize', this.resizeHandler);
 
     // Initial resize trigger
@@ -285,11 +297,22 @@ export const AppTerminal = {
     if (!this.term || !this.fitAddon || !this.container.querySelector('#xterm-container')) return;
     try {
       this.fitAddon.fit();
+      const cols = this.term.cols;
+      const rows = this.term.rows;
+
+      // Abort if dimensions haven't actually changed
+      if (this.lastCols === cols && this.lastRows === rows) {
+        return;
+      }
+
+      this.lastCols = cols;
+      this.lastRows = rows;
+
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         this.ws.send(JSON.stringify({
           type: 'resize',
-          cols: this.term.cols,
-          rows: this.term.rows
+          cols: cols,
+          rows: rows
         }));
       }
     } catch (err) {
@@ -301,6 +324,11 @@ export const AppTerminal = {
     if (this.resizeHandler) {
       window.removeEventListener('resize', this.resizeHandler);
       this.resizeHandler = null;
+    }
+
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+      this.resizeTimeout = null;
     }
 
     if (this.ws) {
@@ -320,6 +348,8 @@ export const AppTerminal = {
     this.fitAddon = null;
     this.sessionActive = false;
     this.isRedirecting = false;
+    this.lastCols = null;
+    this.lastRows = null;
   }
 };
 
