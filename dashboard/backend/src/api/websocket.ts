@@ -1,7 +1,6 @@
 // WebSocket API Handler
 import { CoreEngine } from '../core/engine';
 import { Client as SSHClient } from 'ssh2';
-import { decryptSecret } from '../utils/security';
 import { spawn } from 'child_process';
 import * as os from 'os';
 
@@ -99,7 +98,9 @@ export default function (fastify: any, engine: CoreEngine): void {
       socket.on('close', () => {
         try {
           shellProcess.kill();
-        } catch {}
+        } catch {
+          // Ignore process teardown failures
+        }
       });
 
       return;
