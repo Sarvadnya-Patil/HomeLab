@@ -48,6 +48,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   store.on('activeApp', ({ value }) => {
     console.log(`Routing active viewport application: [${value}]`);
     
+    if (appShell) {
+      if (value === 'terminal') {
+        appShell.classList.add('terminal-active-mode');
+      } else {
+        appShell.classList.remove('terminal-active-mode');
+      }
+    }
+
     const cmdBar = document.querySelector('.command-bar');
     if (cmdBar) {
       cmdBar.style.display = value === 'terminal' ? 'none' : 'flex';
