@@ -165,6 +165,8 @@ export const AppTerminal = {
     };
 
     const connect = (enteredSecret) => {
+      this.lastCols = null;
+      this.lastRows = null;
       if (statusDot) statusDot.style.background = '#eab308';
       if (statusText) statusText.textContent = 'Connecting...';
 
