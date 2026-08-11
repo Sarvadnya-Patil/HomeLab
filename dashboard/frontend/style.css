@@ -1994,6 +1994,9 @@ input[type=number] {
   height: 100% !important;
   width: 100% !important;
   max-width: 100% !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
 }
 
 
