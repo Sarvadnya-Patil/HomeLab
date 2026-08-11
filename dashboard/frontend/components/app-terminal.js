@@ -9,6 +9,7 @@ export const AppTerminal = {
   resizeHandler: null,
   config: null,
   sessionActive: false,
+  isRedirecting: false,
 
   async init(containerEl) {
     this.container = containerEl;
@@ -51,11 +52,21 @@ export const AppTerminal = {
     }
   },
 
-  renderLogin() {
+  renderLogin(errorMsg = '') {
     const isKeyAuth = this.config.sshAuthType === 'privateKey';
+    
+    let errorBanner = '';
+    if (errorMsg) {
+      errorBanner = `
+        <div style="background: #ef4444; color: #ffffff; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #000000; padding: 0.75rem; font-family: var(--font-mono); font-size: 0.72rem; font-weight: bold; margin-bottom: 1.5rem; text-align: center; text-transform: uppercase;">
+          ⚠️ ${errorMsg}
+        </div>
+      `;
+    }
     
     this.container.innerHTML = `
       <div style="max-width: 480px; margin: 4rem auto; background: #000; border: 2px solid #fff; box-shadow: 6px 6px 0 #fff; padding: 2rem; font-family: var(--font-mono); border-radius: 0;">
+        ${errorBanner}
         <h3 style="margin-top: 0; font-size: 0.85rem; font-weight: 900; text-transform: uppercase; color: #fff; border-bottom: 2px dashed #fff; padding-bottom: 0.75rem; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center;">
           <span>SSH Host Authentication</span>
           <span style="font-size: 0.65rem; color: #a1a1aa;">${this.config.sshHost}:${this.config.sshPort}</span>
@@ -203,6 +214,14 @@ export const AppTerminal = {
           this.term.write(`\r\n\x1b[31mError: ${payload.message}\x1b[0m\r\n`);
           if (statusDot) statusDot.style.background = '#ef4444';
           if (statusText) statusText.textContent = 'Auth Failed';
+          
+          if (!this.isRedirecting) {
+            this.isRedirecting = true;
+            setTimeout(() => {
+              this.destroy();
+              this.renderLogin(`Authentication Failed: ${payload.message}`);
+            }, 2500);
+          }
           return;
         }
       } catch {}
@@ -224,12 +243,28 @@ export const AppTerminal = {
       this.term.write('\r\n\x1b[31m*** SSH Shell Gateway Connection Terminated. ***\x1b[0m\r\n');
       if (statusDot) statusDot.style.background = '#ef4444';
       if (statusText) statusText.textContent = 'Disconnected';
+      
+      if (!this.sessionActive && !this.isRedirecting) {
+        this.isRedirecting = true;
+        setTimeout(() => {
+          this.destroy();
+          this.renderLogin('SSH Connection Closed: Authentication failed or connection refused.');
+        }, 2500);
+      }
     };
 
     this.ws.onerror = (err) => {
       this.term.write(`\r\n\x1b[31m*** Socket connection error: ${err.message || 'Unknown network failure'} ***\x1b[0m\r\n`);
       if (statusDot) statusDot.style.background = '#ef4444';
       if (statusText) statusText.textContent = 'Error';
+      
+      if (!this.sessionActive && !this.isRedirecting) {
+        this.isRedirecting = true;
+        setTimeout(() => {
+          this.destroy();
+          this.renderLogin('SSH Socket Error: Unable to establish connection to server.');
+        }, 2500);
+      }
     };
 
     // Forward raw typed terminal characters to host shell
@@ -286,6 +321,7 @@ export const AppTerminal = {
     this.fitAddon = null;
     this.config = null;
     this.sessionActive = false;
+    this.isRedirecting = false;
   }
 };
 
