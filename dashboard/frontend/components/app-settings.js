@@ -1,5 +1,5 @@
-// Settings Application - Preferences, 2FA SMTP Security, & Dynamic Plugin Configurator
 import { api } from '../core/api.js';
+import { store } from '../core/state.js';
 
 export const AppSettings = {
   container: null,
@@ -43,7 +43,7 @@ export const AppSettings = {
   },
 
   render() {
-    if (!this.container) return;
+    if (!this.container || store.get('activeApp') !== 'settings') return;
 
     this.container.innerHTML = `
       <div class="panel-section-header" style="border-bottom: none !important; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-family: var(--font-mono);">
