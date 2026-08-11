@@ -1494,6 +1494,33 @@ input[type=number] {
   animation: dropdownEnter 0.12s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+.custom-dropdown-menu.open {
+  display: block;
+}
+
+/* Custom terminal-only scrollbar overrides to prevent stark white thumbs */
+.xterm-viewport {
+  scrollbar-width: thin !important;
+  scrollbar-color: #33333e #000000 !important;
+}
+.xterm-viewport::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+.xterm-viewport::-webkit-scrollbar-track {
+  background: #000000 !important;
+  border: none !important;
+}
+.xterm-viewport::-webkit-scrollbar-thumb {
+  background: #33333e !important;
+  border-radius: 4px !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: #474756 !important;
+}
+
 @keyframes dropdownEnter {
   from {
     opacity: 0;
@@ -1947,6 +1974,29 @@ input[type=number] {
   background: #ffffff !important;
   color: #000000 !important;
   box-shadow: 2px 2px 0 #ffffff !important;
+}
+
+/* Terminal Viewport Layout overrides */
+.app-shell.terminal-active-mode .grid-header {
+  display: none !important;
+}
+.app-shell.terminal-active-mode .main-content {
+  padding: 0 !important;
+  gap: 0 !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+}
+.app-shell.terminal-active-mode .dashboard-grid {
+  height: 100vh !important;
+  gap: 0 !important;
+}
+.app-shell.terminal-active-mode .app-viewport {
+  height: 100% !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
 }
 
 

@@ -1,7 +1,8 @@
 // WebSocket API Handler
 import { CoreEngine } from '../core/engine';
 import { Client as SSHClient } from 'ssh2';
-import { decryptSecret } from '../utils/security';
+import { spawn } from 'child_process';
+import * as os from 'os';
 
 export default function (fastify: any, engine: CoreEngine): void {
   // Register /ws/terminal socket route for real-time interactive SSH
@@ -23,91 +24,218 @@ export default function (fastify: any, engine: CoreEngine): void {
 
     const sshHost = engine.settingsRepo.get('ssh.host');
     const sshPort = Number(engine.settingsRepo.get('ssh.port')) || 22;
-    const sshUser = engine.settingsRepo.get('ssh.user');
     const sshAuthType = engine.settingsRepo.get('ssh.authType') || 'password';
-    const encryptedPass = engine.settingsRepo.get('ssh.password') || '';
-    const encryptedKey = engine.settingsRepo.get('ssh.privateKey') || '';
 
-    if (!sshHost || !sshUser) {
+    if (!sshHost) {
       socket.send(
         JSON.stringify({
           type: 'error',
-          message: 'SSH settings not configured. Please save credentials in Settings -> SSH Configuration first.'
+          message: 'SSH host not configured. Please save host settings in Settings -> SSH Configuration first.'
         })
       );
       socket.close();
       return;
     }
 
-    const sshClient = new SSHClient();
+    if (sshHost === 'local') {
+      const isWindows = os.platform() === 'win32';
+      const shellCmd = isWindows ? 'powershell.exe' : 'bash';
+      const shellArgs = isWindows ? ['-NoLogo', '-NoExit'] : ['-i'];
 
-    sshClient.on('ready', () => {
-      // Open interactive shell channel
-      sshClient.shell({ term: 'xterm-color', cols: 80, rows: 24 }, (err, stream) => {
-        if (err) {
-          socket.send(JSON.stringify({ type: 'error', message: `SSH Shell error: ${err.message}` }));
-          socket.close();
-          return;
-        }
+      const shellProcess = spawn(shellCmd, shellArgs, {
+        env: {
+          ...process.env,
+          TERM: 'xterm-256color',
+          COLORTERM: 'truecolor',
+          FORCE_COLOR: '3'
+        },
+        shell: true
+      });
 
-        // Forward raw keypresses or commands from WebSocket to SSH stream
-        socket.on('message', (message: string) => {
-          try {
-            const payload = JSON.parse(message);
-            if (payload.type === 'data') {
-              stream.write(payload.data);
-            } else if (payload.type === 'resize') {
-              stream.setWindow(payload.rows, payload.cols, 0, 0);
+      let localBuffer: string[] = [];
+      let localFlushImmediate: NodeJS.Immediate | null = null;
+
+      const queueLocalOutput = (data: Buffer) => {
+        localBuffer.push(data.toString('utf-8'));
+        if (!localFlushImmediate) {
+          localFlushImmediate = setImmediate(() => {
+            if (socket.readyState === 1) { // WebSocket.OPEN
+              socket.send(localBuffer.join(''));
             }
-          } catch {
-            // Fallback: if message is not JSON, write directly
-            stream.write(message);
+            localBuffer = [];
+            localFlushImmediate = null;
+          });
+        }
+      };
+
+      shellProcess.stdout.on('data', queueLocalOutput);
+      shellProcess.stderr.on('data', queueLocalOutput);
+
+      shellProcess.on('error', (err) => {
+        socket.send(JSON.stringify({ type: 'error', message: `Local shell error: ${err.message}` }));
+        socket.close();
+      });
+
+      shellProcess.on('close', () => {
+        if (localFlushImmediate) {
+          clearImmediate(localFlushImmediate);
+          localFlushImmediate = null;
+        }
+        socket.close();
+      });
+
+      socket.on('message', (message: string) => {
+        try {
+          const payload = JSON.parse(message);
+          if (payload.type === 'data') {
+            shellProcess.stdin.write(payload.data);
           }
-        });
+        } catch {
+          shellProcess.stdin.write(message);
+        }
+      });
 
-        // Forward shell stdout/stderr back to the client WebSocket
-        stream.on('data', (data: Buffer) => {
-          socket.send(data.toString('utf-8'));
-        });
+      socket.on('close', () => {
+        try {
+          shellProcess.kill();
+        } catch {
+          // Ignore process teardown failures
+        }
+      });
 
-        stream.on('close', () => {
-          socket.close();
+      return;
+    }
+
+    let isAuthenticated = false;
+    let sshClient: SSHClient | null = null;
+
+    // Timeout if user doesn't send authentication payload within 15 seconds
+    const authTimeout = setTimeout(() => {
+      if (!isAuthenticated) {
+        socket.send(JSON.stringify({ type: 'error', message: 'SSH Authentication Timeout: Login credentials not received.' }));
+        socket.close();
+      }
+    }, 15000);
+
+    // Setup SSH Client connection once credentials are sent over WS
+    const connectSSH = (username: string, secret: string, cols: number, rows: number) => {
+      sshClient = new SSHClient();
+
+      sshClient.on('ready', () => {
+        sshClient!.shell({ term: 'xterm-256color', cols, rows }, (err, stream) => {
+          if (err) {
+            socket.send(JSON.stringify({ type: 'error', message: `SSH Shell error: ${err.message}` }));
+            socket.close();
+            return;
+          }
+
+          // Forward shell stdout/stderr back to the client WebSocket
+          let sshBuffer: string[] = [];
+          let sshFlushImmediate: NodeJS.Immediate | null = null;
+
+          stream.on('data', (data: Buffer) => {
+            sshBuffer.push(data.toString('utf-8'));
+            if (!sshFlushImmediate) {
+              sshFlushImmediate = setImmediate(() => {
+                if (socket.readyState === 1) { // WebSocket.OPEN
+                  socket.send(sshBuffer.join(''));
+                }
+                sshBuffer = [];
+                sshFlushImmediate = null;
+              });
+            }
+          });
+
+          stream.on('close', () => {
+            if (sshFlushImmediate) {
+              clearImmediate(sshFlushImmediate);
+              sshFlushImmediate = null;
+            }
+            socket.close();
+          });
+
+          // Forward socket inputs to shell stream
+          socket.on('message', (message: string) => {
+            try {
+              const payload = JSON.parse(message);
+              if (payload.type === 'data') {
+                stream.write(payload.data);
+              } else if (payload.type === 'resize') {
+                const cols = Number(payload.cols) || 80;
+                const rows = Number(payload.rows) || 24;
+                stream.setWindow(rows, cols, 0, 0);
+              }
+            } catch {
+              // Write raw message block directly
+              stream.write(message);
+            }
+          });
         });
       });
-    });
 
-    sshClient.on('error', (err: any) => {
-      socket.send(JSON.stringify({ type: 'error', message: `SSH connection error: ${err.message}` }));
-      socket.close();
-    });
+      sshClient.on('error', (err: any) => {
+        socket.send(JSON.stringify({ type: 'error', message: `SSH connection error: ${err.message}` }));
+        socket.close();
+      });
 
-    sshClient.on('close', () => {
-      socket.close();
-    });
+      sshClient.on('close', () => {
+        socket.close();
+      });
 
-    socket.on('close', () => {
-      try {
-        sshClient.end();
-      } catch {
-        // ignore connection teardown failures
+      const connOpts: any = {
+        host: sshHost,
+        port: sshPort,
+        username: username,
+        keepaliveInterval: 10000,
+        keepaliveCountMax: 3
+      };
+
+      if (sshAuthType === 'privateKey') {
+        connOpts.privateKey = secret;
+      } else {
+        connOpts.password = secret;
+      }
+
+      sshClient.connect(connOpts);
+    };
+
+    socket.on('message', (message: string) => {
+      if (!isAuthenticated) {
+        try {
+          const payload = JSON.parse(message);
+          if (payload.type === 'auth') {
+            clearTimeout(authTimeout);
+            isAuthenticated = true;
+            const { username, secret, cols, rows } = payload;
+            if (!username || !secret) {
+              socket.send(JSON.stringify({ type: 'error', message: 'SSH Username and Credentials are required.' }));
+              socket.close();
+              return;
+            }
+            const initialCols = Number(cols) || 80;
+            const initialRows = Number(rows) || 24;
+            connectSSH(username, secret, initialCols, initialRows);
+          } else {
+            socket.send(JSON.stringify({ type: 'error', message: 'SSH Authentication Required.' }));
+            socket.close();
+          }
+        } catch {
+          socket.send(JSON.stringify({ type: 'error', message: 'Invalid authentication payload format.' }));
+          socket.close();
+        }
       }
     });
 
-    const connOpts: any = {
-      host: sshHost,
-      port: sshPort,
-      username: sshUser,
-      keepaliveInterval: 10000,
-      keepaliveCountMax: 3
-    };
-
-    if (sshAuthType === 'privateKey') {
-      connOpts.privateKey = decryptSecret(encryptedKey);
-    } else {
-      connOpts.password = decryptSecret(encryptedPass);
-    }
-
-    sshClient.connect(connOpts);
+    socket.on('close', () => {
+      clearTimeout(authTimeout);
+      if (sshClient) {
+        try {
+          sshClient.end();
+        } catch {
+          // ignore connection teardown failures
+        }
+      }
+    });
   });
 
   // Register /ws socket route
