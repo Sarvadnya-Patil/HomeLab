@@ -108,6 +108,10 @@ export const AppTerminal = {
   },
 
   renderTerminalFrame(username, secret) {
+    const savedConfig = this.config;
+    this.destroy();
+    this.config = savedConfig;
+
     this.container.innerHTML = `
       <div style="width: 100%; height: 100%; display: flex; flex-direction: column; background-color: #000000; overflow: hidden;">
         <!-- Minimal title bar with connection status -->
@@ -314,7 +318,6 @@ export const AppTerminal = {
     }
     
     this.fitAddon = null;
-    this.config = null;
     this.sessionActive = false;
     this.isRedirecting = false;
   }
