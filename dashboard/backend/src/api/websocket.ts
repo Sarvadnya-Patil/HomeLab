@@ -117,11 +117,11 @@ export default function (fastify: any, engine: CoreEngine): void {
     }, 15000);
 
     // Setup SSH Client connection once credentials are sent over WS
-    const connectSSH = (username: string, secret: string) => {
+    const connectSSH = (username: string, secret: string, cols: number, rows: number) => {
       sshClient = new SSHClient();
 
       sshClient.on('ready', () => {
-        sshClient!.shell({ term: 'xterm-256color', cols: 80, rows: 24 }, (err, stream) => {
+        sshClient!.shell({ term: 'xterm-256color', cols, rows }, (err, stream) => {
           if (err) {
             socket.send(JSON.stringify({ type: 'error', message: `SSH Shell error: ${err.message}` }));
             socket.close();
@@ -160,7 +160,9 @@ export default function (fastify: any, engine: CoreEngine): void {
               if (payload.type === 'data') {
                 stream.write(payload.data);
               } else if (payload.type === 'resize') {
-                stream.setWindow(payload.rows, payload.cols, 0, 0);
+                const cols = Number(payload.cols) || 80;
+                const rows = Number(payload.rows) || 24;
+                stream.setWindow(rows, cols, 0, 0);
               }
             } catch {
               // Write raw message block directly
@@ -203,13 +205,15 @@ export default function (fastify: any, engine: CoreEngine): void {
           if (payload.type === 'auth') {
             clearTimeout(authTimeout);
             isAuthenticated = true;
-            const { username, secret } = payload;
+            const { username, secret, cols, rows } = payload;
             if (!username || !secret) {
               socket.send(JSON.stringify({ type: 'error', message: 'SSH Username and Credentials are required.' }));
               socket.close();
               return;
             }
-            connectSSH(username, secret);
+            const initialCols = Number(cols) || 80;
+            const initialRows = Number(rows) || 24;
+            connectSSH(username, secret, initialCols, initialRows);
           } else {
             socket.send(JSON.stringify({ type: 'error', message: 'SSH Authentication Required.' }));
             socket.close();
