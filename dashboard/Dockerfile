@@ -40,6 +40,9 @@ COPY --from=build /app/backend/dist ./backend/dist
 # Copy database schema DDL file to the expected path in dist
 COPY --from=build /app/backend/src/database/schema.sql ./backend/dist/src/database/schema.sql
 
+# Copy desktop streamer script to compiled api directory in dist
+COPY --from=build /app/backend/src/api/desktop_streamer.py ./backend/dist/src/api/desktop_streamer.py
+
 # Copy frontend static files
 COPY frontend/ ./backend/frontend/
 
