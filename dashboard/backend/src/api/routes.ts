@@ -1,4 +1,5 @@
 // Master REST API Route Coordinator loading modular v1 route endpoints
+import { exec } from 'child_process';
 import { CoreEngine } from '../core/engine';
 
 // Import modular API route subsystems
@@ -228,7 +229,22 @@ export default function (fastify: any, engine: CoreEngine): void {
 
   // 1. GET: /api/v1/apps (Dynamic Application Registry)
   fastify.get('/api/v1/apps', async () => {
-    return [
+    const desktopEnabled = engine.settingsRepo.get('desktop.rdp.enabled') === 'true';
+    let serviceActive = false;
+
+    if (process.platform === 'linux') {
+      try {
+        const checkCmd = 'nsenter -t 1 -m -u -i -n -p -U -r -- systemctl is-active homelab-desktop-streamer';
+        const stdout = await new Promise<string>((resolve) => {
+          exec(checkCmd, (err, stdout) => resolve(stdout.trim()));
+        });
+        serviceActive = stdout === 'active';
+      } catch {
+        // ignore
+      }
+    }
+
+    const apps = [
       {
         id: 'dashboard',
         name: 'Dashboard',
@@ -250,7 +266,6 @@ export default function (fastify: any, engine: CoreEngine): void {
         displayOrder: 2,
         permissions: ['admin', 'editor']
       },
-
       {
         id: 'health',
         name: 'System Health',
@@ -271,16 +286,28 @@ export default function (fastify: any, engine: CoreEngine): void {
         icon: 'terminal',
         displayOrder: 6,
         permissions: ['admin']
-      },
-
-      {
-        id: 'settings',
-        name: 'Settings',
-        icon: 'settings',
-        displayOrder: 7,
-        permissions: ['admin']
       }
     ];
+
+    if (desktopEnabled || serviceActive) {
+      apps.push({
+        id: 'desktop',
+        name: 'Remote Desktop',
+        icon: 'monitor',
+        displayOrder: 6.5,
+        permissions: ['admin']
+      });
+    }
+
+    apps.push({
+      id: 'settings',
+      name: 'Settings',
+      icon: 'settings',
+      displayOrder: 7,
+      permissions: ['admin']
+    });
+
+    return apps;
   });
 
   // 2. POST: /api/v1/terminal (Direct pseudo-console execution)

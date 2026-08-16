@@ -328,7 +328,7 @@ export default function (fastify: any, engine: CoreEngine): void {
           fi
         `;
 
-        exec(cmd, { shell: '/bin/bash' }, (error: any, stdout: any, stderr: any) => {
+        exec(cmd, { shell: '/bin/sh' }, (error: any, stdout: any, stderr: any) => {
           if (error) {
             console.error('[GDM/User Remote Desktop Setup Error]:', error, stderr);
             reject(error);
@@ -435,7 +435,7 @@ WantedBy=multi-user.target
         `;
 
         await new Promise<void>((resolve, reject) => {
-          exec(installCmd, { shell: '/bin/bash' }, (error: any, stdout: any, stderr: any) => {
+          exec(installCmd, { shell: '/bin/sh' }, (error: any, stdout: any, stderr: any) => {
             if (error) {
               console.error('[Host Streamer Service Install Error]:', error, stderr);
               reject(error);

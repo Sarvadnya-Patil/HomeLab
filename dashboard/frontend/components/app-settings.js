@@ -623,6 +623,8 @@ export const AppSettings = {
       });
       alert(res.message || 'Remote Desktop configuration saved successfully!');
       this.loadSettings();
+      const apps = await api.get('/api/v1/apps');
+      store.set('apps', apps);
     } catch (err) {
       alert(`Failed to save Remote Desktop config: ${err.message}`);
     }
@@ -639,6 +641,8 @@ export const AppSettings = {
       const res = await api.post('/api/v1/settings/desktop/install');
       alert(res.message || 'Host Remote Desktop daemon service installed successfully!');
       this.loadSettings();
+      const apps = await api.get('/api/v1/apps');
+      store.set('apps', apps);
     } catch (err) {
       alert(`Failed to install host daemon service: ${err.message}`);
     } finally {
