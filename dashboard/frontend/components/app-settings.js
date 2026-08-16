@@ -52,6 +52,7 @@ export const AppSettings = {
           <button class="btn btn-panel ${this.activeTab === 'general' ? 'btn-open' : ''}" id="tab-settings-general">General</button>
           <button class="btn btn-panel ${this.activeTab === '2fa' ? 'btn-open' : ''}" id="tab-settings-2fa">2FA & SMTP Security</button>
           <button class="btn btn-panel ${this.activeTab === 'ssh' ? 'btn-open' : ''}" id="tab-settings-ssh">SSH Terminal Config</button>
+          <button class="btn btn-panel ${this.activeTab === 'desktop' ? 'btn-open' : ''}" id="tab-settings-desktop">Remote Desktop</button>
           <button class="btn btn-panel ${this.activeTab === 'plugins' ? 'btn-open' : ''}" id="tab-settings-plugins">Plugins Config</button>
           <button class="btn btn-panel ${this.activeTab === 'backup' ? 'btn-open' : ''}" id="tab-settings-backup">Backup Center</button>
         </div>
@@ -65,6 +66,7 @@ export const AppSettings = {
     this.container.querySelector('#tab-settings-general').addEventListener('click', () => this.switchTab('general'));
     this.container.querySelector('#tab-settings-2fa').addEventListener('click', () => this.switchTab('2fa'));
     this.container.querySelector('#tab-settings-ssh').addEventListener('click', () => this.switchTab('ssh'));
+    this.container.querySelector('#tab-settings-desktop').addEventListener('click', () => this.switchTab('desktop'));
     this.container.querySelector('#tab-settings-plugins').addEventListener('click', () => this.switchTab('plugins'));
     this.container.querySelector('#tab-settings-backup').addEventListener('click', () => this.switchTab('backup'));
 
@@ -321,6 +323,57 @@ export const AppSettings = {
       } catch (err) {
         formEl.innerHTML = `<div style="font-size: 0.75rem; color: #ef4444;">Failed to load SSH configuration: ${err.message}</div>`;
       }
+    } else if (this.activeTab === 'desktop') {
+      try {
+        const config = await api.get('/api/v1/settings/desktop');
+        const statusBadge = config.serviceActive
+          ? `<span style="background: #000000; border: 1px solid #22c55e; color: #22c55e; font-weight: 900; padding: 0.2rem 0.6rem; text-transform: uppercase; font-size: 0.68rem;">DAEMON ACTIVE (SYSTEMD)</span>`
+          : `<span style="background: #000000; border: 1px solid #ef4444; color: #ef4444; font-weight: 900; padding: 0.2rem 0.6rem; text-transform: uppercase; font-size: 0.68rem;">DAEMON INACTIVE / NOT INSTALLED</span>`;
+
+        formEl.innerHTML = `
+          <div style="background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; border-radius: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #ffffff; padding-bottom: 0.75rem;">
+              <span style="font-weight: 900; text-transform: uppercase; font-size: 0.85rem;">Remote Desktop Status</span>
+              ${statusBadge}
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <label class="switch">
+                <input type="checkbox" id="desktop-enabled" ${config.enabled ? 'checked' : ''}>
+                <span class="slider"></span>
+              </label>
+              <span style="font-size: 0.75rem; font-weight: bold; color: #ffffff; text-transform: uppercase;">Enable GNOME Remote Desktop Integration</span>
+            </div>
+
+            <div class="detail-item">
+              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">Linux Host User</label>
+              <input type="text" id="desktop-host-user" value="${config.hostUser || ''}" placeholder="e.g. sarvdev" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
+              <div class="detail-item">
+                <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">RDP Username</label>
+                <input type="text" id="desktop-username" value="${config.username || ''}" placeholder="e.g. homelab" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+              </div>
+
+              <div class="detail-item">
+                <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">RDP Password</label>
+                <input type="password" id="desktop-password" value="${config.password || ''}" placeholder="••••••••" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+              <button class="btn btn-panel btn-open" id="btn-save-desktop" style="flex: 1; background: #ffffff; color: #000000; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Save Configurations</button>
+              <button class="btn btn-panel btn-open" id="btn-install-desktop-daemon" style="flex: 1; background: #000000; color: #ffffff; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Install Host Daemon</button>
+            </div>
+          </div>
+        `;
+
+        formEl.querySelector('#btn-save-desktop').addEventListener('click', () => this.saveDesktopConfig());
+        formEl.querySelector('#btn-install-desktop-daemon').addEventListener('click', () => this.installDesktopDaemon());
+      } catch (err) {
+        formEl.innerHTML = `<div style="font-size: 0.75rem; color: #ef4444;">Failed to load Remote Desktop settings: ${err.message}</div>`;
+      }
     } else if (this.activeTab === 'backup') {
       formEl.innerHTML = `
         <div style="background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem; border-radius: 0;">
@@ -552,6 +605,47 @@ export const AppSettings = {
     } finally {
       btn.textContent = 'RUN BACKUP';
       btn.disabled = false;
+    }
+  },
+
+  async saveDesktopConfig() {
+    const enabled = this.container.querySelector('#desktop-enabled')?.checked;
+    const username = this.container.querySelector('#desktop-username')?.value.trim();
+    const password = this.container.querySelector('#desktop-password')?.value.trim();
+    const hostUser = this.container.querySelector('#desktop-host-user')?.value.trim();
+
+    try {
+      const res = await api.post('/api/v1/settings/desktop', {
+        enabled,
+        username,
+        password,
+        hostUser
+      });
+      alert(res.message || 'Remote Desktop configuration saved successfully!');
+      this.loadSettings();
+    } catch (err) {
+      alert(`Failed to save Remote Desktop config: ${err.message}`);
+    }
+  },
+
+  async installDesktopDaemon() {
+    const btn = this.container.querySelector('#btn-install-desktop-daemon');
+    if (btn) {
+      btn.textContent = 'INSTALLING SERVICE...';
+      btn.disabled = true;
+    }
+
+    try {
+      const res = await api.post('/api/v1/settings/desktop/install');
+      alert(res.message || 'Host Remote Desktop daemon service installed successfully!');
+      this.loadSettings();
+    } catch (err) {
+      alert(`Failed to install host daemon service: ${err.message}`);
+    } finally {
+      if (btn) {
+        btn.textContent = 'INSTALL HOST DAEMON';
+        btn.disabled = false;
+      }
     }
   }
 };

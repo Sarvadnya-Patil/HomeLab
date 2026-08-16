@@ -1,7 +1,7 @@
 // WebSocket API Handler
 import { CoreEngine } from '../core/engine';
 import { Client as SSHClient } from 'ssh2';
-import { spawn } from 'child_process';
+import { spawn, exec } from 'child_process';
 import * as os from 'os';
 
 export default function (fastify: any, engine: CoreEngine): void {
@@ -327,6 +327,140 @@ export default function (fastify: any, engine: CoreEngine): void {
       } catch {
         // ignore connection teardown failures
       }
+    });
+  });
+
+  // Bridge references for active sessions
+  let activeDaemonSocket: any = null;
+  let activeClientSocket: any = null;
+
+  // Register /ws/desktop/daemon route for the local host streamer daemon
+  fastify.get('/ws/desktop/daemon', { websocket: true }, (connection: any, _req: any) => {
+    const socket = connection.socket;
+    
+    // Authenticate the daemon: check if it's localhost or verified token
+    const token = _req.query?.token;
+    const expectedToken = engine.settingsRepo.get('desktop.rdp.daemonToken') || 'daemon_default_secret';
+    
+    const remoteIp = _req.ip;
+    const isLocal = remoteIp === '127.0.0.1' || remoteIp === '::1' || remoteIp === 'localhost';
+    
+    if (token !== expectedToken && !isLocal) {
+      console.warn(`[DesktopBridge] Unauthorized daemon connection attempt from ${remoteIp}`);
+      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized daemon credentials' }));
+      socket.close();
+      return;
+    }
+    
+    if (activeDaemonSocket) {
+      console.warn('[DesktopBridge] Disconnecting previous daemon connection');
+      try { activeDaemonSocket.close(); } catch {
+        // ignore close error
+      }
+    }
+    
+    activeDaemonSocket = socket;
+    console.log('[DesktopBridge] Host streamer daemon connected successfully.');
+    
+    // If a client is already waiting, notify them that daemon is active
+    if (activeClientSocket) {
+      activeClientSocket.send(JSON.stringify({ type: 'status', status: 'daemon_online' }));
+    }
+    
+    socket.on('message', (messageStr: string) => {
+      // Forward messages from daemon (like WebRTC SDP answers, telemetry) to the browser client
+      if (activeClientSocket) {
+        try {
+          activeClientSocket.send(messageStr);
+        } catch {
+          // ignore send failure
+        }
+      }
+    });
+    
+    socket.on('close', () => {
+      console.log('[DesktopBridge] Host streamer daemon disconnected.');
+      if (activeDaemonSocket === socket) {
+        activeDaemonSocket = null;
+        if (activeClientSocket) {
+          activeClientSocket.send(JSON.stringify({ type: 'status', status: 'daemon_offline' }));
+        }
+      }
+    });
+    
+    socket.on('error', (err: any) => {
+      console.error('[DesktopBridge] Daemon socket error:', err);
+    });
+  });
+
+  // Register /ws/desktop route for WebRTC & WebSocket remote desktop browser clients
+  fastify.get('/ws/desktop', { websocket: true }, (connection: any, _req: any) => {
+    const socket = connection.socket;
+
+    const token = _req.query?.token;
+    if (!token) {
+      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Authentication token required' }));
+      socket.close();
+      return;
+    }
+    const user = engine.auth.verifyToken(token);
+    if (!user || user.role !== 'admin') {
+      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Admin privilege required' }));
+      socket.close();
+      return;
+    }
+
+    if (activeClientSocket) {
+      console.warn('[DesktopBridge] Disconnecting previous client session');
+      try { activeClientSocket.close(); } catch {
+        // ignore close error
+      }
+    }
+
+    activeClientSocket = socket;
+    console.log('[DesktopBridge] Admin client connected to Remote Desktop signaling.');
+
+    // Report status of the daemon to the client
+    if (activeDaemonSocket) {
+      socket.send(JSON.stringify({ type: 'status', status: 'daemon_online' }));
+    } else {
+      socket.send(JSON.stringify({ type: 'status', status: 'daemon_offline' }));
+      // Try to trigger daemon start on the host via systemctl if it is registered
+      if (process.platform === 'linux') {
+        exec('nsenter -t 1 -m -u -i -n -p -U -r -- systemctl start homelab-desktop-streamer', (err: any) => {
+          if (err) console.error('[DesktopBridge] Failed to auto-trigger streamer start:', err.message);
+        });
+      }
+    }
+
+    socket.on('message', (messageStr: string) => {
+      // Forward client actions (offer, key events) directly to the daemon
+      if (activeDaemonSocket) {
+        try {
+          activeDaemonSocket.send(messageStr);
+        } catch {
+          // ignore forward failure
+        }
+      }
+    });
+
+    socket.on('close', () => {
+      console.log('[DesktopBridge] Admin client disconnected.');
+      if (activeClientSocket === socket) {
+        activeClientSocket = null;
+        // Notify the daemon to close current stream
+        if (activeDaemonSocket) {
+          try {
+            activeDaemonSocket.send(JSON.stringify({ type: 'close' }));
+          } catch {
+            // ignore send error
+          }
+        }
+      }
+    });
+
+    socket.on('error', (err: any) => {
+      console.error('[DesktopBridge] Client socket error:', err);
     });
   });
 }
