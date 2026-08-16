@@ -15,6 +15,7 @@ import { AppTerminal } from './components/app-terminal.js';
 import { AppDesigner } from './components/app-designer.js';
 import { AppHealth } from './components/app-health.js';
 import { AppJobs } from './components/app-jobs.js';
+import { AppDesktop } from './components/app-desktop.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Booting HomeLab OS Control Plane...');
@@ -51,14 +52,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (appShell) {
       if (value === 'terminal') {
         appShell.classList.add('terminal-active-mode');
+        appShell.classList.remove('desktop-active-mode');
+      } else if (value === 'desktop') {
+        appShell.classList.add('desktop-active-mode');
+        appShell.classList.remove('terminal-active-mode');
       } else {
         appShell.classList.remove('terminal-active-mode');
+        appShell.classList.remove('desktop-active-mode');
       }
     }
 
     const cmdBar = document.querySelector('.command-bar');
     if (cmdBar) {
-      cmdBar.style.display = (value === 'terminal') ? 'none' : 'flex';
+      cmdBar.style.display = (value === 'terminal' || value === 'desktop') ? 'none' : 'flex';
     }
 
     // Clear active polling intervals on switch
@@ -93,6 +99,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       viewport.className = 'app-viewport';
       AppTerminal.init(viewport);
       window.activeAppDestroy = () => AppTerminal.destroy();
+    } else if (value === 'desktop') {
+      viewport.className = 'app-viewport';
+      AppDesktop.init(viewport);
+      window.activeAppDestroy = () => AppDesktop.destroy();
     }
   });
 

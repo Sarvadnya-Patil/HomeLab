@@ -1999,4 +1999,27 @@ input[type=number] {
   box-shadow: none !important;
 }
 
+/* Remote Desktop Viewport Layout overrides */
+.app-shell.desktop-active-mode .grid-header {
+  display: none !important;
+}
+.app-shell.desktop-active-mode .main-content {
+  padding: 0 !important;
+  gap: 0 !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+}
+.app-shell.desktop-active-mode .dashboard-grid {
+  height: 100vh !important;
+  gap: 0 !important;
+}
+.app-shell.desktop-active-mode .app-viewport {
+  height: 100% !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
 
