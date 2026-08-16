@@ -7,4 +7,5 @@ export interface DatabaseAdapter {
   exec(sql: string): void;
   close(): void;
   transaction<T>(fn: () => T): T;
+  getPath(): string;
 }

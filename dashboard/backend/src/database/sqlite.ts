@@ -1,14 +1,16 @@
-// SQLite database adapter implementation
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { DatabaseAdapter } from './adapter';
 import { Logger } from '../utils/logger';
+import { getDatabasePath } from '../utils/paths';
 
 export class SqliteAdapter implements DatabaseAdapter {
   private db: Database.Database;
+  private dbPath: string;
 
-  constructor(dbPath: string = path.join(process.cwd(), 'data', 'homelab.db')) {
+  constructor(dbPath: string = getDatabasePath()) {
+    this.dbPath = dbPath;
     const dir = path.dirname(dbPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -85,5 +87,9 @@ export class SqliteAdapter implements DatabaseAdapter {
       Logger.error('DatabaseSubsystem', `Transaction execution rolled back: ${err.message}`);
       throw err;
     }
+  }
+
+  getPath(): string {
+    return this.dbPath;
   }
 }

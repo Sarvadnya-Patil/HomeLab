@@ -15,6 +15,7 @@ import { BackupService } from './services/backup.service';
 import { InfrastructureService } from './services/infrastructure.service';
 import { DockerClient } from '../docker/client';
 import { Logger } from '../utils/logger';
+import { getServicesDir } from '../utils/paths';
 
 export class ServiceRegistry {
   private static instance: ServiceRegistry;
@@ -68,7 +69,7 @@ export class ServiceRegistry {
     this.notification = new NotificationService(adapter, this.eventBus);
     this.workspace = new WorkspaceService(adapter);
     this.category = new CategoryService(adapter);
-    this.plugin = new PluginService(adapter, this.category);
+    this.plugin = new PluginService(adapter, this.category, getServicesDir());
     this.jobs = new JobsService(adapter, this.eventBus);
     this.auth = new AuthService(adapter);
     this.backup = new BackupService(adapter, this.jobs);
