@@ -435,46 +435,93 @@ WantedBy=multi-user.target
       if (process.platform === 'linux') {
         console.log('[DesktopInstaller] Executing host environment libraries install & systemd service startup...');
         const installCmd = `nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c '
-          if ! command -v systemctl >/dev/null 2>&1; then
-            echo "SIMULATION_MODE_ACTIVE"
+          echo "[Diagnostics] Host user: \\$(whoami)"
+          echo "[Diagnostics] Host PATH: \\$PATH"
+
+          # 1. Resolve systemctl path
+          SYSTEMCTL=""
+          for p in /bin/systemctl /usr/bin/systemctl /usr/sbin/systemctl /sbin/systemctl; do
+            if [ -x "\\$p" ]; then
+              SYSTEMCTL="\\$p"
+              break
+            fi
+          done
+
+          # 2. Resolve pip3 path
+          PIP3=""
+          for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
+            if [ -x "\\$p" ]; then
+              PIP3="\\$p"
+              break
+            fi
+          done
+
+          echo "[Diagnostics] Located systemctl: \\$SYSTEMCTL"
+          echo "[Diagnostics] Located pip3: \\$PIP3"
+
+          if [ -z "\\$SYSTEMCTL" ]; then
+            echo "SIMULATION_MODE_ACTIVE (systemctl not found)"
             exit 0
           fi
 
-          # If pip3 is missing on the host, try to install it automatically
-          if ! command -v pip3 >/dev/null 2>&1; then
+          if [ -z "\\$PIP3" ]; then
             if command -v apt-get >/dev/null 2>&1; then
-              echo "[HostInstaller] Installing python3-pip on Host OS via apt-get..."
+              echo "[HostInstaller] pip3 not found. Installing via apt-get..."
               export DEBIAN_FRONTEND=noninteractive
               apt-get update && apt-get install -y python3-pip python3-av || true
+              
+              # Re-evaluate pip3 path
+              for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
+                if [ -x "\\$p" ]; then
+                  PIP3="\\$p"
+                  break
+                fi
+              done
             elif command -v dnf >/dev/null 2>&1; then
-              echo "[HostInstaller] Installing python3-pip on Host OS via dnf..."
+              echo "[HostInstaller] pip3 not found. Installing via dnf..."
               dnf install -y python3-pip || true
-            else
-              echo "SIMULATION_MODE_ACTIVE"
-              exit 0
+              
+              # Re-evaluate
+              for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
+                if [ -x "\\$p" ]; then
+                  PIP3="\\$p"
+                  break
+                fi
+              done
             fi
           fi
 
-          # Ensure host has required python libraries
-          pip3 install --no-cache-dir websockets aiortc mss pyautogui av || true
+          if [ -z "\\$PIP3" ]; then
+            echo "SIMULATION_MODE_ACTIVE (pip3 missing and auto-install failed)"
+            exit 0
+          fi
+
+          echo "[HostInstaller] Using pip3 at: \\$PIP3"
+          "\\$PIP3" install --no-cache-dir websockets aiortc mss pyautogui av || true
           
-          # Enable and restart service
-          systemctl daemon-reload
-          systemctl enable homelab-desktop-streamer.service
-          systemctl restart homelab-desktop-streamer.service
+          echo "[HostInstaller] Triggering daemon reload and service start..."
+          "\\$SYSTEMCTL" daemon-reload
+          "\\$SYSTEMCTL" enable homelab-desktop-streamer.service
+          "\\$SYSTEMCTL" restart homelab-desktop-streamer.service
+          echo "[HostInstaller] systemd service setup complete."
         '`;
 
         await new Promise<void>((resolve, reject) => {
           exec(installCmd, { shell: '/bin/sh' }, (error: any, stdout: any, stderr: any) => {
+            console.log('[DesktopInstaller] Host command stdout:', stdout);
+            if (stderr) {
+              console.warn('[DesktopInstaller] Host command stderr:', stderr);
+            }
+
             if (error) {
-              console.error('[Host Streamer Service Install Error]:', error, stderr);
+              console.error('[Host Streamer Service Install Error]:', error);
               reject(error);
             } else {
               if (stdout && stdout.includes('SIMULATION_MODE_ACTIVE')) {
-                console.log('[DesktopInstaller] systemd/pip3 not found on host. Simulation mode triggered.');
+                console.log('[DesktopInstaller] Host system did not meet requirements. Simulation mode active.');
                 (engine as any).simulatedServiceActive = true;
               } else {
-                console.log('[DesktopInstaller] systemd service enabled and restarted successfully.');
+                console.log('[DesktopInstaller] Host installation succeeded.');
                 (engine as any).simulatedServiceActive = false;
               }
               resolve();
