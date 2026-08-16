@@ -301,6 +301,10 @@ export default function (fastify: any, engine: CoreEngine): void {
     const runHostSetup = () => {
       return new Promise<void>((resolve, reject) => {
         const cmd = enabled ? `
+          if ! command -v grdctl >/dev/null 2>&1; then
+            echo "SIMULATION_MODE_ACTIVE"
+            exit 0
+          fi
           # Ensure system-wide daemon is disabled to prevent port conflicts
           grdctl --system rdp disable || true
           systemctl stop gnome-remote-desktop.service || true
@@ -323,6 +327,10 @@ export default function (fastify: any, engine: CoreEngine): void {
             nsenter -t 1 -m -u -i -n -p -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp set-tls-key "$USER_CERT_DIR/rdp-tls.key"
           fi
         ` : `
+          if ! command -v grdctl >/dev/null 2>&1; then
+            echo "SIMULATION_MODE_ACTIVE"
+            exit 0
+          fi
           if id -u "${hostUser}" >/dev/null 2>&1; then
             nsenter -t 1 -m -u -i -n -p -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp disable || true
           fi
@@ -425,6 +433,11 @@ WantedBy=multi-user.target
       if (process.platform === 'linux') {
         console.log('[DesktopInstaller] Executing host environment libraries install & systemd service startup...');
         const installCmd = `nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c '
+          if ! command -v systemctl >/dev/null 2>&1 || ! command -v pip3 >/dev/null 2>&1; then
+            echo "SIMULATION_MODE_ACTIVE"
+            exit 0
+          fi
+
           # Ensure host has required python libraries
           pip3 install --no-cache-dir websockets aiortc mss pyautogui av || true
           
@@ -440,7 +453,11 @@ WantedBy=multi-user.target
               console.error('[Host Streamer Service Install Error]:', error, stderr);
               reject(error);
             } else {
-              console.log('[DesktopInstaller] systemd service enabled and restarted successfully.');
+              if (stdout && stdout.includes('SIMULATION_MODE_ACTIVE')) {
+                console.log('[DesktopInstaller] systemd/pip3 not found on host. Simulation mode triggered.');
+              } else {
+                console.log('[DesktopInstaller] systemd service enabled and restarted successfully.');
+              }
               resolve();
             }
           });
