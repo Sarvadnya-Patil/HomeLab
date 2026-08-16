@@ -25,6 +25,7 @@ services:
     container_name: homelab-dashboard
     restart: unless-stopped
     privileged: true
+    pid: host
     depends_on:
       - docker-proxy
     ports:
