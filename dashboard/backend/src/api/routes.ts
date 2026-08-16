@@ -234,7 +234,7 @@ export default function (fastify: any, engine: CoreEngine): void {
 
     if (process.platform === 'linux') {
       try {
-        const checkCmd = 'nsenter -t 1 -m -u -i -n -p -r -- systemctl is-active homelab-desktop-streamer';
+        const checkCmd = 'nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c "systemctl is-active homelab-desktop-streamer"';
         const stdout = await new Promise<string>((resolve) => {
           exec(checkCmd, (err, stdout) => resolve(stdout.trim()));
         });

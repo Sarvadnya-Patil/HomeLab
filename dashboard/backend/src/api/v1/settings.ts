@@ -260,7 +260,7 @@ export default function (fastify: any, engine: CoreEngine): void {
     let serviceActive = false;
     if (process.platform === 'linux') {
       try {
-        const checkCmd = 'nsenter -t 1 -m -u -i -n -p -r -- systemctl is-active homelab-desktop-streamer';
+        const checkCmd = 'nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c "systemctl is-active homelab-desktop-streamer"';
         const stdout = await new Promise<string>((resolve) => {
           exec(checkCmd, (err, stdout) => resolve(stdout.trim()));
         });
@@ -424,15 +424,15 @@ WantedBy=multi-user.target
       // 5. Reload systemd, enable and restart service (only on Linux)
       if (process.platform === 'linux') {
         console.log('[DesktopInstaller] Executing host environment libraries install & systemd service startup...');
-        const installCmd = `
+        const installCmd = `nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c '
           # Ensure host has required python libraries
-          nsenter -t 1 -m -u -i -n -p -r -- pip3 install --no-cache-dir websockets aiortc mss pyautogui av || true
+          pip3 install --no-cache-dir websockets aiortc mss pyautogui av || true
           
           # Enable and restart service
-          nsenter -t 1 -m -u -i -n -p -r -- systemctl daemon-reload
-          nsenter -t 1 -m -u -i -n -p -r -- systemctl enable homelab-desktop-streamer.service
-          nsenter -t 1 -m -u -i -n -p -r -- systemctl restart homelab-desktop-streamer.service
-        `;
+          systemctl daemon-reload
+          systemctl enable homelab-desktop-streamer.service
+          systemctl restart homelab-desktop-streamer.service
+        '`;
 
         await new Promise<void>((resolve, reject) => {
           exec(installCmd, { shell: '/bin/sh' }, (error: any, stdout: any, stderr: any) => {
