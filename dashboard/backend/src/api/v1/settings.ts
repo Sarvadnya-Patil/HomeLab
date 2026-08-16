@@ -260,7 +260,7 @@ export default function (fastify: any, engine: CoreEngine): void {
     let serviceActive = false;
     if (process.platform === 'linux') {
       try {
-        const checkCmd = 'nsenter -t 1 -m -u -i -n -p -U -r -- systemctl is-active homelab-desktop-streamer';
+        const checkCmd = 'nsenter -t 1 -m -u -i -n -p -r -- systemctl is-active homelab-desktop-streamer';
         const stdout = await new Promise<string>((resolve) => {
           exec(checkCmd, (err, stdout) => resolve(stdout.trim()));
         });
@@ -317,14 +317,14 @@ export default function (fastify: any, engine: CoreEngine): void {
             fi
 
             # Configure user RDP via nsenter
-            nsenter -t 1 -m -u -i -n -p -U -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp enable
-            nsenter -t 1 -m -u -i -n -p -U -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp set-credentials "${username}" "${targetPass}"
-            nsenter -t 1 -m -u -i -n -p -U -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp set-tls-cert "$USER_CERT_DIR/rdp-tls.crt"
-            nsenter -t 1 -m -u -i -n -p -U -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp set-tls-key "$USER_CERT_DIR/rdp-tls.key"
+            nsenter -t 1 -m -u -i -n -p -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp enable
+            nsenter -t 1 -m -u -i -n -p -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp set-credentials "${username}" "${targetPass}"
+            nsenter -t 1 -m -u -i -n -p -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp set-tls-cert "$USER_CERT_DIR/rdp-tls.crt"
+            nsenter -t 1 -m -u -i -n -p -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp set-tls-key "$USER_CERT_DIR/rdp-tls.key"
           fi
         ` : `
           if id -u "${hostUser}" >/dev/null 2>&1; then
-            nsenter -t 1 -m -u -i -n -p -U -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp disable || true
+            nsenter -t 1 -m -u -i -n -p -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp disable || true
           fi
         `;
 
@@ -426,12 +426,12 @@ WantedBy=multi-user.target
         console.log('[DesktopInstaller] Executing host environment libraries install & systemd service startup...');
         const installCmd = `
           # Ensure host has required python libraries
-          nsenter -t 1 -m -u -i -n -p -U -r -- pip3 install --no-cache-dir websockets aiortc mss pyautogui av || true
+          nsenter -t 1 -m -u -i -n -p -r -- pip3 install --no-cache-dir websockets aiortc mss pyautogui av || true
           
           # Enable and restart service
-          nsenter -t 1 -m -u -i -n -p -U -r -- systemctl daemon-reload
-          nsenter -t 1 -m -u -i -n -p -U -r -- systemctl enable homelab-desktop-streamer.service
-          nsenter -t 1 -m -u -i -n -p -U -r -- systemctl restart homelab-desktop-streamer.service
+          nsenter -t 1 -m -u -i -n -p -r -- systemctl daemon-reload
+          nsenter -t 1 -m -u -i -n -p -r -- systemctl enable homelab-desktop-streamer.service
+          nsenter -t 1 -m -u -i -n -p -r -- systemctl restart homelab-desktop-streamer.service
         `;
 
         await new Promise<void>((resolve, reject) => {
