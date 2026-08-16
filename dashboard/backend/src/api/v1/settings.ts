@@ -457,6 +457,7 @@ WantedBy=multi-user.target
       if (process.platform === 'linux') {
         console.log('[DesktopInstaller] Executing host environment libraries install & systemd service startup...');
         const installCmd = `nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c '
+          set -e
           echo "[Diagnostics] Host user: $(whoami)"
           echo "[Diagnostics] Host PATH: $PATH"
 
@@ -510,7 +511,7 @@ WantedBy=multi-user.target
           fi
 
           echo "[HostInstaller] Using pip3 at: $PIP3"
-          "$PIP3" install --break-system-packages --no-cache-dir websockets aiortc mss pyautogui av
+          "$PIP3" install --break-system-packages --ignore-installed --no-cache-dir websockets aiortc mss pyautogui av
           
           echo "[HostInstaller] Triggering daemon reload and service start..."
           "$SYSTEMCTL" daemon-reload
