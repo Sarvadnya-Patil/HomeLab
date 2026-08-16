@@ -39,6 +39,12 @@ export function getIcon(name) {
   if (lower.includes('postgres') || lower.includes('sql') || lower.includes('db') || lower.includes('database')) {
     return icons.database;
   }
+  if (lower.includes('tunnel') || lower.includes('cloudflare') || lower.includes('cloudflared')) {
+    return icons.tunnel;
+  }
+  if (lower.includes('terminal') || lower.includes('ssh')) {
+    return icons.terminal;
+  }
   return icons[lower] || icons.default;
 }
 
@@ -123,4 +129,65 @@ if (typeof window !== 'undefined') {
       }
     }
   };
+}
+
+const KNOWN_CDN_LOGOS = new Set([
+  'cloudflare', 'redis', 'postgresql', 'mariadb', 'mysql', 'home-assistant',
+  'portainer', 'pihole', 'nginx', 'plex', 'nextcloud', 'jellyfin', 'transmission',
+  'qbittorrent', 'sonarr', 'radarr', 'lidarr', 'prowlarr', 'jackett', 'uptime-kuma',
+  'prometheus', 'grafana', 'unifi', 'wireguard', 'tailscale', 'syncthing',
+  'photoprism', 'immich', 'navidrome', 'audiobookshelf', 'vaultwarden', 'adguard-home',
+  'caddy', 'traefik', 'watchtower', 'deconz', 'homebridge', 'scrypted', 'frigate',
+  'node-red', 'esphome', 'mosquitto', 'nginx-proxy-manager', 'dozzle', 'glances',
+  'tautulli', 'overseerr', 'jellyseerr', 'nzbget', 'sabnzbd', 'deluge', 'ruktorrent',
+  'authelia', 'appwrite', 'ghost', 'gitea', 'grafana', 'ha-bridge', 'heimdall', 'homer',
+  'invidious', 'kavita', 'komga', 'matrix', 'mealie', 'paperless-ngx', 'piwigo',
+  'searxng', 'tandoor', 'trilium', 'vikunja', 'wallabag', 'webtop', 'znc'
+]);
+
+export function getLogoHtml(name, cacheKey, escName, size = 16) {
+  const ref = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  
+  // Custom manual mappings to valid CDN icon names
+  let logoName = ref;
+  if (ref.includes('cloudflare') || ref.includes('cloudflared')) {
+    logoName = 'cloudflare';
+  } else if (ref.includes('redis')) {
+    logoName = 'redis';
+  } else if (ref.includes('postgres') || ref.includes('postgresql')) {
+    logoName = 'postgresql';
+  } else if (ref.includes('mariadb')) {
+    logoName = 'mariadb';
+  } else if (ref.includes('mysql')) {
+    logoName = 'mysql';
+  } else if (ref.includes('home-assistant') || ref.includes('homeassistant')) {
+    logoName = 'home-assistant';
+  } else if (ref.includes('nginx')) {
+    logoName = 'nginx';
+  } else if (ref.includes('grafana')) {
+    logoName = 'grafana';
+  } else if (ref.includes('prometheus') || ref.includes('node-exporter')) {
+    logoName = 'prometheus';
+  }
+
+  // If the logo name is known to exist on the CDN, return the img tag referencing the CDN
+  if (KNOWN_CDN_LOGOS.has(logoName)) {
+    const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${logoName}.webp`;
+    return `
+      <img src="${logoUrl}" 
+           alt="${escName}" 
+           crossorigin="anonymous"
+           data-cache-key="${cacheKey}"
+           style="width: ${size}px; height: ${size}px; object-fit: contain;" 
+           onload="window.handleLogoLoad(this)"
+           onerror="this.onerror=null; const svg=decodeURIComponent('${encodeURIComponent(getIcon(name)).replace(/'/g, '%27')}'); if(window.logoUrlCache){window.logoUrlCache.set('${cacheKey}', svg);} this.outerHTML=svg;"/>
+    `;
+  }
+
+  // Otherwise, directly return the local fallback SVG without making any network request!
+  const localSvg = getIcon(name);
+  if (window.logoUrlCache) {
+    window.logoUrlCache.set(cacheKey, localSvg);
+  }
+  return localSvg;
 }
