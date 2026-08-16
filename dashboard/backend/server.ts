@@ -7,6 +7,7 @@ import { CoreEngine } from './src/core/engine';
 import routes from './src/api/routes';
 import websocket from './src/api/websocket';
 import { Logger } from './src/utils/logger';
+import { getDatabasePath } from './src/utils/paths';
 
 const fastify = Fastify({ logger: { level: 'error' } });
 
@@ -43,10 +44,10 @@ fastify.register(async (instance) => {
   websocket(instance, engine);
 });
 
-const PORT = Number(process.env.BACKEND_PORT) || 8081;
+const PORT = Number(process.env.BACKEND_PORT) || Number(process.env.PORT) || 8081;
 const start = async () => {
   try {
-    await engine.init();
+    await engine.init(getDatabasePath());
     await fastify.listen({ port: PORT, host: '0.0.0.0' });
     console.log(`HomeLab Modular Control Plane (TS Engine) listening on port ${PORT}`);
   } catch (err: any) {

@@ -8,7 +8,7 @@ import { WidgetGrid } from './components/widget-grid.js';
 import { CommandPalette } from './components/command-palette.js';
 import { NotificationCenter } from './components/notification-center.js';
 
-// Import modular application views
+// modular application views
 import { AppContainers } from './components/app-containers.js';
 import { AppSettings } from './components/app-settings.js';
 import { AppTerminal } from './components/app-terminal.js';
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const cmdBar = document.querySelector('.command-bar');
     if (cmdBar) {
-      cmdBar.style.display = value === 'terminal' ? 'none' : 'flex';
+      cmdBar.style.display = (value === 'terminal') ? 'none' : 'flex';
     }
 
     // Clear active polling intervals on switch

@@ -16,6 +16,7 @@ import { PluginService } from './plugin.service';
 import { CategoryService } from './category.service';
 import { PluginMetadata, SystemStats } from '../../types';
 import { Logger } from '../../utils/logger';
+import { getComposeCachePath } from '../../utils/paths';
 
 export class InfrastructureService {
   constructor(
@@ -375,7 +376,7 @@ export class InfrastructureService {
   }
 
   private updateComposeCache(containers: any[]): void {
-    const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
+    const cacheFilePath = getComposeCachePath();
     
     const dataDir = path.dirname(cacheFilePath);
     if (!fs.existsSync(dataDir)) {
@@ -439,7 +440,7 @@ export class InfrastructureService {
 
     // 1. Load cached offline compose containers from compose_cache.json
     try {
-      const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
+      const cacheFilePath = getComposeCachePath();
       if (fs.existsSync(cacheFilePath)) {
         const cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
         const ignoredList: string[] = Array.isArray(cache._ignored) ? cache._ignored : [];
@@ -550,14 +551,18 @@ export class InfrastructureService {
     const map: Record<string, string> = {};
     try {
       // 1. Host system locations (priority)
-      const locations = [
+      const locations: string[] = [];
+      if (process.env.CLOUDFLARE_CONFIG_PATH) {
+        locations.push(process.env.CLOUDFLARE_CONFIG_PATH);
+      }
+      locations.push(
         '/etc/cloudflared/config.yml',
         '/etc/cloudflared/config.yaml',
         '/root/.cloudflared/config.yml',
         '/root/.cloudflared/config.yaml',
         path.join(os.homedir(), '.cloudflared', 'config.yml'),
         path.join(os.homedir(), '.cloudflared', 'config.yaml')
-      ];
+      );
 
       // Dynamic host-user home directory config scanner
       const hostHome = '/host/home';
@@ -914,7 +919,7 @@ export class InfrastructureService {
   }
 
   async scanSystemComposeFiles(dirs: string[], maxDepth = 4): Promise<void> {
-    const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
+    const cacheFilePath = getComposeCachePath();
     let cache: Record<string, any> = {};
     if (fs.existsSync(cacheFilePath)) {
       try {

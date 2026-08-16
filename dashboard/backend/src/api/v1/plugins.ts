@@ -3,6 +3,7 @@ import { execSync } from 'child_process';
 import { Logger } from '../../utils/logger';
 import path from 'path';
 import fs from 'fs';
+import { getComposeCachePath } from '../../utils/paths';
 
 export default function (fastify: any, engine: CoreEngine): void {
   // 1. GET: /api/v1/plugins (Query list of discovered plugin manifests)
@@ -55,7 +56,7 @@ export default function (fastify: any, engine: CoreEngine): void {
         // Handle container removal cache pruning & permanent ignoring
         if (action === 'remove') {
           try {
-            const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
+            const cacheFilePath = getComposeCachePath();
             if (fs.existsSync(cacheFilePath)) {
               const cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
               cache._ignored = Array.isArray(cache._ignored) ? cache._ignored : [];
@@ -159,7 +160,7 @@ export default function (fastify: any, engine: CoreEngine): void {
     let composeFile = 'docker-compose.yml';
 
     try {
-      const cacheFilePath = path.join(process.cwd(), 'data', 'compose_cache.json');
+      const cacheFilePath = getComposeCachePath();
       if (fs.existsSync(cacheFilePath)) {
         const cache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
         if (cache[id] && cache[id].workingDir && fs.existsSync(cache[id].workingDir)) {
