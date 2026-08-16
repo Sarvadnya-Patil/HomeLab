@@ -28,6 +28,8 @@ WORKDIR /app
 # Install native compilation dependencies and Docker CLI client
 RUN apk add --no-cache python3 make g++ docker-cli docker-cli-compose
 
+
+
 # Install only production dependencies
 COPY backend/package*.json ./backend/
 RUN cd backend && npm ci --omit=dev

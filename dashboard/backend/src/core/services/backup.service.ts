@@ -90,7 +90,7 @@ export class BackupService {
         updateProgress(20, 'Initializing database locking mechanism...');
 
         updateProgress(50, 'Streaming table definitions to backup target file...');
-        const dbPath = path.join(process.cwd(), 'data/homelab.db');
+        const dbPath = this.db.getPath();
 
         if (fs.existsSync(dbPath)) {
           fs.copyFileSync(dbPath, targetPath);
@@ -162,7 +162,7 @@ export class BackupService {
       updateProgress(20, 'Verifying restore file authenticity and structure...');
       updateProgress(50, 'Locking database and rolling back transactional states...');
       
-      const dbPath = path.join(process.cwd(), 'data/homelab.db');
+      const dbPath = this.db.getPath();
       if (fs.existsSync(dbPath)) {
         fs.copyFileSync(backupPath, dbPath);
       }

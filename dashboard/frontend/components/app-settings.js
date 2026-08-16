@@ -537,6 +537,8 @@ export const AppSettings = {
     }
   },
 
+
+
   async runBackup() {
     const btn = this.container.querySelector('#btn-trigger-backup');
     btn.textContent = 'BACKING UP...';

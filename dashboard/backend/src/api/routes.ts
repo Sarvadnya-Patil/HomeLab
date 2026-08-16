@@ -272,6 +272,7 @@ export default function (fastify: any, engine: CoreEngine): void {
         displayOrder: 6,
         permissions: ['admin']
       },
+
       {
         id: 'settings',
         name: 'Settings',
