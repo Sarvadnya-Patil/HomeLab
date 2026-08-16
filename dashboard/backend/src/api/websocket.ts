@@ -368,12 +368,19 @@ export default function (fastify: any, engine: CoreEngine): void {
     }
     
     socket.on('message', (messageStr: string) => {
-      // Forward messages from daemon (like WebRTC SDP answers, telemetry) to the browser client
       if (activeClientSocket) {
         try {
-          activeClientSocket.send(messageStr);
+          const payload = JSON.parse(messageStr);
+          if (payload.type !== 'frame') {
+            console.log(`[DesktopBridge] Forwarding daemon message: type=${payload.type}`);
+          }
         } catch {
-          // ignore send failure
+          // ignore parsing error
+        }
+        try {
+          activeClientSocket.send(messageStr);
+        } catch (err: any) {
+          console.error(`[DesktopBridge] Failed to forward daemon message: ${err.message}`);
         }
       }
     });
@@ -434,12 +441,19 @@ export default function (fastify: any, engine: CoreEngine): void {
     }
 
     socket.on('message', (messageStr: string) => {
-      // Forward client actions (offer, key events) directly to the daemon
       if (activeDaemonSocket) {
         try {
-          activeDaemonSocket.send(messageStr);
+          const payload = JSON.parse(messageStr);
+          if (payload.type !== 'mousemove' && payload.type !== 'keydown' && payload.type !== 'keyup') {
+            console.log(`[DesktopBridge] Forwarding client payload: type=${payload.type}`);
+          }
         } catch {
-          // ignore forward failure
+          // ignore parsing error
+        }
+        try {
+          activeDaemonSocket.send(messageStr);
+        } catch (err: any) {
+          console.error(`[DesktopBridge] Failed to forward message to daemon: ${err.message}`);
         }
       }
     });

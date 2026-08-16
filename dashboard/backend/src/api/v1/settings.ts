@@ -355,11 +355,14 @@ export default function (fastify: any, engine: CoreEngine): void {
 
   // 13. POST /api/v1/settings/desktop/install (Install host systemd service)
   fastify.post('/api/v1/settings/desktop/install', async (request: any, reply: any) => {
+    console.log('[DesktopInstaller] Initiating systemd service installation on Host OS...');
+    
     // Generate secure token for the daemon if not set
     let daemonToken = engine.settingsRepo.get('desktop.rdp.daemonToken');
     if (!daemonToken) {
       daemonToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       engine.settingsRepo.set('desktop.rdp.daemonToken', daemonToken, 'desktop');
+      console.log('[DesktopInstaller] Generated new secure daemonToken.');
     }
 
     const hostRoot = process.platform === 'linux' ? '/host/proc/1/root' : path.join(__dirname, '../../../../../scratch/host_simulation');
@@ -369,16 +372,20 @@ export default function (fastify: any, engine: CoreEngine): void {
 
     try {
       // 1. Ensure directory exists
+      console.log(`[DesktopInstaller] Ensuring directory exists: ${hostOptDir}`);
       fs.mkdirSync(hostOptDir, { recursive: true });
 
       // 2. Read the source desktop_streamer.py content inside the container
       const sourceStreamerPath = path.join(__dirname, '../desktop_streamer.py');
+      console.log(`[DesktopInstaller] Reading source script: ${sourceStreamerPath}`);
       if (!fs.existsSync(sourceStreamerPath)) {
+        console.error('[DesktopInstaller] Source file not found!');
         return reply.status(404).send({ error: `Source desktop_streamer.py not found at path: ${sourceStreamerPath}` });
       }
       const streamerContent = fs.readFileSync(sourceStreamerPath, 'utf8');
 
       // 3. Write it to host filesystem path
+      console.log(`[DesktopInstaller] Writing python script to host: ${hostStreamerPath}`);
       fs.writeFileSync(hostStreamerPath, streamerContent, { mode: 0o755 });
 
       // 4. Construct and write the systemd service file on the host
@@ -397,10 +404,12 @@ User=root
 [Install]
 WantedBy=multi-user.target
 `;
+      console.log(`[DesktopInstaller] Writing systemd service file to host: ${hostServicePath}`);
       fs.writeFileSync(hostServicePath, serviceContent);
 
       // 5. Reload systemd, enable and restart service (only on Linux)
       if (process.platform === 'linux') {
+        console.log('[DesktopInstaller] Executing host environment libraries install & systemd service startup...');
         const installCmd = `
           # Ensure host has required python libraries
           nsenter -t 1 -m -u -i -n -p -U -r -- pip3 install --no-cache-dir websockets aiortc mss pyautogui av || true
@@ -417,6 +426,7 @@ WantedBy=multi-user.target
               console.error('[Host Streamer Service Install Error]:', error, stderr);
               reject(error);
             } else {
+              console.log('[DesktopInstaller] systemd service enabled and restarted successfully.');
               resolve();
             }
           });
@@ -425,6 +435,7 @@ WantedBy=multi-user.target
 
       const actor = request.user?.id || 'admin';
       engine.auditRepo.log(actor, 'install_desktop_daemon_service', 'security', 'desktop');
+      console.log('[DesktopInstaller] Installation completed successfully.');
 
       return { success: true, message: 'Remote Desktop streamer systemd service installed and started on Host OS successfully.' };
     } catch (err: any) {
