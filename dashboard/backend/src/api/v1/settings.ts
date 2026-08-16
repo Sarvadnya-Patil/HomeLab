@@ -258,7 +258,9 @@ export default function (fastify: any, engine: CoreEngine): void {
 
     // Check if the host systemd service is active by checking status via host process/service info
     let serviceActive = false;
-    if (process.platform === 'linux') {
+    if ((engine as any).simulatedServiceActive) {
+      serviceActive = true;
+    } else if (process.platform === 'linux') {
       try {
         const checkCmd = 'nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c "systemctl is-active homelab-desktop-streamer"';
         const stdout = await new Promise<string>((resolve) => {
@@ -455,8 +457,10 @@ WantedBy=multi-user.target
             } else {
               if (stdout && stdout.includes('SIMULATION_MODE_ACTIVE')) {
                 console.log('[DesktopInstaller] systemd/pip3 not found on host. Simulation mode triggered.');
+                (engine as any).simulatedServiceActive = true;
               } else {
                 console.log('[DesktopInstaller] systemd service enabled and restarted successfully.');
+                (engine as any).simulatedServiceActive = false;
               }
               resolve();
             }
