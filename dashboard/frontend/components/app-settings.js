@@ -366,11 +366,22 @@ export const AppSettings = {
               <button class="btn btn-panel btn-open" id="btn-save-desktop" style="flex: 1; background: #ffffff; color: #000000; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Save Configurations</button>
               <button class="btn btn-panel btn-open" id="btn-install-desktop-daemon" style="flex: 1; background: #000000; color: #ffffff; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Install Host Daemon</button>
             </div>
+
+            <div style="margin-top: 1.5rem; display: none;" id="daemon-logs-section">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <h4 style="margin: 0; font-size: 0.65rem; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.05em;">Host Service Logs (Diagnostics)</h4>
+                <button id="btn-refresh-daemon-logs" class="btn" style="background: none; border: 1px solid #ffffff; color: #ffffff; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; text-transform: uppercase; padding: 0.2rem 0.6rem; font-weight: bold; box-shadow: 2px 2px 0 #888888;">Refresh Logs</button>
+              </div>
+              <pre id="daemon-logs-pre" style="background: #09090b; border: 1.5px solid #27272a; padding: 0.75rem; font-size: 0.6rem; max-height: 200px; overflow-y: auto; color: #a1a1aa; margin: 0; line-height: 1.4; white-space: pre-wrap; font-family: var(--font-mono); text-align: left;"></pre>
+            </div>
           </div>
         `;
 
         formEl.querySelector('#btn-save-desktop').addEventListener('click', () => this.saveDesktopConfig());
         formEl.querySelector('#btn-install-desktop-daemon').addEventListener('click', () => this.installDesktopDaemon());
+        
+        // Fetch logs on render to show current service state
+        this.fetchDaemonLogs();
       } catch (err) {
         formEl.innerHTML = `<div style="font-size: 0.75rem; color: #ef4444;">Failed to load Remote Desktop settings: ${err.message}</div>`;
       }
@@ -650,6 +661,39 @@ export const AppSettings = {
         btn.textContent = 'INSTALL HOST DAEMON';
         btn.disabled = false;
       }
+      this.fetchDaemonLogs();
+    }
+  },
+
+  async fetchDaemonLogs() {
+    const logsSection = this.container?.querySelector('#daemon-logs-section');
+    const logsPre = this.container?.querySelector('#daemon-logs-pre');
+    const refreshBtn = this.container?.querySelector('#btn-refresh-daemon-logs');
+    if (!logsSection || !logsPre) return;
+
+    // Bind refresh button click once
+    if (refreshBtn && !refreshBtn.dataset.bound) {
+      refreshBtn.dataset.bound = "true";
+      refreshBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.fetchDaemonLogs();
+      });
+    }
+
+    try {
+      logsPre.textContent = 'Fetching logs from host...';
+      logsSection.style.display = 'block';
+      const res = await api.get('/api/v1/settings/desktop/logs');
+      logsPre.textContent = res.logs || 'No logs returned from host.';
+      // Colorize red errors for high contrast readability
+      if (res.logs && (res.logs.includes('error') || res.logs.includes('fail') || res.logs.includes('Exception'))) {
+        logsPre.style.color = '#f87171'; // soft red
+      } else {
+        logsPre.style.color = '#34d399'; // green success/ok
+      }
+    } catch (err) {
+      logsPre.textContent = 'Failed to fetch logs: ' + err.message;
+      logsPre.style.color = '#ef4444';
     }
   }
 };

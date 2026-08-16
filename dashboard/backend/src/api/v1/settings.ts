@@ -281,6 +281,28 @@ export default function (fastify: any, engine: CoreEngine): void {
     };
   });
 
+  // 11.5. GET /api/v1/settings/desktop/logs
+  fastify.get('/api/v1/settings/desktop/logs', async (request: any, reply: any) => {
+    if (process.platform !== 'linux') {
+      return { logs: 'Logs only available on Linux host environments.' };
+    }
+    try {
+      const logsCmd = 'nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c "journalctl -u homelab-desktop-streamer -n 50 --no-pager"';
+      const logs = await new Promise<string>((resolve) => {
+        exec(logsCmd, (err, stdout, stderr) => {
+          if (err) {
+            resolve(stdout + '\n' + stderr);
+          } else {
+            resolve(stdout);
+          }
+        });
+      });
+      return { logs };
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
+    }
+  });
+
   // 12. POST /api/v1/settings/desktop
   fastify.post('/api/v1/settings/desktop', async (request: any, reply: any) => {
     const { enabled, username, password, hostUser } = request.body || {};
