@@ -3,8 +3,6 @@ import { CoreEngine } from '../core/engine';
 import { Client as SSHClient } from 'ssh2';
 import { spawn } from 'child_process';
 import * as os from 'os';
-import { decryptSecret } from '../utils/security';
-
 
 export default function (fastify: any, engine: CoreEngine): void {
   // Register /ws/terminal socket route for real-time interactive SSH

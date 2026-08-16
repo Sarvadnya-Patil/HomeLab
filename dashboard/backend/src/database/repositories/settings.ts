@@ -108,7 +108,9 @@ export class SettingsRepository {
             fs.writeFileSync(PERSIST_FILE, JSON.stringify(settings, null, 2), 'utf-8');
           }
         }
-      } catch {}
+      } catch {
+        // ignore delete persistence errors
+      }
     }
     return res.changes > 0;
   }
