@@ -435,14 +435,14 @@ WantedBy=multi-user.target
       if (process.platform === 'linux') {
         console.log('[DesktopInstaller] Executing host environment libraries install & systemd service startup...');
         const installCmd = `nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c '
-          echo "[Diagnostics] Host user: \\$(whoami)"
-          echo "[Diagnostics] Host PATH: \\$PATH"
+          echo "[Diagnostics] Host user: $(whoami)"
+          echo "[Diagnostics] Host PATH: $PATH"
 
           # 1. Resolve systemctl path
           SYSTEMCTL=""
           for p in /bin/systemctl /usr/bin/systemctl /usr/sbin/systemctl /sbin/systemctl; do
-            if [ -x "\\$p" ]; then
-              SYSTEMCTL="\\$p"
+            if [ -x "$p" ]; then
+              SYSTEMCTL="$p"
               break
             fi
           done
@@ -450,21 +450,21 @@ WantedBy=multi-user.target
           # 2. Resolve pip3 path
           PIP3=""
           for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
-            if [ -x "\\$p" ]; then
-              PIP3="\\$p"
+            if [ -x "$p" ]; then
+              PIP3="$p"
               break
             fi
           done
 
-          echo "[Diagnostics] Located systemctl: \\$SYSTEMCTL"
-          echo "[Diagnostics] Located pip3: \\$PIP3"
+          echo "[Diagnostics] Located systemctl: $SYSTEMCTL"
+          echo "[Diagnostics] Located pip3: $PIP3"
 
-          if [ -z "\\$SYSTEMCTL" ]; then
+          if [ -z "$SYSTEMCTL" ]; then
             echo "SIMULATION_MODE_ACTIVE (systemctl not found)"
             exit 0
           fi
 
-          if [ -z "\\$PIP3" ]; then
+          if [ -z "$PIP3" ]; then
             if command -v apt-get >/dev/null 2>&1; then
               echo "[HostInstaller] pip3 not found. Installing via apt-get..."
               export DEBIAN_FRONTEND=noninteractive
@@ -472,8 +472,8 @@ WantedBy=multi-user.target
               
               # Re-evaluate pip3 path
               for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
-                if [ -x "\\$p" ]; then
-                  PIP3="\\$p"
+                if [ -x "$p" ]; then
+                  PIP3="$p"
                   break
                 fi
               done
@@ -483,26 +483,26 @@ WantedBy=multi-user.target
               
               # Re-evaluate
               for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
-                if [ -x "\\$p" ]; then
-                  PIP3="\\$p"
+                if [ -x "$p" ]; then
+                  PIP3="$p"
                   break
                 fi
               done
             fi
           fi
 
-          if [ -z "\\$PIP3" ]; then
+          if [ -z "$PIP3" ]; then
             echo "SIMULATION_MODE_ACTIVE (pip3 missing and auto-install failed)"
             exit 0
           fi
 
-          echo "[HostInstaller] Using pip3 at: \\$PIP3"
-          "\\$PIP3" install --no-cache-dir websockets aiortc mss pyautogui av || true
+          echo "[HostInstaller] Using pip3 at: $PIP3"
+          "$PIP3" install --no-cache-dir websockets aiortc mss pyautogui av || true
           
           echo "[HostInstaller] Triggering daemon reload and service start..."
-          "\\$SYSTEMCTL" daemon-reload
-          "\\$SYSTEMCTL" enable homelab-desktop-streamer.service
-          "\\$SYSTEMCTL" restart homelab-desktop-streamer.service
+          "$SYSTEMCTL" daemon-reload
+          "$SYSTEMCTL" enable homelab-desktop-streamer.service
+          "$SYSTEMCTL" restart homelab-desktop-streamer.service
           echo "[HostInstaller] systemd service setup complete."
         '`;
 
