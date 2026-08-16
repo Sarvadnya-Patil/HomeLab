@@ -3,6 +3,8 @@ import { CoreEngine } from '../core/engine';
 import { Client as SSHClient } from 'ssh2';
 import { spawn } from 'child_process';
 import * as os from 'os';
+import { decryptSecret } from '../utils/security';
+
 
 export default function (fastify: any, engine: CoreEngine): void {
   // Register /ws/terminal socket route for real-time interactive SSH
@@ -109,13 +111,24 @@ export default function (fastify: any, engine: CoreEngine): void {
     let isAuthenticated = false;
     let sshClient: SSHClient | null = null;
 
-    // Timeout if user doesn't send authentication payload within 15 seconds
+    // Timeout if user doesn't send authentication payload within 60 seconds
     const authTimeout = setTimeout(() => {
       if (!isAuthenticated) {
         socket.send(JSON.stringify({ type: 'error', message: 'SSH Authentication Timeout: Login credentials not received.' }));
         socket.close();
       }
-    }, 15000);
+    }, 60000);
+
+    // Heartbeat ping to keep WebSocket connection alive and prevent reverse proxy idle timeouts
+    const pingInterval = setInterval(() => {
+      if (socket.readyState === 1) { // WebSocket.OPEN
+        try {
+          socket.ping();
+        } catch {
+          // ignore
+        }
+      }
+    }, 20000);
 
     // Setup SSH Client connection once credentials are sent over WS
     const connectSSH = (username: string, secret: string, cols: number, rows: number) => {
@@ -187,7 +200,8 @@ export default function (fastify: any, engine: CoreEngine): void {
         port: sshPort,
         username: username,
         keepaliveInterval: 10000,
-        keepaliveCountMax: 3
+        keepaliveCountMax: 3,
+        readyTimeout: 60000
       };
 
       if (sshAuthType === 'privateKey') {
@@ -228,6 +242,7 @@ export default function (fastify: any, engine: CoreEngine): void {
 
     socket.on('close', () => {
       clearTimeout(authTimeout);
+      clearInterval(pingInterval);
       if (sshClient) {
         try {
           sshClient.end();
