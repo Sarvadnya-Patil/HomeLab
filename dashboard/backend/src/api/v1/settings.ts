@@ -486,32 +486,23 @@ WantedBy=multi-user.target
             exit 0
           fi
 
-          if [ -z "$PIP3" ]; then
-            if command -v apt-get >/dev/null 2>&1; then
-              echo "[HostInstaller] pip3 not found. Installing via apt-get..."
-              export DEBIAN_FRONTEND=noninteractive
-              apt-get update && apt-get install -y python3-pip python3-av || true
-              
-              # Re-evaluate pip3 path
-              for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
-                if [ -x "$p" ]; then
-                  PIP3="$p"
-                  break
-                fi
-              done
-            elif command -v dnf >/dev/null 2>&1; then
-              echo "[HostInstaller] pip3 not found. Installing via dnf..."
-              dnf install -y python3-pip || true
-              
-              # Re-evaluate
-              for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
-                if [ -x "$p" ]; then
-                  PIP3="$p"
-                  break
-                fi
-              done
-            fi
+          # 3. Install packages via host package manager if available
+          if command -v apt-get >/dev/null 2>&1; then
+            echo "[HostInstaller] Ubuntu/Debian host detected. Installing pre-compiled packages..."
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update && apt-get install -y python3-pip python3-websockets python3-aiortc python3-mss python3-pyautogui python3-av || true
+          elif command -v dnf >/dev/null 2>&1; then
+            echo "[HostInstaller] Fedora/RHEL host detected. Installing packages..."
+            dnf install -y python3-pip python3-websockets python3-mss || true
           fi
+
+          # Re-evaluate pip3 path in case it was just installed
+          for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
+            if [ -x "$p" ]; then
+              PIP3="$p"
+              break
+            fi
+          done
 
           if [ -z "$PIP3" ]; then
             echo "SIMULATION_MODE_ACTIVE (pip3 missing and auto-install failed)"
