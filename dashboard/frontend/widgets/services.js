@@ -1,7 +1,7 @@
 // Services list widget module (dynamic categories-grouped services card matrix)
 import { store } from '../core/state.js';
 import { api } from '../core/api.js';
-import { getIcon } from '../utils/icons.js';
+import { getIcon, getLogoHtml } from '../utils/icons.js';
 import { Dialog } from '../utils/dialog.js';
 
 function escapeHtml(text) {
@@ -274,17 +274,7 @@ export default {
     if (window.logoUrlCache && window.logoUrlCache.has(cacheKey)) {
       logoHtml = window.logoUrlCache.get(cacheKey);
     } else {
-      const serviceRefName = guessLogoName(service.id);
-      const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${serviceRefName}.webp`;
-      logoHtml = `
-        <img src="${logoUrl}" 
-             alt="${escapeHtml(service.name)}" 
-             crossorigin="anonymous"
-             data-cache-key="${cacheKey}"
-             style="width: 20px; height: 20px; object-fit: contain;" 
-             onload="window.handleLogoLoad(this)"
-             onerror="this.onerror=null; const svg=decodeURIComponent('${encodeURIComponent(getIcon(service.id)).replace(/'/g, '%27')}'); if(window.logoUrlCache){window.logoUrlCache.set('${cacheKey}', svg);} this.outerHTML=svg;"/>
-      `;
+      logoHtml = getLogoHtml(service.id, cacheKey, escapeHtml(service.name), 20);
     }
 
     card.innerHTML = `

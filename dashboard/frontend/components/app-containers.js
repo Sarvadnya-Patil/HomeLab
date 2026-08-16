@@ -1,7 +1,7 @@
 // Containers Application - Dynamic Docker Manager View
 import { api } from '../core/api.js';
 import { Dialog } from '../utils/dialog.js';
-import { getIcon } from '../utils/icons.js';
+import { getIcon, getLogoHtml } from '../utils/icons.js';
 
 export const AppContainers = {
   container: null,
@@ -329,17 +329,7 @@ export const AppContainers = {
       if (window.logoUrlCache && window.logoUrlCache.has(cacheKey)) {
         logoHtml = window.logoUrlCache.get(cacheKey);
       } else {
-        const refName = guessLogoName(name);
-        const logoUrl = `https://cdn.jsdelivr.net/gh/selfhst/icons@main/webp/${refName}.webp`;
-        logoHtml = `
-          <img src="${logoUrl}" 
-               alt="${escName}" 
-               crossorigin="anonymous"
-               data-cache-key="${cacheKey}"
-               style="width: 16px; height: 16px; object-fit: contain;" 
-               onload="window.handleLogoLoad(this)"
-               onerror="this.onerror=null; const svg=decodeURIComponent('${encodeURIComponent(getIcon(name)).replace(/'/g, '%27')}'); if(window.logoUrlCache){window.logoUrlCache.set('${cacheKey}', svg);} this.outerHTML=svg;"/>
-        `;
+        logoHtml = getLogoHtml(name, cacheKey, escName, 16);
       }
 
       html += `
