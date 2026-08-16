@@ -30,9 +30,9 @@ RUN apk add --no-cache python3 make g++ docker-cli docker-cli-compose
 
 
 
-# Install only production dependencies
+# Copy package files and node_modules from the build stage directly to skip rebuilding native binaries
 COPY backend/package*.json ./backend/
-RUN cd backend && npm ci --omit=dev
+COPY --from=build /app/backend/node_modules ./backend/node_modules
 
 # Copy compiled JavaScript output
 COPY --from=build /app/backend/dist ./backend/dist
