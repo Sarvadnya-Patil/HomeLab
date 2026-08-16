@@ -510,7 +510,7 @@ WantedBy=multi-user.target
           fi
 
           echo "[HostInstaller] Using pip3 at: $PIP3"
-          "$PIP3" install --break-system-packages --no-cache-dir websockets aiortc mss pyautogui av || true
+          "$PIP3" install --break-system-packages --no-cache-dir websockets aiortc mss pyautogui av
           
           echo "[HostInstaller] Triggering daemon reload and service start..."
           "$SYSTEMCTL" daemon-reload
