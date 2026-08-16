@@ -376,7 +376,21 @@ export default function (fastify: any, engine: CoreEngine): void {
       fs.mkdirSync(hostOptDir, { recursive: true });
 
       // 2. Read the source desktop_streamer.py content inside the container
-      const sourceStreamerPath = path.join(__dirname, '../desktop_streamer.py');
+      let sourceStreamerPath = path.join(__dirname, '../desktop_streamer.py');
+      if (!fs.existsSync(sourceStreamerPath)) {
+        // Fallback for compiled TS runtime where __dirname is under dist/src/...
+        const devSrcPath = sourceStreamerPath.replace(path.join('dist', 'src'), 'src').replace('dist', 'src');
+        if (fs.existsSync(devSrcPath)) {
+          sourceStreamerPath = devSrcPath;
+        } else {
+          // Fallback to absolute docker container path
+          const containerPath = '/app/backend/src/api/desktop_streamer.py';
+          if (fs.existsSync(containerPath)) {
+            sourceStreamerPath = containerPath;
+          }
+        }
+      }
+
       console.log(`[DesktopInstaller] Reading source script: ${sourceStreamerPath}`);
       if (!fs.existsSync(sourceStreamerPath)) {
         console.error('[DesktopInstaller] Source file not found!');
