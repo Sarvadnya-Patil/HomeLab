@@ -435,9 +435,24 @@ WantedBy=multi-user.target
       if (process.platform === 'linux') {
         console.log('[DesktopInstaller] Executing host environment libraries install & systemd service startup...');
         const installCmd = `nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c '
-          if ! command -v systemctl >/dev/null 2>&1 || ! command -v pip3 >/dev/null 2>&1; then
+          if ! command -v systemctl >/dev/null 2>&1; then
             echo "SIMULATION_MODE_ACTIVE"
             exit 0
+          fi
+
+          # If pip3 is missing on the host, try to install it automatically
+          if ! command -v pip3 >/dev/null 2>&1; then
+            if command -v apt-get >/dev/null 2>&1; then
+              echo "[HostInstaller] Installing python3-pip on Host OS via apt-get..."
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update && apt-get install -y python3-pip python3-av || true
+            elif command -v dnf >/dev/null 2>&1; then
+              echo "[HostInstaller] Installing python3-pip on Host OS via dnf..."
+              dnf install -y python3-pip || true
+            else
+              echo "SIMULATION_MODE_ACTIVE"
+              exit 0
+            fi
           fi
 
           # Ensure host has required python libraries
