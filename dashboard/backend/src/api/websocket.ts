@@ -434,7 +434,7 @@ export default function (fastify: any, engine: CoreEngine): void {
       socket.send(JSON.stringify({ type: 'status', status: 'daemon_offline' }));
       // Try to trigger daemon start on the host via systemctl if it is registered
       if (process.platform === 'linux') {
-        exec('nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c "systemctl start homelab-desktop-streamer"', (err: any) => {
+        exec('nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c "if command -v systemctl >/dev/null 2>&1; then systemctl start homelab-desktop-streamer; fi"', (err: any) => {
           if (err) console.error('[DesktopBridge] Failed to auto-trigger streamer start:', err.message);
         });
       }
