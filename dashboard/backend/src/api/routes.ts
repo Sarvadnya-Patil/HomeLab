@@ -272,12 +272,18 @@ export default function (fastify: any, engine: CoreEngine): void {
         displayOrder: 6,
         permissions: ['admin']
       },
-
+      {
+        id: 'desktop',
+        name: 'Remote Desktop',
+        icon: 'monitor',
+        displayOrder: 7,
+        permissions: ['admin']
+      },
       {
         id: 'settings',
         name: 'Settings',
         icon: 'settings',
-        displayOrder: 7,
+        displayOrder: 8,
         permissions: ['admin']
       }
     ];

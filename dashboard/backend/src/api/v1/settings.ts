@@ -1,4 +1,5 @@
 // Settings preferences, SMTP encryption, 2FA OTP verification, & security audit API routes
+import { exec } from 'child_process';
 import { CoreEngine } from '../../core/engine';
 import {
   encryptSecret,
@@ -244,6 +245,95 @@ export default function (fastify: any, engine: CoreEngine): void {
     engine.auditRepo.log(actor, 'update_ssh_config', 'security', 'ssh');
 
     return { success: true, message: 'SSH Configuration saved successfully.' };
+  });
+
+  // 11. GET /api/v1/settings/desktop
+  fastify.get('/api/v1/settings/desktop', async () => {
+    const enabled = engine.settingsRepo.get('desktop.rdp.enabled') === 'true';
+    const username = engine.settingsRepo.get('desktop.rdp.username') || '';
+    const hasPassword = !!engine.settingsRepo.get('desktop.rdp.password');
+    const hostUser = engine.settingsRepo.get('desktop.rdp.hostUser') || '';
+
+    return {
+      enabled,
+      username,
+      password: hasPassword ? '••••••••' : '',
+      hostUser
+    };
+  });
+
+  // 12. POST /api/v1/settings/desktop
+  fastify.post('/api/v1/settings/desktop', async (request: any, reply: any) => {
+    const { enabled, username, password, hostUser } = request.body || {};
+
+    if (enabled && (!username || !password || !hostUser)) {
+      return reply.status(400).send({ error: 'RDP Username, Password, and Linux Host User are required to enable remote desktop.' });
+    }
+
+    engine.settingsRepo.set('desktop.rdp.enabled', enabled ? 'true' : 'false', 'desktop');
+    engine.settingsRepo.set('desktop.rdp.username', username || '', 'desktop');
+    if (password && password !== '••••••••') {
+      engine.settingsRepo.set('desktop.rdp.password', encryptSecret(password), 'desktop');
+    }
+    engine.settingsRepo.set('desktop.rdp.hostUser', hostUser || '', 'desktop');
+
+    const savedPass = engine.settingsRepo.get('desktop.rdp.password');
+    const targetPass = (password && password !== '••••••••') ? password : (savedPass ? decryptSecret(savedPass) : '');
+
+    // Trigger host setup via nsenter breakout
+    const runHostSetup = () => {
+      return new Promise<void>((resolve, reject) => {
+        const cmd = enabled ? `
+          # Ensure system-wide daemon is disabled to prevent port conflicts
+          grdctl --system rdp disable || true
+          systemctl stop gnome-remote-desktop.service || true
+          systemctl disable gnome-remote-desktop.service || true
+
+          if id -u "${hostUser}" >/dev/null 2>&1; then
+            huid=$(id -u "${hostUser}")
+            USER_CERT_DIR="/home/${hostUser}/.local/share/gnome-remote-desktop"
+            mkdir -p "$USER_CERT_DIR"
+            if [ ! -f "$USER_CERT_DIR/rdp-tls.crt" ]; then
+              openssl req -x509 -newkey rsa:2048 -keyout "$USER_CERT_DIR/rdp-tls.key" -out "$USER_CERT_DIR/rdp-tls.crt" -days 3650 -nodes -subj "/CN=HomeLabRemote"
+              chmod 644 "$USER_CERT_DIR/rdp-tls.key" "$USER_CERT_DIR/rdp-tls.crt"
+              chown -R "${hostUser}:${hostUser}" "$USER_CERT_DIR"
+            fi
+
+            # Configure user RDP via nsenter
+            nsenter -t 1 -m -u -i -n -p -U -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp enable
+            nsenter -t 1 -m -u -i -n -p -U -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp set-credentials "${username}" "${targetPass}"
+            nsenter -t 1 -m -u -i -n -p -U -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp set-tls-cert "$USER_CERT_DIR/rdp-tls.crt"
+            nsenter -t 1 -m -u -i -n -p -U -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp set-tls-key "$USER_CERT_DIR/rdp-tls.key"
+          fi
+        ` : `
+          if id -u "${hostUser}" >/dev/null 2>&1; then
+            nsenter -t 1 -m -u -i -n -p -U -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp disable || true
+          fi
+        `;
+
+        exec(cmd, { shell: '/bin/bash' }, (error: any, stdout: any, stderr: any) => {
+          if (error) {
+            console.error('[GDM/User Remote Desktop Setup Error]:', error, stderr);
+            reject(error);
+          } else {
+            resolve();
+          }
+        });
+      });
+    };
+
+    if (process.platform === 'linux') {
+      try {
+        await runHostSetup();
+      } catch (err: any) {
+        return reply.status(500).send({ error: `Failed to configure GNOME Remote Desktop on Host OS: ${err.message}` });
+      }
+    }
+
+    const actor = request.user?.id || 'admin';
+    engine.auditRepo.log(actor, 'update_desktop_config', 'security', 'desktop');
+
+    return { success: true, message: 'Remote Desktop settings updated successfully.' };
   });
 }
 

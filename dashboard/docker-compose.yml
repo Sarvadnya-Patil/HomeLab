@@ -25,6 +25,9 @@ services:
     container_name: homelab-dashboard
     restart: unless-stopped
     privileged: true
+    devices:
+      - "/dev/uinput:/dev/uinput"
+      - "/dev/dri:/dev/dri"
     depends_on:
       - docker-proxy
     ports:

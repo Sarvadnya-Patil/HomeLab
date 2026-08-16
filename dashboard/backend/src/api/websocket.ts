@@ -3,6 +3,8 @@ import { CoreEngine } from '../core/engine';
 import { Client as SSHClient } from 'ssh2';
 import { spawn } from 'child_process';
 import * as os from 'os';
+import * as path from 'path';
+import { decryptSecret } from '../utils/security';
 
 export default function (fastify: any, engine: CoreEngine): void {
   // Register /ws/terminal socket route for real-time interactive SSH
@@ -326,6 +328,104 @@ export default function (fastify: any, engine: CoreEngine): void {
         socket.terminate();
       } catch {
         // ignore connection teardown failures
+      }
+    });
+  });
+
+  // Register /ws/desktop route for WebRTC & WebSocket remote desktop signaling
+  fastify.get('/ws/desktop', { websocket: true }, (connection: any, _req: any) => {
+    const socket = connection.socket;
+
+    const token = _req.query?.token;
+    if (!token) {
+      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Authentication token required' }));
+      socket.close();
+      return;
+    }
+    const user = engine.auth.verifyToken(token);
+    if (!user || user.role !== 'admin') {
+      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Admin privilege required' }));
+      socket.close();
+      return;
+    }
+
+    const rdpEnabled = engine.settingsRepo.get('desktop.rdp.enabled') === 'true';
+    const rdpUser = engine.settingsRepo.get('desktop.rdp.username') || '';
+    const encryptedPass = engine.settingsRepo.get('desktop.rdp.password') || '';
+    const rdpPass = encryptedPass ? decryptSecret(encryptedPass) : '';
+
+    const pythonScript = path.join(__dirname, 'desktop_streamer.py');
+    let pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    let spawnArgs = [pythonScript];
+
+    if (process.platform === 'linux') {
+      // Run the python script inside the host's network namespace (nsenter -t 1 -n)
+      // This allows it to connect directly to the host's 127.0.0.1:3389 RDP server without firewall blocks,
+      // while still keeping the container's filesystem mount namespace intact.
+      pythonCmd = 'nsenter';
+      spawnArgs = ['-t', '1', '-n', '--', 'python3', pythonScript];
+    }
+
+    const hostUser = engine.settingsRepo.get('desktop.rdp.hostUser') || '';
+    if (rdpEnabled && rdpUser && rdpPass) {
+      spawnArgs.push('--rdp-user', rdpUser, '--rdp-pass', rdpPass);
+      if (hostUser) {
+        spawnArgs.push('--host-user', hostUser);
+      }
+    }
+
+    const streamer = spawn(pythonCmd, spawnArgs);
+
+    let stdoutBuffer = '';
+    streamer.stdout.on('data', (chunk: Buffer) => {
+      stdoutBuffer += chunk.toString();
+      let newlineIdx = stdoutBuffer.indexOf('\n');
+      while (newlineIdx !== -1) {
+        const line = stdoutBuffer.substring(0, newlineIdx).trim();
+        stdoutBuffer = stdoutBuffer.substring(newlineIdx + 1);
+        if (line) {
+          try {
+            const payload = JSON.parse(line);
+            socket.send(JSON.stringify(payload));
+          } catch (err) {
+            // Discard parsing errors or non-JSON messages gracefully
+          }
+        }
+        newlineIdx = stdoutBuffer.indexOf('\n');
+      }
+    });
+
+    streamer.stderr.on('data', (data: Buffer) => {
+      console.error(`[DesktopStreamer Debug] ${data.toString().trim()}`);
+    });
+
+    socket.on('message', (messageStr: string) => {
+      if (streamer && !streamer.killed) {
+        try {
+          streamer.stdin.write(messageStr + '\n');
+        } catch {
+          // ignore pipe write errors
+        }
+      }
+    });
+
+    socket.on('close', () => {
+      if (streamer) {
+        try {
+          streamer.kill();
+        } catch {
+          // ignore process kill failure
+        }
+      }
+    });
+
+    socket.on('error', () => {
+      if (streamer) {
+        try {
+          streamer.kill();
+        } catch {
+          // ignore process kill failure
+        }
       }
     });
   });

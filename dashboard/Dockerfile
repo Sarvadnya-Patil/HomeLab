@@ -25,8 +25,9 @@ FROM node:20-alpine AS runtime
 
 WORKDIR /app
 
-# Install native compilation dependencies and Docker CLI client
-RUN apk add --no-cache python3 make g++ docker-cli docker-cli-compose
+# Install native compilation dependencies, Docker CLI client, Xvfb, openbox, xterm, fonts, RDP client, and Python evdev
+RUN apk add --no-cache python3 py3-pip py3-evdev py3-pillow make g++ docker-cli docker-cli-compose ffmpeg xvfb openbox xterm font-misc-misc ttf-dejavu freerdp libxtst xdotool
+RUN pip3 install --no-cache-dir --break-system-packages aiortc mss pyautogui av
 
 
 
