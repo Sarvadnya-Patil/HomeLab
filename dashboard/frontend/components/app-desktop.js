@@ -162,6 +162,11 @@
          menuDiag.style.color = this.showDiagnostics ? '#38bdf8' : '#71717a';
        });
      }
+ 
+     const launchBtn = this.container.querySelector('#btn-start-desktop');
+     if (launchBtn) {
+       launchBtn.addEventListener('click', () => this.connect());
+     }
    },
  
    async connect() {
@@ -170,6 +175,18 @@
      const streamView = this.container.querySelector('#desktop-stream-view');
      const statusVal = this.container.querySelector('#desktop-status-val');
      const launchBtn = this.container.querySelector('#btn-start-desktop');
+ 
+     if (launchBtn) {
+       launchBtn.disabled = true;
+       launchBtn.textContent = 'Negotiating Stream Handshake...';
+       launchBtn.style.background = '#333';
+       launchBtn.style.color = '#888';
+       launchBtn.style.borderColor = '#333';
+     }
+     if (statusVal) {
+       statusVal.textContent = 'Connecting...';
+       statusVal.style.color = '#eab308';
+     }
  
      try {
        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
