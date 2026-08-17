@@ -273,7 +273,8 @@
  
        this.ws.onmessage = async (evt) => {
          try {
-           const payload = JSON.parse(evt.data);
+           const rawText = (typeof Blob !== 'undefined' && evt.data instanceof Blob) ? await evt.data.text() : evt.data;
+           const payload = typeof rawText === 'string' ? JSON.parse(rawText) : rawText;
            if (payload.type === 'answer') {
              await this.pc.setRemoteDescription(new RTCSessionDescription(payload));
            } else if (payload.type === 'frame') {

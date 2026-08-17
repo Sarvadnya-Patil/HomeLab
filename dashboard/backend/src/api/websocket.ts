@@ -367,16 +367,9 @@ export default function (fastify: any, engine: CoreEngine): void {
       activeClientSocket.send(JSON.stringify({ type: 'status', status: 'daemon_online' }));
     }
     
-    socket.on('message', (messageStr: string) => {
-      if (activeClientSocket) {
-        try {
-          const payload = JSON.parse(messageStr);
-          if (payload.type !== 'frame') {
-            console.log(`[DesktopBridge] Forwarding daemon message: type=${payload.type}`);
-          }
-        } catch {
-          // ignore parsing error
-        }
+    socket.on('message', (messageData: any) => {
+      if (activeClientSocket && activeClientSocket.readyState === 1) {
+        const messageStr = typeof messageData === 'string' ? messageData : messageData.toString('utf8');
         try {
           activeClientSocket.send(messageStr);
         } catch (err: any) {
@@ -440,20 +433,13 @@ export default function (fastify: any, engine: CoreEngine): void {
       }
     }
 
-    socket.on('message', (messageStr: string) => {
-      if (activeDaemonSocket) {
-        try {
-          const payload = JSON.parse(messageStr);
-          if (payload.type !== 'mousemove' && payload.type !== 'keydown' && payload.type !== 'keyup') {
-            console.log(`[DesktopBridge] Forwarding client payload: type=${payload.type}`);
-          }
-        } catch {
-          // ignore parsing error
-        }
+    socket.on('message', (messageData: any) => {
+      if (activeDaemonSocket && activeDaemonSocket.readyState === 1) {
+        const messageStr = typeof messageData === 'string' ? messageData : messageData.toString('utf8');
         try {
           activeDaemonSocket.send(messageStr);
         } catch (err: any) {
-          console.error(`[DesktopBridge] Failed to forward message to daemon: ${err.message}`);
+          console.error(`[DesktopBridge] Failed to forward client message: ${err.message}`);
         }
       }
     });
