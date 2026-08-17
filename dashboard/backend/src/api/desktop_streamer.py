@@ -314,6 +314,12 @@ class SafeDisplayGrabber:
                         target_file = f"/dev/shm/homelab_frame_{uid_int}.png"
                         dbus_sock = os.path.join(uid_dir, "bus")
                         if os.path.exists(dbus_sock):
+                            try:
+                                if os.path.exists(target_file):
+                                    os.remove(target_file)
+                            except Exception:
+                                pass
+
                             cmd = [
                                 "runuser", "-u", uname, "--",
                                 "env", f"DBUS_SESSION_BUS_ADDRESS=unix:path={dbus_sock}", f"XDG_RUNTIME_DIR={uid_dir}",
@@ -321,14 +327,19 @@ class SafeDisplayGrabber:
                                 "--dest", "org.gnome.Shell.Screenshot",
                                 "--object-path", "/org/gnome/Shell/Screenshot",
                                 "--method", "org.gnome.Shell.Screenshot.Screenshot",
-                                "false", "false", f'"{target_file}"'
+                                "true", "false", target_file
                             ]
                             try:
-                                proc = subprocess.run(cmd, capture_output=True, timeout=0.2)
+                                proc = subprocess.run(cmd, capture_output=True, timeout=0.5)
                                 if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
                                     with open(target_file, "rb") as rf:
-                                        img = Image.open(io.BytesIO(rf.read()))
-                                        img.load()
+                                        raw_bytes = rf.read()
+                                    try:
+                                        os.remove(target_file)
+                                    except Exception:
+                                        pass
+                                    img = Image.open(io.BytesIO(raw_bytes))
+                                    img.load()
                                     b = compute_image_brightness(img)
                                     if b >= 1.0:
                                         self.active_engine = f"GNOME_DBUS_{uname}"
@@ -353,17 +364,27 @@ class SafeDisplayGrabber:
                         # Try Wayland grim as session user
                         wl_sock = os.path.join(uid_dir, "wayland-0")
                         if os.path.exists(wl_sock):
+                            try:
+                                if os.path.exists(target_file):
+                                    os.remove(target_file)
+                            except Exception:
+                                pass
                             cmd = [
                                 "runuser", "-u", uname, "--",
                                 "env", f"XDG_RUNTIME_DIR={uid_dir}", "WAYLAND_DISPLAY=wayland-0",
                                 "grim", target_file
                             ]
                             try:
-                                proc = subprocess.run(cmd, capture_output=True, timeout=0.2)
+                                proc = subprocess.run(cmd, capture_output=True, timeout=0.3)
                                 if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
                                     with open(target_file, "rb") as rf:
-                                        img = Image.open(io.BytesIO(rf.read()))
-                                        img.load()
+                                        raw_bytes = rf.read()
+                                    try:
+                                        os.remove(target_file)
+                                    except Exception:
+                                        pass
+                                    img = Image.open(io.BytesIO(raw_bytes))
+                                    img.load()
                                     b = compute_image_brightness(img)
                                     if b >= 1.0:
                                         self.active_engine = f"WAYLAND_GRIM_{uname}"
@@ -377,16 +398,26 @@ class SafeDisplayGrabber:
 
                         # Try gnome-screenshot CLI as session user
                         try:
+                            if os.path.exists(target_file):
+                                os.remove(target_file)
+                        except Exception:
+                            pass
+                        try:
                             cmd = [
                                 "runuser", "-u", uname, "--",
                                 "env", f"XDG_RUNTIME_DIR={uid_dir}", "DISPLAY=:0",
                                 "gnome-screenshot", "-f", target_file
                             ]
-                            proc = subprocess.run(cmd, capture_output=True, timeout=0.3)
+                            proc = subprocess.run(cmd, capture_output=True, timeout=0.4)
                             if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
                                 with open(target_file, "rb") as rf:
-                                    img = Image.open(io.BytesIO(rf.read()))
-                                    img.load()
+                                    raw_bytes = rf.read()
+                                try:
+                                    os.remove(target_file)
+                                except Exception:
+                                    pass
+                                img = Image.open(io.BytesIO(raw_bytes))
+                                img.load()
                                 b = compute_image_brightness(img)
                                 if b >= 1.0:
                                     self.active_engine = f"GNOME_CLI_{uname}"
