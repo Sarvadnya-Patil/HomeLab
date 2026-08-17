@@ -132,41 +132,90 @@ def get_ffmpeg_bin():
     return shutil.which("ffmpeg") or "ffmpeg"
 
 
-def grab_kernel_drm_frame():
-    """Reads raw physical GPU display output directly from Linux Kernel DRM/KMS scanout."""
-    candidates = ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"]
-    
-    # 1. Try PyAV direct in-process KMS grab (works without ffmpeg binary)
-    for card in candidates:
-        if os.path.exists(card):
+class KmsPersistentGrabber:
+    def __init__(self):
+        self.proc = None
+        self.buffer = bytearray()
+        self.active_card = None
+        self.error_detail = "Initializing KMS stream"
+        self._start_process()
+
+    def _start_process(self):
+        if self.proc:
             try:
-                import av
-                container = av.open(card, format="kmsgrab")
-                for packet in container.demux():
-                    for frame in packet.decode():
-                        img = frame.to_image()
-                        container.close()
-                        if img:
-                            return img, None
+                self.proc.kill()
+                self.proc.wait(timeout=0.5)
             except Exception:
                 pass
+            self.proc = None
 
-    # 2. Try FFmpeg CLI binary if installed
-    ffmpeg_bin = get_ffmpeg_bin()
-    for card in candidates:
-        if os.path.exists(card):
+        ffmpeg_bin = get_ffmpeg_bin()
+        for card in ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"]:
+            if os.path.exists(card):
+                try:
+                    cmd = [
+                        ffmpeg_bin, "-nostdin", "-loglevel", "error",
+                        "-device", card,
+                        "-f", "kmsgrab",
+                        "-framerate", "30",
+                        "-i", "-",
+                        "-vf", "hwdownload,format=bgr0,scale=1280:720",
+                        "-f", "image2pipe",
+                        "-vcodec", "mjpeg",
+                        "-q:v", "4",
+                        "-"
+                    ]
+                    self.proc = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        bufsize=10**6
+                    )
+                    self.buffer = bytearray()
+                    self.active_card = card
+                    self.error_detail = ""
+                    sys.stderr.write(f"[KMS] Persistent hardware scanout stream spawned on {card}\n")
+                    sys.stderr.flush()
+                    return
+                except Exception as e:
+                    self.error_detail = str(e)
+                    sys.stderr.write(f"[KMS] Failed to start on {card}: {e}\n")
+                    sys.stderr.flush()
+
+    def read_frame(self):
+        if not self.proc or self.proc.poll() is not None:
+            self._start_process()
+            if not self.proc:
+                return None, Exception(self.error_detail or "No active DRM card available")
+
+        for _ in range(25):
+            start = self.buffer.find(b'\xff\xd8')
+            if start != -1:
+                end = self.buffer.find(b'\xff\xd9', start + 2)
+                if end != -1:
+                    jpg_bytes = bytes(self.buffer[start:end+2])
+                    self.buffer = self.buffer[end+2:]
+                    try:
+                        img = Image.open(io.BytesIO(jpg_bytes))
+                        return img, None
+                    except Exception as e:
+                        return None, e
+
             try:
-                proc = subprocess.run([
-                    ffmpeg_bin, "-nostdin", "-loglevel", "quiet", "-device", card,
-                    "-f", "kmsgrab", "-i", "-",
-                    "-vf", "hwdownload,format=bgr0,scale=1280:720",
-                    "-vframes", "1", "-f", "image2pipe", "-vcodec", "mjpeg", "-"
-                ], capture_output=True, timeout=0.2)
-                if proc.returncode == 0 and len(proc.stdout) > 500:
-                    return Image.open(io.BytesIO(proc.stdout)), None
+                chunk = self.proc.stdout.read(32768)
+                if not chunk:
+                    err = self.proc.stderr.read().decode('utf-8', errors='ignore') if self.proc.stderr else ""
+                    self.error_detail = f"KMS stream closed: {err[:120]}"
+                    self._start_process()
+                    return None, Exception(self.error_detail)
+                self.buffer.extend(chunk)
             except Exception as e:
                 return None, e
-    return None, Exception("No active /dev/dri/card* found")
+
+        return None, Exception("KMS buffer read timeout")
+
+
+kms_grabber = KmsPersistentGrabber()
 
 
 class ScreenCaptureTrack(VideoStreamTrack):
@@ -182,7 +231,7 @@ class ScreenCaptureTrack(VideoStreamTrack):
     def _capture_worker(self):
         while self.running:
             self.captured_count += 1
-            raw_img, capture_err = grab_kernel_drm_frame()
+            raw_img, capture_err = kms_grabber.read_frame()
 
             mean_val = 0.0
             if raw_img is not None:
