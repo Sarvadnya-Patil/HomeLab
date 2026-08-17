@@ -48,6 +48,10 @@ snapshots/
 !*.env.example
 
 # Temporary and Cache Files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 .cache/
 .parcel-cache/
 .eslintcache
