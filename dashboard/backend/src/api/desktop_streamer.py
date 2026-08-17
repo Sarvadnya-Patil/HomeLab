@@ -100,7 +100,7 @@ class TelemetryCollector:
             "type": "telemetry",
             "capture": {
                 "state": self.capture_state,
-                "engine": "ROOT_KERNEL_KMS",
+                "engine": getattr(display_grabber, "active_engine", "SAFE_SHM") if 'display_grabber' in globals() else "SAFE_SHM",
                 "resolution": self.resolution,
                 "fps": self.capture_fps,
                 "mean_brightness": self.mean_brightness,
@@ -132,125 +132,82 @@ def get_ffmpeg_bin():
     return shutil.which("ffmpeg") or "ffmpeg"
 
 
-class KmsPersistentGrabber:
+try:
+    import mss
+except ImportError:
+    mss = None
+
+
+class SafeDisplayGrabber:
     def __init__(self):
-        self.proc = None
-        self.buffer = bytearray()
-        self.active_card = None
-        self.error_detail = "Initializing KMS stream"
-        self.last_restart_attempt = 0
-        self._start_process()
+        self.sct = None
+        self.error_detail = ""
+        self.active_engine = "NONE"
+        self._init_mss()
 
-    def _start_process(self):
-        now = time.time()
-        if now - self.last_restart_attempt < 1.0:
-            time.sleep(1.0 - (now - self.last_restart_attempt))
-        self.last_restart_attempt = time.time()
-
-        if self.proc:
+    def _init_mss(self):
+        if mss:
             try:
-                self.proc.kill()
-                self.proc.wait(timeout=0.2)
+                self.sct = mss.mss()
             except Exception:
-                pass
-            self.proc = None
-
-        ffmpeg_bin = get_ffmpeg_bin()
-        cards = [c for c in ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"] if os.path.exists(c)]
-        
-        filter_candidates = [
-            "hwdownload,format=bgr0,scale=1280:720",
-            "hwdownload,format=bgra,scale=1280:720",
-            "hwdownload,format=rgb0,scale=1280:720",
-            "hwdownload,format=rgba,scale=1280:720",
-            "hwdownload,format=nv12,scale=1280:720",
-            "hwdownload,format=bgr0",
-            "hwdownload,format=bgra"
-        ]
-
-        for card in cards:
-            for flt in filter_candidates:
-                try:
-                    cmd = [
-                        ffmpeg_bin, "-nostdin", "-loglevel", "error",
-                        "-device", card,
-                        "-f", "kmsgrab",
-                        "-framerate", "30",
-                        "-i", "-",
-                        "-vf", flt,
-                        "-pix_fmt", "yuv420p",
-                        "-f", "image2pipe",
-                        "-vcodec", "mjpeg",
-                        "-q:v", "4",
-                        "-"
-                    ]
-                    p = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        bufsize=10**6
-                    )
-                    
-                    # Verify actual frame output by reading initial JPEG stream bytes
-                    chunk = p.stdout.read(8192)
-                    if chunk and b"\xff\xd8" in chunk:
-                        self.proc = p
-                        self.buffer = bytearray(chunk)
-                        self.active_card = card
-                        self.error_detail = ""
-                        sys.stderr.write(f"[KMS] VERIFIED: Frame stream active on {card} (filter: {flt})\n")
-                        sys.stderr.flush()
-                        return
-
-                    err = p.stderr.read().decode("utf-8", errors="ignore") if p.stderr else ""
-                    try:
-                        p.kill()
-                        p.wait(timeout=0.2)
-                    except Exception:
-                        pass
-                    sys.stderr.write(f"[KMS Probe] {card} filter '{flt}' no frame output. Stderr: {err.strip()[:120]}\n")
-                    sys.stderr.flush()
-                    self.error_detail = err.strip()[:150] or f"No frames from {card}"
-                    continue
-                except Exception as e:
-                    self.error_detail = str(e)
-                    sys.stderr.write(f"[KMS Probe] {card} spawn error: {e}\n")
-                    sys.stderr.flush()
+                self.sct = None
 
     def read_frame(self):
-        if not self.proc or self.proc.poll() is not None:
-            self._start_process()
-            if not self.proc:
-                return None, Exception(self.error_detail or "No active DRM card available")
+        # 1. Try high-performance shared-memory scanout (mss)
+        if not self.sct and mss:
+            self._init_mss()
 
-        for _ in range(25):
-            start = self.buffer.find(b'\xff\xd8')
-            if start != -1:
-                end = self.buffer.find(b'\xff\xd9', start + 2)
-                if end != -1:
-                    jpg_bytes = bytes(self.buffer[start:end+2])
-                    self.buffer = self.buffer[end+2:]
-                    try:
-                        img = Image.open(io.BytesIO(jpg_bytes))
-                        return img, None
-                    except Exception as e:
-                        return None, e
-
+        if self.sct:
             try:
-                chunk = self.proc.stdout.read(32768)
-                if not chunk:
-                    err = self.proc.stderr.read().decode('utf-8', errors='ignore') if self.proc.stderr else ""
-                    self.error_detail = f"KMS stream closed: {err[:120]}"
-                    self._start_process()
-                    return None, Exception(self.error_detail)
-                self.buffer.extend(chunk)
+                mon = self.sct.monitors[1] if len(self.sct.monitors) > 1 else self.sct.monitors[0]
+                sct_img = self.sct.grab(mon)
+                img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
+                if img:
+                    self.active_engine = "SAFE_SHM"
+                    self.error_detail = ""
+                    return img, None
             except Exception as e:
-                return None, e
+                self.error_detail = str(e)
+                self.sct = None
 
-        return None, Exception("KMS buffer read timeout")
+        # 2. Try safe Linux kernel linear framebuffer (/dev/fb0)
+        for fb in ["/dev/fb0", "/dev/fb1"]:
+            if os.path.exists(fb):
+                try:
+                    w, h = 1920, 1080
+                    res_path = f"/sys/class/graphics/{os.path.basename(fb)}/virtual_size"
+                    if os.path.exists(res_path):
+                        with open(res_path, "r") as rf:
+                            parts = rf.read().strip().split(",")
+                            if len(parts) == 2:
+                                w, h = int(parts[0]), int(parts[1])
+
+                    with open(fb, "rb") as f:
+                        raw = f.read(w * h * 4)
+                        if len(raw) >= w * h * 4:
+                            img = Image.frombytes("RGB", (w, h), raw, "raw", "BGRX")
+                            if img:
+                                self.active_engine = f"FBDEV_{os.path.basename(fb)}"
+                                self.error_detail = ""
+                                return img, None
+                except Exception as e:
+                    self.error_detail = str(e)
+
+        # 3. Try PyAutoGUI safe capture
+        if pyautogui:
+            try:
+                img = pyautogui.screenshot()
+                if img:
+                    self.active_engine = "PYAUTOGUI"
+                    self.error_detail = ""
+                    return img, None
+            except Exception as e:
+                self.error_detail = str(e)
+
+        return None, Exception(self.error_detail or "Display buffer currently unavailable")
 
 
-kms_grabber = KmsPersistentGrabber()
+display_grabber = SafeDisplayGrabber()
 
 
 class ScreenCaptureTrack(VideoStreamTrack):
@@ -266,7 +223,7 @@ class ScreenCaptureTrack(VideoStreamTrack):
     def _capture_worker(self):
         while self.running:
             self.captured_count += 1
-            raw_img, capture_err = kms_grabber.read_frame()
+            raw_img, capture_err = display_grabber.read_frame()
 
             mean_val = 0.0
             if raw_img is not None:
@@ -291,7 +248,7 @@ class ScreenCaptureTrack(VideoStreamTrack):
                 diag_img = Image.new("RGB", (1280, 720), color=(15, 17, 26))
                 d = ImageDraw.Draw(diag_img)
                 d.rectangle([(40, 40), (1240, 680)], outline=(220, 38, 38), width=2)
-                d.text((80, 80), f"Root Kernel GPU Grabber Active ({telemetry.capture_state})", fill=(239, 68, 68))
+                d.text((80, 80), f"Safe Remote Display Streamer Active ({telemetry.capture_state})", fill=(239, 68, 68))
                 d.text((80, 140), f"Status: {telemetry.error_detail}", fill=(156, 163, 175))
                 self.latest_frame = diag_img
 
