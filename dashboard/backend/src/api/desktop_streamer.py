@@ -217,7 +217,37 @@ class SafeDisplayGrabber:
     def read_frame(self):
         setup_display_env()
 
-        # 1. Try Wayland native capture (grim) for active GNOME/Wayland desktop
+        # 1. Try GNOME Shell Native D-Bus Screencast (GNOME 46 Wayland / GDM)
+        if os.environ.get("XDG_RUNTIME_DIR"):
+            dbus_sock = f"{os.environ['XDG_RUNTIME_DIR']}/bus"
+            if os.path.exists(dbus_sock):
+                env = os.environ.copy()
+                env["DBUS_SESSION_BUS_ADDRESS"] = f"unix:path={dbus_sock}"
+                target_file = "/dev/shm/homelab_frame.png"
+                try:
+                    proc = subprocess.run(
+                        [
+                            "gdbus", "call", "--session",
+                            "--dest", "org.gnome.Shell.Screenshot",
+                            "--object-path", "/org/gnome/Shell/Screenshot",
+                            "--method", "org.gnome.Shell.Screenshot.Screenshot",
+                            "false", "false", target_file
+                        ],
+                        env=env,
+                        capture_output=True,
+                        timeout=0.25
+                    )
+                    if proc.returncode == 0 and os.path.exists(target_file):
+                        with open(target_file, "rb") as rf:
+                            img = Image.open(io.BytesIO(rf.read()))
+                            img.load()
+                        self.active_engine = "GNOME_DBUS"
+                        self.error_detail = ""
+                        return img, None
+                except Exception as e:
+                    self.error_detail = str(e)
+
+        # 2. Try Wayland native capture (grim)
         if os.environ.get("WAYLAND_DISPLAY") and os.environ.get("XDG_RUNTIME_DIR"):
             try:
                 proc = subprocess.run(
@@ -234,7 +264,7 @@ class SafeDisplayGrabber:
             except Exception as e:
                 self.error_detail = str(e)
 
-        # 2. Try shared-memory scanout (mss) for X11 / Xwayland active desktop
+        # 3. Try shared-memory scanout (mss) for active X11 / Xwayland desktop
         if not self.sct and mss:
             self._init_mss()
 
@@ -243,7 +273,11 @@ class SafeDisplayGrabber:
                 mon = self.sct.monitors[1] if len(self.sct.monitors) > 1 else self.sct.monitors[0]
                 sct_img = self.sct.grab(mon)
                 img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
-                if img:
+                
+                # Check if Xwayland root window is black
+                stats = ImageStat.Stat(img)
+                mean_val = sum(stats.mean) / max(len(stats.mean), 1)
+                if mean_val > 1.0:
                     self.active_engine = "SAFE_SHM"
                     self.error_detail = ""
                     return img, None

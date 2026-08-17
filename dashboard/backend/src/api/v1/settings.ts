@@ -431,9 +431,8 @@ WantedBy=multi-user.target
           if command -v apt-get >/dev/null 2>&1; then
             echo "[HostInstaller] Ubuntu/Debian host detected. Installing ffmpeg..."
             export DEBIAN_FRONTEND=noninteractive
-            apt-get update -y
-            apt-get install -y --no-install-recommends ffmpeg
-            apt-get install -y --no-install-recommends python3-pip python3-evdev python3-pil python3-websockets || true
+            apt-get install -y --no-install-recommends ffmpeg libglib2.0-bin gnome-screenshot || true
+            apt-get install -y --no-install-recommends python3-pip python3-evdev python3-pil python3-websockets python3-mss || true
           elif command -v dnf >/dev/null 2>&1; then
             echo "[HostInstaller] Fedora/RHEL host detected. Installing ffmpeg..."
             dnf install -y ffmpeg python3-pip python3-websockets python3-evdev || true
