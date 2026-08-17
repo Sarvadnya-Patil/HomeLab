@@ -1,0 +1,44 @@
+# Build
+build/
+build-release/
+builddir/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Compiled
+*.o
+*.so
+*.a
+*.dylib
+
+# Sandbox (development scratch area)
+sandbox/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AI agent orchestration tooling config (local, not part of the project)
+.antigravity/
+
+# Rust build artifacts
+bindings/rust/target/
+
+# Library workspace lockfile (not tracked for a published lib)
+bindings/rust/Cargo.lock
+
+# Secrets — never commit API keys / tokens / credentials (e.g. CodeRabbit cr-*)
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*secret*
+*credential*
+*.token
+

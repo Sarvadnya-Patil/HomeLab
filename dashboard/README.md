@@ -1,81 +1,130 @@
 # HomeLab OS Dashboard Control Plane
 
-This service runs the central control plane and management console for the HomeLab OS. It comprises a Fastify Node.js backend that serves the static frontend, dynamically scans local service registries, and manages Docker containers via a Socket Proxy.
+The HomeLab OS Dashboard Control Plane is the central management daemon and web console for the HomeLab infrastructure. It is built as a modular Fastify TypeScript server serving a lightweight Single-Page Application (SPA) frontend, managing Docker containers via an isolated Docker Socket Proxy, and orchestrating real-time telemetry, terminal sessions, and Remote Desktop streams.
 
-## System Architecture
+---
+
+## 1. System Architecture
 
 ```mermaid
 graph TD
     User([Web User]) -->|HTTP Port 8081| Backend[Fastify Backend /app/backend]
     Backend -->|Serves Static Files| Frontend[Frontend UI /app/frontend]
-    Backend -->|Reads YAML Registries| ServicesDir[Services Configs /app/services]
+    Backend -->|Reads Service Manifests| ServicesDir[Services Configs /services]
+    Backend -->|WebSocket Events & Shell| WS_Gate[WebSocket Gateway]
     Backend -->|TCP Port 2375| Proxy[Docker Socket Proxy]
-    Proxy -->|Mounts Socket| HostSocket[(/var/run/docker.sock)]
+    Proxy -->|Mounts Socket Read-Only| HostSocket[(/var/run/docker.sock)]
+    Backend <-->|Signaling Bridge| Streamer[Remote Desktop Daemon]
 ```
 
-### 1. Docker Socket Proxy Security
-To prevent direct exposure of `/var/run/docker.sock` to the web-exposed dashboard container, Tecnativa's Docker Socket Proxy is deployed as a sidecar (`homelab-docker-proxy`).
-- **Enforced Security Profile:** Only `CONTAINERS`, `IMAGES`, `POST` (for container lifecycles), and `INFO` APIs are enabled. 
-- Advanced capabilities (such as `EXEC`, `NETWORKS`, `VOLUMES`, `SECRETS`, `SWARM`) are disabled. The proxy is not exposed on host ports and remains private to the internal network.
+### 1.1 Docker Socket Proxy Security
+To prevent direct exposure of `/var/run/docker.sock` to the web-exposed dashboard container, Tecnativa's Docker Socket Proxy is deployed as a mandatory sidecar (`homelab-docker-proxy`):
+- **Enforced Capabilities Profile:** Only `CONTAINERS`, `IMAGES`, `POST` (for start/stop/restart operations), `NETWORKS`, `VOLUMES`, and `INFO` APIs are enabled.
+- **Restricted Access:** Host filesystem mounts, raw execution privileges (`EXEC`), and swarm modifications are strictly blocked at the proxy layer.
+- **Private Network Isolation:** The socket proxy does not publish ports on the host and is reachable exclusively within the internal `homelab-network` Docker bridge.
 
-### 2. Dynamic Service Discovery
-The backend recursively scans the directory mapped to `/app/services`. It parses each `service.yaml` configuration file and registers it in the SQLite database automatically. Adding a new container stack requires only creating a folder with a valid `service.yaml` under `services/`.
+### 1.2 Dynamic Service Discovery
+The backend recursively scans the directory mapped to `/services`. It parses each `service.yaml` configuration file and automatically registers it in the SQLite database. Adding a new container stack requires only creating a folder with a valid `service.yaml` under `services/`.
 
 ---
 
-## Technical Specifications
+## 2. Technical Specifications
 
-- **Exposed Host Port:** `8081` (configurable via `DASHBOARD_PORT` in `.env`)
+- **Exposed Host Port:** `8081` (configurable via `DASHBOARD_PORT` in `.env`).
+- **Internal Network:** `homelab-network` (external bridge network).
+- **Database:** SQLite with Write-Ahead Logging (`WAL` mode) mounted at `/data/homelab.db`.
 - **Volume Mounts:**
-  - `../services:/app/services:ro` - Maps host registries as read-only.
-- **Internal APIs:**
-  - `GET /api/v1/services` - Returns discovered services merged with container state.
-  - `GET /api/v1/system` - Returns system metrics aggregated from the host.
-  - `GET /api/v1/services/:id/logs` - Retrieves container stdout/stderr.
-  - `POST /api/v1/services/:id/action` - Invokes container start, stop, or restart.
+  - `../services:/services:ro` — Maps host service manifests as read-only.
+  - `./data:/data` — Persistent database, logs, and staging storage.
+  - `/proc:/host/proc:ro` — Read-only host process table for telemetry inspection.
+  - `~/.cloudflared/config.yml:/etc/cloudflared/config.yml:ro` — Ingress configuration file.
 
 ---
 
-## Local Development (TypeScript Engine)
+## 3. Real-Time WebSocket Gateways
 
-To run the backend control plane locally without Docker:
-1. Verify Node.js (>= 18) is installed.
-2. Install dependencies:
-   ```bash
-   cd dashboard/backend
-   npm install
-   ```
-3. Compile and start the development server:
-   ```bash
-   npm run dev
-   ```
-4. Access the dashboard UI at `http://localhost:8081`.
+The control plane exposes dedicated WebSocket endpoints:
+
+| Endpoint | Subsystem | Protocol & Function |
+| :--- | :--- | :--- |
+| `/ws` | System Events | Streams `system.metrics`, container logs (`docker.logs.<id>`), job progress updates, and audit notifications. |
+| `/ws/terminal` | Terminal Console | Multiplexes bi-directional shell I/O with remote SSH connections or host PowerShell/Bash shells. |
+| `/ws/desktop` | Remote Desktop | Exchanges WebRTC SDP offers/answers and streams user input events (mouse, keyboard). |
+| `/ws/desktop/daemon` | Streamer Bridge | Control channel connecting the host-side Python streamer daemon to the WebRTC signaling gateway. |
 
 ---
 
-## Server Deployment
+## 4. Local Development Setup
 
-To deploy the dashboard:
-1. Verify the external network is created:
+To run the dashboard locally for development without Docker:
+
+### 4.1 Prerequisites
+- Node.js (v18.0.0 or higher)
+- npm (v9.0.0 or higher)
+- Python 3.9+ (optional, for Remote Desktop streamer testing)
+
+### 4.2 Installation & Dependency Setup
+```bash
+# Navigate to the backend directory
+cd dashboard/backend
+
+# Install dependencies
+npm install
+```
+
+### 4.3 Environment Configuration
+Create a local `.env` file in `dashboard/backend/.env`:
+```env
+PORT=8081
+HOST=0.0.0.0
+NODE_ENV=development
+JWT_SECRET=your_super_secret_development_key_32_bytes_long
+DATABASE_PATH=./data/homelab_dev.db
+DATA_DIR=./data
+DOCKER_PROXY_URL=http://localhost:2375
+DOCKER_HOST=tcp://localhost:2375
+SERVICES_DIR=../../services
+```
+
+### 4.4 Running Development Server
+```bash
+# Start backend in watch mode with automatic TypeScript reloading
+npm run dev
+```
+The dashboard interface will be accessible in your web browser at `http://localhost:8081`.
+
+### 4.5 Testing & Code Quality
+```bash
+# Run ESLint validation
+npm run lint
+
+# Run automated unit and integration tests
+npm run test
+
+# Build production bundle
+npm run build
+```
+
+---
+
+## 5. Production Server Deployment
+
+To deploy the dashboard in production using Docker Compose:
+
+1. Create the shared external Docker network if it does not already exist:
    ```bash
    docker network create homelab-network
    ```
-2. Build and start the services stack:
+2. Navigate to the `dashboard/` directory:
+   ```bash
+   cd dashboard
+   ```
+3. Build and launch the container stack:
    ```bash
    docker compose up -d --build
    ```
-3. The dashboard is accessible at `http://[host-ip]:8081`.
-
----
-
-## Technical Specifications Updates
-
-### 1. Terminal Console Inline Prompt Layout
-To maintain a high-fidelity native CLI feel, the Server Console Terminal widget has no separate input box row:
-* **Input Mechanics**: Keyboard inputs are focused onto a hidden `<input>` element and mirrored in real-time in the terminal text block next to the cursor (`#w-term-input-text` and `#m-term-input-text`).
-* **Auto-Focus**: Clicking anywhere inside the terminal body refocusses the hidden input automatically.
-* **Auto-Scroll Behavior**: The terminal stream is equipped with smart scrolling. If the viewport is scrolled up, updates are written in the background to prevent scroll-jacking. Auto-scroll resumes once the user scrolls back to the bottom.
-
-### 2. Exclusively Tunneled Public Latency Timing
-* **Public Domain Timing**: Latency checks are executed exclusively for containers that have a public Cloudflare Tunnel URL configured (`mappedPublicDomain`). The backend attempts a real TCP connection to the domain on port `443` (falling back to `80`) to measure the actual network round-trip latency to the internet.
-* **Local-Only Containers**: For local-only containers (without an ingress tunnel domain mapped), latency timing is bypassed and set to `N/A`. The frontend dynamically hides the Latency row entirely on these cards to preserve layout symmetry.
+4. Check running logs to verify clean boot:
+   ```bash
+   docker compose logs -f dashboard
+   ```
+5. Access the administration interface at `http://<host-ip>:8081`.

@@ -524,113 +524,157 @@
      }
    },
  
-   bindInputEvents(video) {
-     const canvas = this.container?.querySelector('#desktop-canvas');
-     const targetEl = canvas || video;
-     if (!targetEl) return;
- 
-     const sendInput = (data) => {
-       const msg = JSON.stringify(data);
-       if (this.inputChannel && this.inputChannel.readyState === 'open') {
-         this.inputChannel.send(msg);
-       } else if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-         this.ws.send(msg);
-       }
-     };
- 
-     const onMouseMove = (e) => {
-       const el = (canvas && canvas.style.display !== 'none') ? canvas : video;
-       if (el) {
-         const rect = el.getBoundingClientRect();
-         const x = (e.clientX - rect.left) / rect.width;
-         const y = (e.clientY - rect.top) / rect.height;
-         sendInput({
-           type: 'mousemove',
-           x: Math.max(0, Math.min(1, x)),
-           y: Math.max(0, Math.min(1, y))
-         });
-       }
-     };
- 
-     const onMouseDown = (e) => {
-       const btnMap = { 0: 'left', 1: 'middle', 2: 'right' };
-       sendInput({
-         type: 'mousedown',
-         button: btnMap[e.button] || 'left'
-       });
-     };
- 
-     const onMouseUp = (e) => {
-       const btnMap = { 0: 'left', 1: 'middle', 2: 'right' };
-       sendInput({
-         type: 'mouseup',
-         button: btnMap[e.button] || 'left'
-       });
-     };
- 
-     const onKeyDown = (e) => {
-       if (['Tab', 'Backspace', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
-         e.preventDefault();
-       }
-       sendInput({
-         type: 'keydown',
-         key: e.key,
-         code: e.code
-       });
-     };
- 
-     const onKeyUp = (e) => {
-       sendInput({
-         type: 'keyup',
-         key: e.key,
-         code: e.code
-       });
-     };
- 
-     const onWheel = (e) => {
-       e.preventDefault();
-       sendInput({
-         type: 'wheel',
-         dx: e.deltaX,
-         dy: e.deltaY
-       });
-     };
- 
-     if (canvas) {
-       canvas.addEventListener('mousemove', onMouseMove);
-       canvas.addEventListener('mousedown', onMouseDown);
-       canvas.addEventListener('mouseup', onMouseUp);
-       canvas.addEventListener('wheel', onWheel, { passive: false });
-       canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-     }
-     if (video) {
-       video.addEventListener('mousemove', onMouseMove);
-       video.addEventListener('mousedown', onMouseDown);
-       video.addEventListener('mouseup', onMouseUp);
-       video.addEventListener('wheel', onWheel, { passive: false });
-       video.addEventListener('contextmenu', (e) => e.preventDefault());
-     }
-     
-     window.addEventListener('keydown', onKeyDown);
-     window.addEventListener('keyup', onKeyUp);
- 
-     this.cleanupInputListeners = () => {
-       if (canvas) {
-         canvas.removeEventListener('mousemove', onMouseMove);
-         canvas.removeEventListener('mousedown', onMouseDown);
-         canvas.removeEventListener('mouseup', onMouseUp);
-         canvas.removeEventListener('wheel', onWheel);
-       }
-       if (video) {
-         video.removeEventListener('mousemove', onMouseMove);
-         video.removeEventListener('mousedown', onMouseDown);
-         video.removeEventListener('mouseup', onMouseUp);
-         video.removeEventListener('wheel', onWheel);
-       }
-       window.removeEventListener('keydown', onKeyDown);
-       window.removeEventListener('keyup', onKeyUp);
-     };
-   },
+    bindInputEvents(video) {
+      const canvas = this.container?.querySelector('#desktop-canvas');
+      const targetEl = canvas || video;
+      if (!targetEl) return;
+
+      const sendInput = (data) => {
+        const msg = JSON.stringify(data);
+        if (this.inputChannel && this.inputChannel.readyState === 'open') {
+          this.inputChannel.send(msg);
+        } else if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(msg);
+        }
+      };
+
+      const getNormalizedCoordinates = (e, el) => {
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
+
+        const isCanvas = (canvas && canvas.style.display !== 'none');
+        const contentWidth = isCanvas ? canvas.width : (video?.videoWidth || rect.width);
+        const contentHeight = isCanvas ? canvas.height : (video?.videoHeight || rect.height);
+
+        if (contentWidth > 0 && contentHeight > 0) {
+          const videoRatio = contentWidth / contentHeight;
+          const containerRatio = rect.width / rect.height;
+
+          let renderedWidth = rect.width;
+          let renderedHeight = rect.height;
+          let offsetX = 0;
+          let offsetY = 0;
+
+          if (containerRatio > videoRatio) {
+            renderedWidth = rect.height * videoRatio;
+            offsetX = (rect.width - renderedWidth) / 2;
+          } else {
+            renderedHeight = rect.width / videoRatio;
+            offsetY = (rect.height - renderedHeight) / 2;
+          }
+
+          const clientX = e.clientX - rect.left - offsetX;
+          const clientY = e.clientY - rect.top - offsetY;
+
+          return {
+            x: Math.max(0, Math.min(1, clientX / renderedWidth)),
+            y: Math.max(0, Math.min(1, clientY / renderedHeight))
+          };
+        }
+
+        return {
+          x: Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)),
+          y: Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))
+        };
+      };
+
+      const onMouseMove = (e) => {
+        const el = (canvas && canvas.style.display !== 'none') ? canvas : video;
+        if (el) {
+          const coords = getNormalizedCoordinates(e, el);
+          sendInput({
+            type: 'mousemove',
+            x: coords.x,
+            y: coords.y
+          });
+        }
+      };
+
+      const onMouseDown = (e) => {
+        const btnMap = { 0: 'left', 1: 'middle', 2: 'right', 3: 'back', 4: 'forward' };
+        sendInput({
+          type: 'mousedown',
+          button: btnMap[e.button] || 'left'
+        });
+      };
+
+      const onMouseUp = (e) => {
+        const btnMap = { 0: 'left', 1: 'middle', 2: 'right', 3: 'back', 4: 'forward' };
+        sendInput({
+          type: 'mouseup',
+          button: btnMap[e.button] || 'left'
+        });
+      };
+
+      const onKeyDown = (e) => {
+        const streamView = this.container?.querySelector('#desktop-stream-view');
+        if (streamView && streamView.style.display !== 'none') {
+          if (['Tab', 'Backspace', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'F1', 'F3', 'F5', 'F6', 'F11', 'F12'].includes(e.key)) {
+            e.preventDefault();
+          }
+          sendInput({
+            type: 'keydown',
+            key: e.key,
+            code: e.code
+          });
+        }
+      };
+
+      const onKeyUp = (e) => {
+        const streamView = this.container?.querySelector('#desktop-stream-view');
+        if (streamView && streamView.style.display !== 'none') {
+          sendInput({
+            type: 'keyup',
+            key: e.key,
+            code: e.code
+          });
+        }
+      };
+
+      const onWheel = (e) => {
+        e.preventDefault();
+        sendInput({
+          type: 'wheel',
+          dx: e.deltaX,
+          dy: e.deltaY
+        });
+      };
+
+      if (canvas) {
+        canvas.addEventListener('mousemove', onMouseMove);
+        canvas.addEventListener('mousedown', onMouseDown);
+        canvas.addEventListener('mouseup', onMouseUp);
+        canvas.addEventListener('wheel', onWheel, { passive: false });
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+      }
+      if (video) {
+        video.addEventListener('mousemove', onMouseMove);
+        video.addEventListener('mousedown', onMouseDown);
+        video.addEventListener('mouseup', onMouseUp);
+        video.addEventListener('wheel', onWheel, { passive: false });
+        video.addEventListener('contextmenu', (e) => e.preventDefault());
+      }
+      
+      window.addEventListener('keydown', onKeyDown);
+      window.addEventListener('keyup', onKeyUp);
+
+      this.cleanupInputListeners = () => {
+        if (canvas) {
+          canvas.removeEventListener('mousemove', onMouseMove);
+          canvas.removeEventListener('mousedown', onMouseDown);
+          canvas.removeEventListener('mouseup', onMouseUp);
+          canvas.removeEventListener('wheel', onWheel);
+        }
+        if (video) {
+          video.removeEventListener('mousemove', onMouseMove);
+          video.removeEventListener('mousedown', onMouseDown);
+          video.removeEventListener('mouseup', onMouseUp);
+          video.removeEventListener('wheel', onWheel);
+        }
+        window.removeEventListener('keydown', onKeyDown);
+        window.removeEventListener('keyup', onKeyUp);
+      };
+    },
  
    destroy() {
      if (this.statsInterval) {

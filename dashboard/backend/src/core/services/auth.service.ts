@@ -27,6 +27,16 @@ export class AuthService {
     return `${salt}:${hash}`;
   }
 
+  // 1.5 Compare raw password with stored salt:hash
+  comparePassword(rawPassword: string, storedHash: string): boolean {
+    if (!storedHash) return false;
+    const parts = storedHash.split(':');
+    if (parts.length !== 2) return false;
+    const [salt, hash] = parts;
+    const computedHash = crypto.scryptSync(rawPassword, salt, 64).toString('hex');
+    return computedHash === hash;
+  }
+
   // 2. Validate user login credentials
   login(username: string, rawPassword: string): string | null {
     const user = this.usersRepo.findByUsername(username);

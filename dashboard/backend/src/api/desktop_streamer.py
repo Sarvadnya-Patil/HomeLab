@@ -67,16 +67,19 @@ class TelemetryCollector:
         self.mean_brightness = round(brightness, 1)
 
         if error:
-            self.capture_state = "ERROR"
+            self.capture_state = "CAPTURE_UNAVAILABLE"
             self.error_detail = str(error)
         elif is_black:
             self.consecutive_black_frames += 1
             if self.consecutive_black_frames >= 5:
                 self.capture_state = "CAPTURE_BLACK_FRAMES"
                 self.error_detail = "Direct GPU scanout returned black buffer"
+            else:
+                self.capture_state = "CAPTURE_OK"
+                self.error_detail = ""
         else:
             self.consecutive_black_frames = 0
-            self.capture_state = "CAPTURING"
+            self.capture_state = "CAPTURE_OK"
             self.error_detail = ""
 
     def tick_encode(self, byte_count):
@@ -138,6 +141,18 @@ except ImportError:
     mss = None
 
 import glob
+import ctypes
+import struct
+
+
+def compute_image_brightness(img):
+    if img is None:
+        return 0.0
+    try:
+        stats = ImageStat.Stat(img)
+        return sum(stats.mean) / max(len(stats.mean), 1)
+    except Exception:
+        return 0.0
 
 
 def setup_display_env():
@@ -218,6 +233,8 @@ class SafeDisplayGrabber:
         self.sct = None
         self.error_detail = ""
         self.active_engine = "NONE"
+        self._drmtap_lib = None
+        self._init_drmtap()
         setup_display_env()
         self._init_mss()
 
@@ -229,10 +246,64 @@ class SafeDisplayGrabber:
             except Exception:
                 self.sct = None
 
+    def _init_drmtap(self):
+        for lib_path in [
+            "/opt/homelab/libdrmtap.so",
+            "/usr/local/lib/libdrmtap.so",
+            "/usr/lib/libdrmtap.so",
+            "/usr/lib/x86_64-linux-gnu/libdrmtap.so",
+            "/usr/lib64/libdrmtap.so"
+        ]:
+            if os.path.exists(lib_path):
+                try:
+                    self._drmtap_lib = ctypes.CDLL(lib_path)
+                    sys.stderr.write(f"[SafeDisplayGrabber] libdrmtap loaded from {lib_path}\n")
+                    sys.stderr.flush()
+                    break
+                except Exception as err:
+                    sys.stderr.write(f"[SafeDisplayGrabber] libdrmtap load error: {err}\n")
+                    sys.stderr.flush()
+
+    def _try_drm_scanout(self):
+        # 1. If compiled libdrmtap.so is loaded, invoke snapshot interface
+        if self._drmtap_lib:
+            try:
+                target_file = "/dev/shm/homelab_drmtap_frame.png"
+                if hasattr(self._drmtap_lib, "drmtap_snapshot"):
+                    ret = self._drmtap_lib.drmtap_snapshot(target_file.encode("utf-8"))
+                    if ret == 0 and os.path.exists(target_file) and os.path.getsize(target_file) > 500:
+                        with open(target_file, "rb") as rf:
+                            img = Image.open(io.BytesIO(rf.read()))
+                            img.load()
+                        return img, "LIBDRMTAP"
+            except Exception:
+                pass
+
+        # 2. Try direct DRM dumb buffer / framebuffer read on /dev/dri/card*
+        for card in ["/dev/dri/card0", "/dev/dri/card1"]:
+            if os.path.exists(card):
+                try:
+                    # Check DRM sysfs modesetting attributes
+                    card_name = os.path.basename(card)
+                    # Test if frame can be dumped or read via KMS framebuffer
+                    target_file = f"/dev/shm/homelab_{card_name}_frame.png"
+                    if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
+                        with open(target_file, "rb") as rf:
+                            img = Image.open(io.BytesIO(rf.read()))
+                            img.load()
+                        return img, f"DRM_KMS_{card_name}"
+                except Exception:
+                    pass
+
+        return None, None
+
     def read_frame(self):
         setup_display_env()
 
-        # 1. Try native user-session capture (GNOME D-Bus / gnome-screenshot / grim) as the session user
+        fallback_black_frame = None
+        fallback_black_engine = "NONE"
+
+        # 1. Priority 1: GNOME Shell D-Bus screencast as active session user
         for uid_dir in sorted(glob.glob("/run/user/*"), key=lambda p: 0 if p.endswith("1000") else 1):
             if os.path.isdir(uid_dir):
                 uid_str = os.path.basename(uid_dir)
@@ -241,8 +312,6 @@ class SafeDisplayGrabber:
                     uname = get_session_user(uid_int)
                     if uname:
                         target_file = f"/dev/shm/homelab_frame_{uid_int}.png"
-
-                        # Try GNOME D-Bus Screencast as session user (GNOME 46 Wayland)
                         dbus_sock = os.path.join(uid_dir, "bus")
                         if os.path.exists(dbus_sock):
                             cmd = [
@@ -260,29 +329,26 @@ class SafeDisplayGrabber:
                                     with open(target_file, "rb") as rf:
                                         img = Image.open(io.BytesIO(rf.read()))
                                         img.load()
-                                    self.active_engine = f"GNOME_DBUS_{uname}"
-                                    self.error_detail = ""
-                                    return img, None
+                                    b = compute_image_brightness(img)
+                                    if b >= 1.0:
+                                        self.active_engine = f"GNOME_DBUS_{uname}"
+                                        self.error_detail = ""
+                                        return img, None
+                                    elif fallback_black_frame is None:
+                                        fallback_black_frame = img
+                                        fallback_black_engine = f"GNOME_DBUS_{uname}"
                             except Exception as e:
                                 self.error_detail = str(e)
 
-                        # Try gnome-screenshot CLI as session user
-                        try:
-                            cmd = [
-                                "runuser", "-u", uname, "--",
-                                "env", f"XDG_RUNTIME_DIR={uid_dir}", "DISPLAY=:0",
-                                "gnome-screenshot", "-f", target_file
-                            ]
-                            proc = subprocess.run(cmd, capture_output=True, timeout=0.3)
-                            if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
-                                with open(target_file, "rb") as rf:
-                                    img = Image.open(io.BytesIO(rf.read()))
-                                    img.load()
-                                self.active_engine = f"GNOME_CLI_{uname}"
-                                self.error_detail = ""
-                                return img, None
-                        except Exception as e:
-                            self.error_detail = str(e)
+        # 2. Priority 2: Wayland User Session capture (grim / gnome-screenshot CLI)
+        for uid_dir in sorted(glob.glob("/run/user/*"), key=lambda p: 0 if p.endswith("1000") else 1):
+            if os.path.isdir(uid_dir):
+                uid_str = os.path.basename(uid_dir)
+                if uid_str.isdigit():
+                    uid_int = int(uid_str)
+                    uname = get_session_user(uid_int)
+                    if uname:
+                        target_file = f"/dev/shm/homelab_frame_{uid_int}.png"
 
                         # Try Wayland grim as session user
                         wl_sock = os.path.join(uid_dir, "wayland-0")
@@ -298,13 +364,41 @@ class SafeDisplayGrabber:
                                     with open(target_file, "rb") as rf:
                                         img = Image.open(io.BytesIO(rf.read()))
                                         img.load()
-                                    self.active_engine = f"WAYLAND_GRIM_{uname}"
-                                    self.error_detail = ""
-                                    return img, None
+                                    b = compute_image_brightness(img)
+                                    if b >= 1.0:
+                                        self.active_engine = f"WAYLAND_GRIM_{uname}"
+                                        self.error_detail = ""
+                                        return img, None
+                                    elif fallback_black_frame is None:
+                                        fallback_black_frame = img
+                                        fallback_black_engine = f"WAYLAND_GRIM_{uname}"
                             except Exception as e:
                                 self.error_detail = str(e)
 
-        # 3. Try shared-memory scanout (mss) for active X11 / Xwayland desktop
+                        # Try gnome-screenshot CLI as session user
+                        try:
+                            cmd = [
+                                "runuser", "-u", uname, "--",
+                                "env", f"XDG_RUNTIME_DIR={uid_dir}", "DISPLAY=:0",
+                                "gnome-screenshot", "-f", target_file
+                            ]
+                            proc = subprocess.run(cmd, capture_output=True, timeout=0.3)
+                            if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
+                                with open(target_file, "rb") as rf:
+                                    img = Image.open(io.BytesIO(rf.read()))
+                                    img.load()
+                                b = compute_image_brightness(img)
+                                if b >= 1.0:
+                                    self.active_engine = f"GNOME_CLI_{uname}"
+                                    self.error_detail = ""
+                                    return img, None
+                                elif fallback_black_frame is None:
+                                    fallback_black_frame = img
+                                    fallback_black_engine = f"GNOME_CLI_{uname}"
+                        except Exception as e:
+                            self.error_detail = str(e)
+
+        # 3. Priority 3: Shared Memory MSS for active X11 / Xwayland desktop
         if not self.sct and mss:
             self._init_mss()
 
@@ -313,19 +407,19 @@ class SafeDisplayGrabber:
                 mon = self.sct.monitors[1] if len(self.sct.monitors) > 1 else self.sct.monitors[0]
                 sct_img = self.sct.grab(mon)
                 img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
-                
-                # Check if Xwayland root window is black
-                stats = ImageStat.Stat(img)
-                mean_val = sum(stats.mean) / max(len(stats.mean), 1)
-                if mean_val > 1.0:
+                b = compute_image_brightness(img)
+                if b >= 1.0:
                     self.active_engine = "SAFE_SHM"
                     self.error_detail = ""
                     return img, None
+                elif fallback_black_frame is None:
+                    fallback_black_frame = img
+                    fallback_black_engine = "SAFE_SHM"
             except Exception as e:
                 self.error_detail = str(e)
                 self.sct = None
 
-        # 3. Try safe Linux kernel linear framebuffer (/dev/fb0)
+        # 4. Priority 4: Linux kernel linear framebuffer (/dev/fb0, /dev/fb1)
         for fb in ["/dev/fb0", "/dev/fb1"]:
             if os.path.exists(fb):
                 try:
@@ -342,22 +436,50 @@ class SafeDisplayGrabber:
                         if len(raw) >= w * h * 4:
                             img = Image.frombytes("RGB", (w, h), raw, "raw", "BGRX")
                             if img:
-                                self.active_engine = f"FBDEV_{os.path.basename(fb)}"
-                                self.error_detail = ""
-                                return img, None
+                                b = compute_image_brightness(img)
+                                if b >= 1.0:
+                                    self.active_engine = f"FBDEV_{os.path.basename(fb)}"
+                                    self.error_detail = ""
+                                    return img, None
+                                elif fallback_black_frame is None:
+                                    fallback_black_frame = img
+                                    fallback_black_engine = f"FBDEV_{os.path.basename(fb)}"
                 except Exception as e:
                     self.error_detail = str(e)
 
-        # 4. Try PyAutoGUI safe capture
+        # 5. Priority 5: Local libdrmtap & direct DRM KMS scanout
+        drm_img, drm_engine = self._try_drm_scanout()
+        if drm_img:
+            b = compute_image_brightness(drm_img)
+            if b >= 1.0:
+                self.active_engine = drm_engine or "LIBDRMTAP"
+                self.error_detail = ""
+                return drm_img, None
+            elif fallback_black_frame is None:
+                fallback_black_frame = drm_img
+                fallback_black_engine = drm_engine or "LIBDRMTAP"
+
+        # 6. Priority 6: PyAutoGUI / PIL Grab fallback
         if pyautogui:
             try:
                 img = pyautogui.screenshot()
                 if img:
-                    self.active_engine = "PYAUTOGUI"
-                    self.error_detail = ""
-                    return img, None
+                    b = compute_image_brightness(img)
+                    if b >= 1.0:
+                        self.active_engine = "PYAUTOGUI"
+                        self.error_detail = ""
+                        return img, None
+                    elif fallback_black_frame is None:
+                        fallback_black_frame = img
+                        fallback_black_engine = "PYAUTOGUI"
             except Exception as e:
                 self.error_detail = str(e)
+
+        # If any candidate frame was found (even if black), gracefully return it with telemetry status
+        if fallback_black_frame is not None:
+            self.active_engine = fallback_black_engine
+            self.error_detail = "Direct GPU scanout returned black buffer"
+            return fallback_black_frame, None
 
         return None, Exception(self.error_detail or "Display buffer currently unavailable")
 
@@ -382,12 +504,7 @@ class ScreenCaptureTrack(VideoStreamTrack):
 
             mean_val = 0.0
             if raw_img is not None:
-                try:
-                    stats = ImageStat.Stat(raw_img)
-                    mean_val = sum(stats.mean) / max(len(stats.mean), 1)
-                except Exception:
-                    mean_val = 0.0
-
+                mean_val = compute_image_brightness(raw_img)
                 w, h = raw_img.size
                 is_black = (mean_val < 1.0)
                 telemetry.tick_capture(w, h, mean_val, is_black)
@@ -454,21 +571,27 @@ def init_uinput():
         sys.stderr.flush()
         return
     try:
-        abs_x = AbsInfo(value=0, min=0, max=1920, fuzz=0, flat=0, resolution=0) if AbsInfo else (0, 1920, 0, 0)
-        abs_y = AbsInfo(value=0, min=0, max=1080, fuzz=0, flat=0, resolution=0) if AbsInfo else (0, 1080, 0, 0)
+        abs_x = AbsInfo(value=0, min=0, max=65535, fuzz=0, flat=0, resolution=0) if AbsInfo else (0, 65535, 0, 0)
+        abs_y = AbsInfo(value=0, min=0, max=65535, fuzz=0, flat=0, resolution=0) if AbsInfo else (0, 65535, 0, 0)
         cap_mouse = {
-            e.EV_KEY: [e.BTN_LEFT, e.BTN_RIGHT, e.BTN_MIDDLE, e.BTN_TOUCH],
+            e.EV_KEY: [
+                e.BTN_LEFT, e.BTN_RIGHT, e.BTN_MIDDLE,
+                e.BTN_SIDE, e.BTN_EXTRA, e.BTN_FORWARD, e.BTN_BACK, e.BTN_TASK,
+                e.BTN_TOUCH
+            ],
             e.EV_ABS: [
                 (e.ABS_X, abs_x),
                 (e.ABS_Y, abs_y)
             ],
             e.EV_REL: [
                 e.REL_WHEEL,
-                e.REL_HWHEEL
+                e.REL_HWHEEL,
+                e.REL_X,
+                e.REL_Y
             ]
         }
         cap_keyboard = {
-            e.EV_KEY: list(range(1, 255))
+            e.EV_KEY: list(range(1, 512))
         }
         ui_mouse = UInput(cap_mouse, name="HomeLab-Virtual-Tablet")
         ui_keyboard = UInput(cap_keyboard, name="HomeLab-Virtual-Keyboard")
@@ -493,21 +616,28 @@ KEY_MAP = {
     "A": 30, "B": 48, "C": 46, "D": 32, "E": 18, "F": 33, "G": 34, "H": 35, "I": 23, "J": 36,
     "K": 37, "L": 38, "M": 50, "N": 49, "O": 24, "P": 25, "Q": 16, "R": 19, "S": 31, "T": 20,
     "U": 22, "V": 47, "W": 17, "X": 45, "Y": 21, "Z": 44,
-    # Digits
+    # Digits (Top row)
     "Digit1": 2, "Digit2": 3, "Digit3": 4, "Digit4": 5, "Digit5": 6, "Digit6": 7, "Digit7": 8, "Digit8": 9, "Digit9": 10, "Digit0": 11,
     "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8, "8": 9, "9": 10, "0": 11,
+    # Numpad
+    "Numpad0": 82, "Numpad1": 79, "Numpad2": 80, "Numpad3": 81, "Numpad4": 75,
+    "Numpad5": 76, "Numpad6": 77, "Numpad7": 71, "Numpad8": 72, "Numpad9": 73,
+    "NumpadEnter": 96, "NumpadAdd": 78, "NumpadSubtract": 74, "NumpadMultiply": 55, "NumpadDivide": 98, "NumpadDecimal": 83,
+    "NumLock": 69, "ScrollLock": 70,
     # Controls & Navigation
     "Enter": 28, "enter": 28, "Return": 28, "Escape": 1, "escape": 1, "esc": 1, "Backspace": 14, "backspace": 14,
     "Tab": 15, "tab": 15, "Space": 57, "space": 57, " ": 57,
     "CapsLock": 58, "capslock": 58,
     "ShiftLeft": 42, "ShiftRight": 54, "shift": 42,
     "ControlLeft": 29, "ControlRight": 97, "control": 29, "ctrl": 29,
-    "AltLeft": 56, "AltRight": 100, "alt": 56,
-    "MetaLeft": 125, "MetaRight": 126, "meta": 125, "super": 125,
+    "AltLeft": 56, "AltRight": 100, "alt": 56, "AltGraph": 100,
+    "MetaLeft": 125, "MetaRight": 126, "meta": 125, "super": 125, "OSLeft": 125, "OSRight": 126,
+    "ContextMenu": 127,
     "ArrowRight": 106, "ArrowLeft": 105, "ArrowDown": 108, "ArrowUp": 103,
     "right": 106, "left": 105, "down": 108, "up": 103,
     "Insert": 110, "insert": 110, "Home": 102, "home": 102, "PageUp": 104, "pageup": 104,
     "Delete": 111, "delete": 111, "End": 107, "end": 107, "PageDown": 109, "pagedown": 109,
+    "PrintScreen": 99, "Pause": 119,
     # Symbols & Punctuation
     "Minus": 12, "minus": 12, "-": 12, "_": 12,
     "Equal": 13, "equal": 13, "=": 13, "+": 13,
@@ -522,7 +652,10 @@ KEY_MAP = {
     "Slash": 53, "/": 53, "?": 53,
     "!": 2, "@": 3, "#": 4, "$": 5, "%": 6, "^": 7, "&": 8, "*": 9, "(": 10, ")": 11,
     # Function Keys
-    "F1": 59, "F2": 60, "F3": 61, "F4": 62, "F5": 63, "F6": 64, "F7": 65, "F8": 66, "F9": 67, "F10": 68, "F11": 87, "F12": 88
+    "F1": 59, "F2": 60, "F3": 61, "F4": 62, "F5": 63, "F6": 64, "F7": 65, "F8": 66, "F9": 67, "F10": 68, "F11": 87, "F12": 88,
+    "F13": 183, "F14": 184, "F15": 185, "F16": 186, "F17": 187, "F18": 188, "F19": 189, "F20": 190, "F21": 191, "F22": 192, "F23": 193, "F24": 194,
+    # Media & Audio Keys
+    "AudioVolumeMute": 113, "AudioVolumeDown": 114, "AudioVolumeUp": 115
 }
 
 
@@ -535,15 +668,22 @@ def handle_input_message(msg_str):
         if not ui_mouse or not ui_keyboard:
             if pyautogui:
                 if action == "mousemove":
-                    pyautogui.moveTo(int(data.get("x", 0) * screen_width), int(data.get("y", 0) * screen_height))
-                elif action == "mousedown":
-                    pyautogui.mouseDown(button=data.get("button", "left"))
-                elif action == "mouseup":
-                    pyautogui.mouseUp(button=data.get("button", "left"))
-                elif action == "click":
-                    pyautogui.click(button=data.get("button", "left"))
+                    pyautogui.moveTo(int(float(data.get("x", 0)) * screen_width), int(float(data.get("y", 0)) * screen_height))
+                elif action in ["mousedown", "mouseup", "click"]:
+                    btn_name = str(data.get("button", "left")).lower()
+                    btn = "left"
+                    if btn_name in ["right", "2"]:
+                        btn = "right"
+                    elif btn_name in ["middle", "1"]:
+                        btn = "middle"
+                    if action == "mousedown":
+                        pyautogui.mouseDown(button=btn)
+                    elif action == "mouseup":
+                        pyautogui.mouseUp(button=btn)
+                    elif action == "click":
+                        pyautogui.click(button=btn)
                 elif action == "wheel":
-                    dy = int(data.get("dy", 0))
+                    dy = int(float(data.get("dy", 0)))
                     if dy != 0:
                         pyautogui.scroll(-1 if dy > 0 else 1)
                 elif action == "keydown" and data.get("key"):
@@ -553,23 +693,38 @@ def handle_input_message(msg_str):
             return
 
         if action == "mousemove":
-            abs_x = int(data.get("x", 0) * 1920)
-            abs_y = int(data.get("y", 0) * 1080)
+            abs_x = int(max(0.0, min(1.0, float(data.get("x", 0)))) * 65535)
+            abs_y = int(max(0.0, min(1.0, float(data.get("y", 0)))) * 65535)
             ui_mouse.write(e.EV_ABS, e.ABS_X, abs_x)
             ui_mouse.write(e.EV_ABS, e.ABS_Y, abs_y)
             ui_mouse.syn()
         elif action in ["mousedown", "mouseup", "click"]:
-            btn_name = data.get("button", "left")
-            btn_code = e.BTN_LEFT if btn_name == "left" else (e.BTN_RIGHT if btn_name == "right" else e.BTN_MIDDLE)
-            val = 1 if action in ["mousedown", "click"] else 0
-            ui_mouse.write(e.EV_KEY, btn_code, val)
-            ui_mouse.syn()
-            if action == "click":
+            btn_name = str(data.get("button", "left")).lower()
+            btn_code = e.BTN_LEFT
+            if btn_name in ["right", "2"]:
+                btn_code = e.BTN_RIGHT
+            elif btn_name in ["middle", "1"]:
+                btn_code = e.BTN_MIDDLE
+            elif btn_name in ["back", "side", "3"]:
+                btn_code = e.BTN_SIDE
+            elif btn_name in ["forward", "extra", "4"]:
+                btn_code = e.BTN_EXTRA
+
+            if action == "mousedown":
+                ui_mouse.write(e.EV_KEY, btn_code, 1)
+                ui_mouse.syn()
+            elif action == "mouseup":
+                ui_mouse.write(e.EV_KEY, btn_code, 0)
+                ui_mouse.syn()
+            elif action == "click":
+                ui_mouse.write(e.EV_KEY, btn_code, 1)
+                ui_mouse.syn()
+                time.sleep(0.01)
                 ui_mouse.write(e.EV_KEY, btn_code, 0)
                 ui_mouse.syn()
         elif action == "wheel":
-            dx = int(data.get("dx", 0))
-            dy = int(data.get("dy", 0))
+            dx = float(data.get("dx", 0))
+            dy = float(data.get("dy", 0))
             if dy != 0:
                 steps = -1 if dy > 0 else 1
                 ui_mouse.write(e.EV_REL, e.REL_WHEEL, steps)
@@ -582,7 +737,9 @@ def handle_input_message(msg_str):
             code = KEY_MAP.get(raw_code)
             if not code and isinstance(raw_code, str):
                 if len(raw_code) == 1:
-                    code = KEY_MAP.get(f"Key{raw_code.upper()}") or KEY_MAP.get(f"Digit{raw_code}") or KEY_MAP.get(raw_code.lower())
+                    code = KEY_MAP.get(f"Key{raw_code.upper()}") or KEY_MAP.get(f"Digit{raw_code}") or KEY_MAP.get(raw_code.lower()) or KEY_MAP.get(raw_code)
+            if not code and isinstance(data.get("key"), str):
+                code = KEY_MAP.get(data.get("key"))
             if code:
                 val = 1 if action == "keydown" else 0
                 ui_keyboard.write(e.EV_KEY, code, val)

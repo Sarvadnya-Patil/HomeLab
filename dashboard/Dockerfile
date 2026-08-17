@@ -43,6 +43,9 @@ COPY --from=build /app/backend/src/database/schema.sql ./backend/dist/src/databa
 # Copy desktop streamer script to compiled api directory in dist
 COPY --from=build /app/backend/src/api/desktop_streamer.py ./backend/dist/src/api/desktop_streamer.py
 
+# Copy vendored native source libraries to dist
+COPY --from=build /app/backend/src/native ./backend/dist/src/native
+
 # Copy frontend static files
 COPY frontend/ ./backend/frontend/
 

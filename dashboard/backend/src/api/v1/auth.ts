@@ -244,4 +244,47 @@ export default function (fastify: any, engine: CoreEngine): void {
       return reply.status(500).send({ error: `Setup initialization failed: ${err.message}` });
     }
   });
+
+  // 5. PUT: /api/v1/auth/password (Update user account password)
+  fastify.put('/api/v1/auth/password', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['currentPassword', 'newPassword'],
+        properties: {
+          currentPassword: { type: 'string' },
+          newPassword: { type: 'string', minLength: 6 }
+        }
+      }
+    }
+  }, async (request: any, reply: any) => {
+    const authHeader = request.headers.authorization || '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return reply.status(401).send({ error: 'Authorization token required' });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const tokenUser = engine.auth.verifyToken(token);
+    if (!tokenUser) {
+      return reply.status(401).send({ error: 'Invalid or expired token' });
+    }
+
+    const { currentPassword, newPassword } = request.body || {};
+    const dbUser = engine.usersRepo.findById(tokenUser.id);
+    if (!dbUser) {
+      return reply.status(404).send({ error: 'User not found' });
+    }
+
+    // Verify current password
+    if (!dbUser.password || !engine.auth.comparePassword(currentPassword, dbUser.password)) {
+      return reply.status(400).send({ error: 'Current password is incorrect' });
+    }
+
+    // Hash and update to new password
+    const hashedNew = engine.auth.hashPassword(newPassword);
+    engine.usersRepo.update(dbUser.id, { password: hashedNew });
+
+    try { engine.auditRepo.log(dbUser.id, 'password_updated', 'security', dbUser.id); } catch { /* non-fatal */ }
+
+    return { success: true, message: 'Password updated successfully' };
+  });
 }

@@ -50,6 +50,7 @@ export const AppSettings = {
         <span class="panel-title" style="font-size: 0.9rem; font-weight: 900; text-transform: uppercase;">HomeLab OS Configuration & Security Settings</span>
         <div class="panel-quick-actions" style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
           <button class="btn btn-panel ${this.activeTab === 'general' ? 'btn-open' : ''}" id="tab-settings-general">General</button>
+          <button class="btn btn-panel ${this.activeTab === 'account' ? 'btn-open' : ''}" id="tab-settings-account">Account & Password</button>
           <button class="btn btn-panel ${this.activeTab === '2fa' ? 'btn-open' : ''}" id="tab-settings-2fa">2FA & SMTP Security</button>
           <button class="btn btn-panel ${this.activeTab === 'ssh' ? 'btn-open' : ''}" id="tab-settings-ssh">SSH Terminal Config</button>
           <button class="btn btn-panel ${this.activeTab === 'desktop' ? 'btn-open' : ''}" id="tab-settings-desktop">Remote Desktop</button>
@@ -64,6 +65,7 @@ export const AppSettings = {
 
     // Bind tab clicks
     this.container.querySelector('#tab-settings-general').addEventListener('click', () => this.switchTab('general'));
+    this.container.querySelector('#tab-settings-account').addEventListener('click', () => this.switchTab('account'));
     this.container.querySelector('#tab-settings-2fa').addEventListener('click', () => this.switchTab('2fa'));
     this.container.querySelector('#tab-settings-ssh').addEventListener('click', () => this.switchTab('ssh'));
     this.container.querySelector('#tab-settings-desktop').addEventListener('click', () => this.switchTab('desktop'));
@@ -92,6 +94,43 @@ export const AppSettings = {
         <button class="btn btn-panel btn-open" id="btn-save-settings" style="margin-top: 1rem; width: 140px; background: #ffffff; color: #000000; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Save Settings</button>
       `;
       formEl.querySelector('#btn-save-settings').addEventListener('click', () => this.saveFormValues());
+    } else if (this.activeTab === 'account') {
+      formEl.innerHTML = `
+        <div style="background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; border-radius: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #ffffff; padding-bottom: 0.75rem;">
+            <span style="font-weight: 900; text-transform: uppercase; font-size: 0.85rem;">Account Security & Credentials</span>
+            <span style="background: #000000; border: 1px solid #ffffff; color: #ffffff; font-weight: 900; padding: 0.2rem 0.6rem; text-transform: uppercase; font-size: 0.68rem;">ROLE: ADMIN</span>
+          </div>
+
+          <div style="font-size: 0.72rem; color: #a1a1aa; line-height: 1.4;">
+            Update your master administration account password. Password must contain at least 6 characters.
+          </div>
+
+          <div class="detail-item">
+            <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">Current Password</label>
+            <input type="password" id="input-curr-pass" placeholder="Enter current password" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
+            <div class="detail-item">
+              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">New Password</label>
+              <input type="password" id="input-new-pass" placeholder="Min. 6 characters" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+            </div>
+            <div class="detail-item">
+              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">Confirm New Password</label>
+              <input type="password" id="input-confirm-pass" placeholder="Re-type new password" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+            </div>
+          </div>
+
+          <div id="account-pass-status" style="display: none; padding: 0.5rem; font-size: 0.72rem; font-weight: 700;"></div>
+
+          <div style="display: flex; gap: 0.6rem; margin-top: 0.5rem;">
+            <button class="btn btn-panel btn-open" id="btn-update-password" style="background: #ffffff; border: 2px solid #ffffff; color: #000000; font-size: 0.75rem; font-weight: 900; text-transform: uppercase; padding: 0.55rem 1.2rem; box-shadow: 3px 3px 0 #888888;">UPDATE PASSWORD</button>
+          </div>
+        </div>
+      `;
+
+      formEl.querySelector('#btn-update-password').addEventListener('click', () => this.updateAccountPassword());
     } else if (this.activeTab === '2fa') {
       const status = this.secStatus || { enabled: false, hasPassword: false };
       const isEnabled = status.enabled;
@@ -406,6 +445,69 @@ export const AppSettings = {
     } catch (err) {
       alert(`Failed to save SMTP configuration: ${err.message}`);
       throw err; // Re-throw so callers like send2FAOTP can abort on failure
+    }
+  },
+
+  async updateAccountPassword() {
+    const currPass = this.container.querySelector('#input-curr-pass')?.value;
+    const newPass = this.container.querySelector('#input-new-pass')?.value;
+    const confirmPass = this.container.querySelector('#input-confirm-pass')?.value;
+    const statusEl = this.container.querySelector('#account-pass-status');
+
+    if (!statusEl) return;
+
+    if (!currPass || !newPass) {
+      statusEl.style.display = 'block';
+      statusEl.style.background = '#000000';
+      statusEl.style.border = '1px solid #ef4444';
+      statusEl.style.color = '#ef4444';
+      statusEl.textContent = 'Both current password and new password are required.';
+      return;
+    }
+
+    if (newPass.length < 6) {
+      statusEl.style.display = 'block';
+      statusEl.style.background = '#000000';
+      statusEl.style.border = '1px solid #ef4444';
+      statusEl.style.color = '#ef4444';
+      statusEl.textContent = 'New password must be at least 6 characters long.';
+      return;
+    }
+
+    if (newPass !== confirmPass) {
+      statusEl.style.display = 'block';
+      statusEl.style.background = '#000000';
+      statusEl.style.border = '1px solid #ef4444';
+      statusEl.style.color = '#ef4444';
+      statusEl.textContent = 'New password and confirmation do not match.';
+      return;
+    }
+
+    try {
+      const res = await api.put('/api/v1/auth/password', {
+        currentPassword: currPass,
+        newPassword: newPass
+      });
+
+      statusEl.style.display = 'block';
+      statusEl.style.background = '#000000';
+      statusEl.style.border = '1px solid #22c55e';
+      statusEl.style.color = '#22c55e';
+      statusEl.textContent = res.message || 'Password updated successfully!';
+
+      // Clear inputs
+      const currEl = this.container.querySelector('#input-curr-pass');
+      const newEl = this.container.querySelector('#input-new-pass');
+      const confEl = this.container.querySelector('#input-confirm-pass');
+      if (currEl) currEl.value = '';
+      if (newEl) newEl.value = '';
+      if (confEl) confEl.value = '';
+    } catch (err) {
+      statusEl.style.display = 'block';
+      statusEl.style.background = '#000000';
+      statusEl.style.border = '1px solid #ef4444';
+      statusEl.style.color = '#ef4444';
+      statusEl.textContent = `Failed to update password: ${err.message || 'Incorrect current password'}`;
     }
   },
 

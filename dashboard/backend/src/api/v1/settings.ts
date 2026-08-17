@@ -374,6 +374,32 @@ export default function (fastify: any, engine: CoreEngine): void {
       console.log(`[DesktopInstaller] Writing python script to host: ${hostStreamerPath}`);
       fs.writeFileSync(hostStreamerPath, streamerContent, { mode: 0o755 });
 
+      // 3.5 Copy vendored libdrmtap source to host /tmp/libdrmtap for offline compilation
+      let sourceDrmtapDir = path.join(__dirname, '../../native/libdrmtap');
+      if (!fs.existsSync(sourceDrmtapDir)) {
+        sourceDrmtapDir = path.join(__dirname, '../../../src/native/libdrmtap');
+        if (!fs.existsSync(sourceDrmtapDir)) {
+          const containerNativeDist = '/app/backend/dist/src/native/libdrmtap';
+          if (fs.existsSync(containerNativeDist)) {
+            sourceDrmtapDir = containerNativeDist;
+          } else {
+            const containerNativeSrc = '/app/backend/src/native/libdrmtap';
+            if (fs.existsSync(containerNativeSrc)) {
+              sourceDrmtapDir = containerNativeSrc;
+            }
+          }
+        }
+      }
+
+      if (fs.existsSync(sourceDrmtapDir)) {
+        const hostDrmtapSrcDir = path.join(hostRoot, 'tmp/libdrmtap');
+        console.log(`[DesktopInstaller] Copying vendored libdrmtap source from ${sourceDrmtapDir} to host ${hostDrmtapSrcDir}`);
+        fs.mkdirSync(hostDrmtapSrcDir, { recursive: true });
+        fs.cpSync(sourceDrmtapDir, hostDrmtapSrcDir, { recursive: true, force: true });
+      } else {
+        console.warn(`[DesktopInstaller] Vendored libdrmtap source directory not found (checked: ${sourceDrmtapDir})`);
+      }
+
       // 4. Construct and write the pure Root systemd service file on the host
       const serviceContent = `[Unit]
 Description=HomeLab Remote Desktop Streamer Daemon
@@ -429,13 +455,30 @@ WantedBy=multi-user.target
 
           # 3. Install packages via host package manager as root
           if command -v apt-get >/dev/null 2>&1; then
-            echo "[HostInstaller] Ubuntu/Debian host detected. Installing ffmpeg..."
+            echo "[HostInstaller] Ubuntu/Debian host detected. Installing dependencies..."
             export DEBIAN_FRONTEND=noninteractive
-            apt-get install -y --no-install-recommends ffmpeg libglib2.0-bin gnome-screenshot || true
+            apt-get install -y --no-install-recommends ffmpeg libglib2.0-bin gnome-screenshot libdrm-dev meson ninja-build gcc || true
             apt-get install -y --no-install-recommends python3-pip python3-evdev python3-pil python3-websockets python3-mss || true
           elif command -v dnf >/dev/null 2>&1; then
-            echo "[HostInstaller] Fedora/RHEL host detected. Installing ffmpeg..."
-            dnf install -y ffmpeg python3-pip python3-websockets python3-evdev || true
+            echo "[HostInstaller] Fedora/RHEL host detected. Installing dependencies..."
+            dnf install -y ffmpeg python3-pip python3-websockets python3-evdev libdrm-devel meson ninja-build gcc || true
+          fi
+
+          # 3.5 Compile vendored libdrmtap (by fxd0h) for direct hardware DRM scanout
+          if [ ! -f /opt/homelab/libdrmtap.so ]; then
+            echo "[HostInstaller] Compiling vendored libdrmtap (by fxd0h) from local source..."
+            mkdir -p /opt/homelab
+            if [ -d /tmp/libdrmtap ]; then
+              cd /tmp/libdrmtap
+              meson setup build 2>/dev/null || true
+              ninja -C build 2>/dev/null || true
+              find build -name "*.so*" -exec cp {} /opt/homelab/libdrmtap.so ';' 2>/dev/null || true
+              if [ -f /opt/homelab/libdrmtap.so ]; then
+                echo "[HostInstaller] libdrmtap.so (fxd0h) compiled successfully to /opt/homelab/libdrmtap.so"
+              fi
+            else
+              echo "[HostInstaller] Warning: /tmp/libdrmtap not found for compilation."
+            fi
           fi
 
           # Re-evaluate pip3 path in case it was just installed
