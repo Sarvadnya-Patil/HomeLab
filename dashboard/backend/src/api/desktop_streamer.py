@@ -138,20 +138,36 @@ class KmsPersistentGrabber:
         self.buffer = bytearray()
         self.active_card = None
         self.error_detail = "Initializing KMS stream"
+        self.last_restart_attempt = 0
         self._start_process()
 
     def _start_process(self):
+        now = time.time()
+        if now - self.last_restart_attempt < 1.0:
+            time.sleep(1.0 - (now - self.last_restart_attempt))
+        self.last_restart_attempt = time.time()
+
         if self.proc:
             try:
                 self.proc.kill()
-                self.proc.wait(timeout=0.5)
+                self.proc.wait(timeout=0.2)
             except Exception:
                 pass
             self.proc = None
 
         ffmpeg_bin = get_ffmpeg_bin()
-        for card in ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"]:
-            if os.path.exists(card):
+        cards = [c for c in ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"] if os.path.exists(c)]
+        
+        filter_candidates = [
+            "hwdownload,format=bgr0,scale=1280:720",
+            "hwdownload,scale=1280:720",
+            "hwdownload,format=bgra,scale=1280:720",
+            "hwdownload,format=nv12,scale=1280:720",
+            "hwdownload"
+        ]
+
+        for card in cards:
+            for flt in filter_candidates:
                 try:
                     cmd = [
                         ffmpeg_bin, "-nostdin", "-loglevel", "error",
@@ -159,27 +175,37 @@ class KmsPersistentGrabber:
                         "-f", "kmsgrab",
                         "-framerate", "30",
                         "-i", "-",
-                        "-vf", "hwdownload,format=bgr0,scale=1280:720",
+                        "-vf", flt,
                         "-f", "image2pipe",
                         "-vcodec", "mjpeg",
                         "-q:v", "4",
                         "-"
                     ]
-                    self.proc = subprocess.Popen(
+                    p = subprocess.Popen(
                         cmd,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         bufsize=10**6
                     )
+                    
+                    time.sleep(0.3)
+                    if p.poll() is not None:
+                        err = p.stderr.read().decode("utf-8", errors="ignore") if p.stderr else ""
+                        sys.stderr.write(f"[KMS Probe] {card} filter '{flt}' failed ({p.returncode}): {err.strip()[:120]}\n")
+                        sys.stderr.flush()
+                        self.error_detail = err.strip()[:150] or f"Exit {p.returncode} on {card}"
+                        continue
+
+                    self.proc = p
                     self.buffer = bytearray()
                     self.active_card = card
                     self.error_detail = ""
-                    sys.stderr.write(f"[KMS] Persistent hardware scanout stream spawned on {card}\n")
+                    sys.stderr.write(f"[KMS] SUCCESS: Persistent hardware stream active on {card} (filter: {flt})\n")
                     sys.stderr.flush()
                     return
                 except Exception as e:
                     self.error_detail = str(e)
-                    sys.stderr.write(f"[KMS] Failed to start on {card}: {e}\n")
+                    sys.stderr.write(f"[KMS Probe] {card} spawn error: {e}\n")
                     sys.stderr.flush()
 
     def read_frame(self):
