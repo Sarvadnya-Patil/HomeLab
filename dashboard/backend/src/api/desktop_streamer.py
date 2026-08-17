@@ -141,38 +141,61 @@ import glob
 
 
 def setup_display_env():
-    # 1. Attach to active user or GDM login manager runtime directory & Wayland socket
-    found_wl = False
-    for uid_dir in sorted(glob.glob("/run/user/*"), key=lambda p: 0 if p.endswith("1000") else 1):
-        if os.path.isdir(uid_dir):
-            for wl in ["wayland-0", "wayland-1", "wayland-2"]:
-                if os.path.exists(os.path.join(uid_dir, wl)):
-                    os.environ["XDG_RUNTIME_DIR"] = uid_dir
-                    os.environ["WAYLAND_DISPLAY"] = wl
-                    found_wl = True
-                    break
-        if found_wl:
-            break
+    # 1. Inspect live compositor / desktop process environment from /proc
+    try:
+        for proc_name in ["gnome-shell", "gdm-wayland-session", "gnome-session", "Xorg", "plasma-desktop", "sway", "wayfire"]:
+            pids = subprocess.run(["pgrep", proc_name], capture_output=True, text=True)
+            if pids.returncode == 0:
+                for pid in pids.stdout.strip().split():
+                    env_path = f"/proc/{pid}/environ"
+                    if os.path.exists(env_path):
+                        with open(env_path, "rb") as f:
+                            for item in f.read().split(b"\x00"):
+                                if item.startswith(b"XDG_RUNTIME_DIR="):
+                                    os.environ["XDG_RUNTIME_DIR"] = item.split(b"=", 1)[1].decode("utf-8")
+                                elif item.startswith(b"WAYLAND_DISPLAY="):
+                                    os.environ["WAYLAND_DISPLAY"] = item.split(b"=", 1)[1].decode("utf-8")
+                                elif item.startswith(b"DISPLAY="):
+                                    os.environ["DISPLAY"] = item.split(b"=", 1)[1].decode("utf-8")
+                                elif item.startswith(b"XAUTHORITY="):
+                                    os.environ["XAUTHORITY"] = item.split(b"=", 1)[1].decode("utf-8")
+                        if "WAYLAND_DISPLAY" in os.environ or "DISPLAY" in os.environ:
+                            break
+    except Exception:
+        pass
 
-    # 2. Attach to active X11 display socket
-    for sock in ["/tmp/.X11-unix/X0", "/tmp/.X11-unix/X1"]:
-        if os.path.exists(sock):
-            os.environ["DISPLAY"] = ":0" if sock.endswith("X0") else ":1"
-            break
+    # 2. Fallback search /run/user/* and /tmp/.X11-unix
+    if "XDG_RUNTIME_DIR" not in os.environ:
+        for uid_dir in sorted(glob.glob("/run/user/*"), key=lambda p: 0 if p.endswith("1000") else 1):
+            if os.path.isdir(uid_dir):
+                for wl in ["wayland-0", "wayland-1"]:
+                    if os.path.exists(os.path.join(uid_dir, wl)):
+                        os.environ["XDG_RUNTIME_DIR"] = uid_dir
+                        os.environ["WAYLAND_DISPLAY"] = wl
+                        break
+            if "XDG_RUNTIME_DIR" in os.environ:
+                break
+
     if "DISPLAY" not in os.environ:
-        os.environ["DISPLAY"] = ":0"
+        for sock in ["/tmp/.X11-unix/X0", "/tmp/.X11-unix/X1"]:
+            if os.path.exists(sock):
+                os.environ["DISPLAY"] = ":0" if sock.endswith("X0") else ":1"
+                break
+        if "DISPLAY" not in os.environ:
+            os.environ["DISPLAY"] = ":0"
 
-    # 3. Locate active XAUTHORITY
-    for auth_pattern in [
-        "/home/*/.Xauthority",
-        "/run/user/*/gdm/Xauthority",
-        "/run/user/*/xauth_*",
-        "/var/run/gdm3/auth-for-gdm-*/database"
-    ]:
-        matches = glob.glob(auth_pattern)
-        if matches:
-            os.environ["XAUTHORITY"] = matches[0]
-            break
+    # 3. If XAUTHORITY is still missing, search standard auth directories
+    if "XAUTHORITY" not in os.environ:
+        for auth_pattern in [
+            "/home/*/.Xauthority",
+            "/run/user/*/gdm/Xauthority",
+            "/run/user/*/xauth_*",
+            "/var/run/gdm3/auth-for-gdm-*/database"
+        ]:
+            matches = glob.glob(auth_pattern)
+            if matches:
+                os.environ["XAUTHORITY"] = matches[0]
+                break
 
 
 class SafeDisplayGrabber:
@@ -199,6 +222,7 @@ class SafeDisplayGrabber:
             try:
                 proc = subprocess.run(
                     ["grim", "-t", "jpeg", "-q", "75", "-"],
+                    env=os.environ,
                     capture_output=True,
                     timeout=0.15
                 )
