@@ -435,6 +435,10 @@ export default function (fastify: any, engine: CoreEngine): void {
       fs.writeFileSync(hostStreamerPath, streamerContent, { mode: 0o755 });
 
       // 4. Construct and write the systemd service file on the host
+      const currentRdpUser = engine.settingsRepo.get('desktop.rdp.username') || '';
+      const currentRdpPass = engine.settingsRepo.get('desktop.rdp.password') || '';
+      const rdpArgs = (currentRdpUser && currentRdpPass) ? ` --rdp-user "${currentRdpUser}" --rdp-pass "${currentRdpPass}"` : '';
+
       const serviceContent = `[Unit]
 Description=HomeLab Remote Desktop Streamer Daemon
 After=network.target
@@ -442,7 +446,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/homelab
-ExecStart=/usr/bin/python3 /opt/homelab/desktop_streamer.py --daemon-mode --daemon-token ${daemonToken}
+ExecStart=/usr/bin/python3 /opt/homelab/desktop_streamer.py --daemon-mode --daemon-token ${daemonToken}${rdpArgs}
 Restart=always
 RestartSec=5
 User=root
@@ -491,7 +495,7 @@ WantedBy=multi-user.target
           if command -v apt-get >/dev/null 2>&1; then
             echo "[HostInstaller] Ubuntu/Debian host detected. Installing pre-compiled packages..."
             export DEBIAN_FRONTEND=noninteractive
-            apt-get update && apt-get install -y python3-pip python3-websockets python3-aiortc python3-mss python3-pyautogui python3-av grim imagemagick || true
+            apt-get update && apt-get install -y freerdp2-x11 freerdp3-x11 xvfb python3-pip python3-websockets python3-aiortc python3-mss python3-pyautogui python3-av grim imagemagick || true
           elif command -v dnf >/dev/null 2>&1; then
             echo "[HostInstaller] Fedora/RHEL host detected. Installing packages..."
             dnf install -y python3-pip python3-websockets python3-mss || true
