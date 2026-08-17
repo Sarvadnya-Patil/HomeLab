@@ -25,8 +25,8 @@ FROM node:20-alpine AS runtime
 
 WORKDIR /app
 
-# Install native compilation dependencies and Docker CLI client
-RUN apk add --no-cache python3 make g++ docker-cli docker-cli-compose
+# Install native compilation dependencies, Docker CLI client, and util-linux (nsenter)
+RUN apk add --no-cache python3 make g++ docker-cli docker-cli-compose util-linux
 
 
 
