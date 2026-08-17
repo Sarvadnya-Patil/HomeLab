@@ -188,21 +188,27 @@ class KmsPersistentGrabber:
                         bufsize=10**6
                     )
                     
-                    time.sleep(0.3)
-                    if p.poll() is not None:
-                        err = p.stderr.read().decode("utf-8", errors="ignore") if p.stderr else ""
-                        sys.stderr.write(f"[KMS Probe] {card} filter '{flt}' failed ({p.returncode}): {err.strip()[:120]}\n")
+                    # Verify actual frame output by reading initial JPEG stream bytes
+                    chunk = p.stdout.read(8192)
+                    if chunk and b"\xff\xd8" in chunk:
+                        self.proc = p
+                        self.buffer = bytearray(chunk)
+                        self.active_card = card
+                        self.error_detail = ""
+                        sys.stderr.write(f"[KMS] VERIFIED: Frame stream active on {card} (filter: {flt})\n")
                         sys.stderr.flush()
-                        self.error_detail = err.strip()[:150] or f"Exit {p.returncode} on {card}"
-                        continue
+                        return
 
-                    self.proc = p
-                    self.buffer = bytearray()
-                    self.active_card = card
-                    self.error_detail = ""
-                    sys.stderr.write(f"[KMS] SUCCESS: Persistent hardware stream active on {card} (filter: {flt})\n")
+                    err = p.stderr.read().decode("utf-8", errors="ignore") if p.stderr else ""
+                    try:
+                        p.kill()
+                        p.wait(timeout=0.2)
+                    except Exception:
+                        pass
+                    sys.stderr.write(f"[KMS Probe] {card} filter '{flt}' no frame output. Stderr: {err.strip()[:120]}\n")
                     sys.stderr.flush()
-                    return
+                    self.error_detail = err.strip()[:150] or f"No frames from {card}"
+                    continue
                 except Exception as e:
                     self.error_detail = str(e)
                     sys.stderr.write(f"[KMS Probe] {card} spawn error: {e}\n")
