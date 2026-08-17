@@ -141,15 +141,17 @@ import glob
 
 
 def setup_display_env():
-    # 1. Attach to active user runtime directory & Wayland socket
-    for uid in [1000, 1001, 120, 110]:
-        uid_dir = f"/run/user/{uid}"
-        if os.path.exists(uid_dir):
-            os.environ["XDG_RUNTIME_DIR"] = uid_dir
-            for wl in ["wayland-0", "wayland-1"]:
-                if os.path.exists(f"{uid_dir}/{wl}"):
+    # 1. Attach to active user or GDM login manager runtime directory & Wayland socket
+    found_wl = False
+    for uid_dir in sorted(glob.glob("/run/user/*"), key=lambda p: 0 if p.endswith("1000") else 1):
+        if os.path.isdir(uid_dir):
+            for wl in ["wayland-0", "wayland-1", "wayland-2"]:
+                if os.path.exists(os.path.join(uid_dir, wl)):
+                    os.environ["XDG_RUNTIME_DIR"] = uid_dir
                     os.environ["WAYLAND_DISPLAY"] = wl
+                    found_wl = True
                     break
+        if found_wl:
             break
 
     # 2. Attach to active X11 display socket
