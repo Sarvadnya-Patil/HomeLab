@@ -327,49 +327,26 @@ export const AppSettings = {
       try {
         const config = await api.get('/api/v1/settings/desktop');
         const statusBadge = config.serviceActive
-          ? `<span style="background: #000000; border: 1px solid #22c55e; color: #22c55e; font-weight: 900; padding: 0.2rem 0.6rem; text-transform: uppercase; font-size: 0.68rem;">DAEMON ACTIVE (SYSTEMD)</span>`
-          : `<span style="background: #000000; border: 1px solid #ef4444; color: #ef4444; font-weight: 900; padding: 0.2rem 0.6rem; text-transform: uppercase; font-size: 0.68rem;">DAEMON INACTIVE / NOT INSTALLED</span>`;
+          ? `<span id="daemon-status-badge" style="background: #000000; border: 1px solid #22c55e; color: #22c55e; font-weight: 900; padding: 0.2rem 0.6rem; text-transform: uppercase; font-size: 0.68rem;">DAEMON ACTIVE (SYSTEMD)</span>`
+          : `<span id="daemon-status-badge" style="background: #000000; border: 1px solid #ef4444; color: #ef4444; font-weight: 900; padding: 0.2rem 0.6rem; text-transform: uppercase; font-size: 0.68rem;">NOT INSTALLED / INACTIVE</span>`;
 
         formEl.innerHTML = `
           <div style="background: #0e0e11; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; border-radius: 0;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #ffffff; padding-bottom: 0.75rem;">
-              <span style="font-weight: 900; text-transform: uppercase; font-size: 0.85rem;">Remote Desktop Status</span>
+              <div>
+                <span style="font-weight: 900; text-transform: uppercase; font-size: 0.85rem; color: #ffffff;">Direct GPU Kernel Remote Desktop</span>
+                <p style="margin: 0.25rem 0 0 0; font-size: 0.68rem; color: #a1a1aa;">Hardware-accelerated Linux kernel DRM/KMS scanout streamer with native /dev/uinput input driver.</p>
+              </div>
               ${statusBadge}
             </div>
 
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-              <label class="switch">
-                <input type="checkbox" id="desktop-enabled" ${config.enabled ? 'checked' : ''}>
-                <span class="slider"></span>
-              </label>
-              <span style="font-size: 0.75rem; font-weight: bold; color: #ffffff; text-transform: uppercase;">Enable GNOME Remote Desktop Integration</span>
-            </div>
-
-            <div class="detail-item">
-              <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">Linux Host User</label>
-              <input type="text" id="desktop-host-user" value="${config.hostUser || ''}" placeholder="e.g. sarvdev" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
-              <div class="detail-item">
-                <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">RDP Username</label>
-                <input type="text" id="desktop-username" value="${config.username || ''}" placeholder="e.g. homelab" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
-              </div>
-
-              <div class="detail-item">
-                <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">RDP Password</label>
-                <input type="password" id="desktop-password" value="${config.password || ''}" placeholder="••••••••" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
-              </div>
-            </div>
-
             <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-              <button class="btn btn-panel btn-open" id="btn-save-desktop" style="flex: 1; background: #ffffff; color: #000000; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Save Configurations</button>
-              <button class="btn btn-panel btn-open" id="btn-install-desktop-daemon" style="flex: 1; background: #000000; color: #ffffff; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Install Host Daemon</button>
+              <button class="btn btn-panel btn-open" id="btn-install-desktop-daemon" style="flex: 1; background: #ffffff; color: #000000; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Install / Update Host Daemon</button>
             </div>
 
-            <div style="margin-top: 1.5rem; display: none;" id="daemon-logs-section">
+            <div style="margin-top: 1rem;" id="daemon-logs-section">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <h4 style="margin: 0; font-size: 0.65rem; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.05em;">Host Service Logs (Diagnostics)</h4>
+                <h4 style="margin: 0; font-size: 0.65rem; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.05em;">Host Service Logs (journalctl -u homelab-desktop-streamer)</h4>
                 <button id="btn-refresh-daemon-logs" class="btn" style="background: none; border: 1px solid #ffffff; color: #ffffff; font-family: var(--font-mono); font-size: 0.65rem; cursor: pointer; text-transform: uppercase; padding: 0.2rem 0.6rem; font-weight: bold; box-shadow: 2px 2px 0 #888888;">Refresh Logs</button>
               </div>
               <pre id="daemon-logs-pre" style="background: #09090b; border: 1.5px solid #27272a; padding: 0.75rem; font-size: 0.6rem; max-height: 200px; overflow-y: auto; color: #a1a1aa; margin: 0; line-height: 1.4; white-space: pre-wrap; font-family: var(--font-mono); text-align: left;"></pre>
@@ -377,10 +354,13 @@ export const AppSettings = {
           </div>
         `;
 
-        formEl.querySelector('#btn-save-desktop').addEventListener('click', () => this.saveDesktopConfig());
         formEl.querySelector('#btn-install-desktop-daemon').addEventListener('click', () => this.installDesktopDaemon());
+        const refreshLogsBtn = formEl.querySelector('#btn-refresh-daemon-logs');
+        if (refreshLogsBtn) {
+          refreshLogsBtn.addEventListener('click', () => this.fetchDaemonLogs());
+        }
         
-        // Fetch logs on render to show current service state
+        // Fetch logs on render
         this.fetchDaemonLogs();
       } catch (err) {
         formEl.innerHTML = `<div style="font-size: 0.75rem; color: #ef4444;">Failed to load Remote Desktop settings: ${err.message}</div>`;
@@ -619,27 +599,7 @@ export const AppSettings = {
     }
   },
 
-  async saveDesktopConfig() {
-    const enabled = this.container.querySelector('#desktop-enabled')?.checked;
-    const username = this.container.querySelector('#desktop-username')?.value.trim();
-    const password = this.container.querySelector('#desktop-password')?.value.trim();
-    const hostUser = this.container.querySelector('#desktop-host-user')?.value.trim();
 
-    try {
-      const res = await api.post('/api/v1/settings/desktop', {
-        enabled,
-        username,
-        password,
-        hostUser
-      });
-      alert(res.message || 'Remote Desktop configuration saved successfully!');
-      this.loadSettings();
-      const apps = await api.get('/api/v1/apps');
-      store.set('apps', apps);
-    } catch (err) {
-      alert(`Failed to save Remote Desktop config: ${err.message}`);
-    }
-  },
 
   async installDesktopDaemon() {
     const btn = this.container.querySelector('#btn-install-desktop-daemon');
