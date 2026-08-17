@@ -586,8 +586,6 @@ async def telemetry_broadcaster(data_channel_holder):
         await asyncio.sleep(1.0)
         report = telemetry.to_dict()
         msg_str = json.dumps(report)
-        sys.stdout.write(msg_str + "\n")
-        sys.stdout.flush()
         
         if active_ws:
             try:
