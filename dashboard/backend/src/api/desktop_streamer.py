@@ -634,11 +634,33 @@ KEY_MAP = {
 }
 
 
+def reset_all_inputs():
+    global ui_mouse, ui_keyboard
+    if ui_mouse:
+        try:
+            for btn in [e.BTN_LEFT, e.BTN_RIGHT, e.BTN_MIDDLE, e.BTN_SIDE, e.BTN_EXTRA, e.BTN_TOUCH]:
+                ui_mouse.write(e.EV_KEY, btn, 0)
+            ui_mouse.syn()
+        except Exception:
+            pass
+    if ui_keyboard:
+        try:
+            for k in [29, 97, 56, 100, 42, 54, 125, 126, 58, 1, 15, 28, 57]:
+                ui_keyboard.write(e.EV_KEY, k, 0)
+            ui_keyboard.syn()
+        except Exception:
+            pass
+
+
 def handle_input_message(msg_str):
     global ui_mouse, ui_keyboard
     try:
         data = json.loads(msg_str)
         action = data.get("type")
+
+        if action == "reset_inputs":
+            reset_all_inputs()
+            return
 
         if not ui_mouse or not ui_keyboard:
             if pyautogui:

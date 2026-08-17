@@ -590,20 +590,43 @@
         }
       };
 
+      const activePressedKeys = new Set();
+      const activePressedButtons = new Set();
+
       const onMouseDown = (e) => {
         const btnMap = { 0: 'left', 1: 'middle', 2: 'right', 3: 'back', 4: 'forward' };
+        const btn = btnMap[e.button] || 'left';
+        activePressedButtons.add(btn);
         sendInput({
           type: 'mousedown',
-          button: btnMap[e.button] || 'left'
+          button: btn
         });
       };
 
       const onMouseUp = (e) => {
         const btnMap = { 0: 'left', 1: 'middle', 2: 'right', 3: 'back', 4: 'forward' };
+        const btn = btnMap[e.button] || 'left';
+        activePressedButtons.delete(btn);
         sendInput({
           type: 'mouseup',
-          button: btnMap[e.button] || 'left'
+          button: btn
         });
+      };
+
+      const releaseAllInputState = () => {
+        if (activePressedButtons.size > 0) {
+          activePressedButtons.forEach(btn => {
+            sendInput({ type: 'mouseup', button: btn });
+          });
+          activePressedButtons.clear();
+        }
+        if (activePressedKeys.size > 0) {
+          activePressedKeys.forEach(code => {
+            sendInput({ type: 'keyup', code: code, key: code });
+          });
+          activePressedKeys.clear();
+        }
+        sendInput({ type: 'reset_inputs' });
       };
 
       const onKeyDown = (e) => {
@@ -612,6 +635,7 @@
           if (['Tab', 'Backspace', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'F1', 'F3', 'F5', 'F6', 'F11', 'F12'].includes(e.key)) {
             e.preventDefault();
           }
+          activePressedKeys.add(e.code || e.key);
           sendInput({
             type: 'keydown',
             key: e.key,
@@ -623,6 +647,7 @@
       const onKeyUp = (e) => {
         const streamView = this.container?.querySelector('#desktop-stream-view');
         if (streamView && streamView.style.display !== 'none') {
+          activePressedKeys.delete(e.code || e.key);
           sendInput({
             type: 'keyup',
             key: e.key,
@@ -643,20 +668,25 @@
       if (canvas) {
         canvas.addEventListener('mousemove', onMouseMove);
         canvas.addEventListener('mousedown', onMouseDown);
-        canvas.addEventListener('mouseup', onMouseUp);
         canvas.addEventListener('wheel', onWheel, { passive: false });
         canvas.addEventListener('contextmenu', (e) => e.preventDefault());
       }
       if (video) {
         video.addEventListener('mousemove', onMouseMove);
         video.addEventListener('mousedown', onMouseDown);
-        video.addEventListener('mouseup', onMouseUp);
         video.addEventListener('wheel', onWheel, { passive: false });
         video.addEventListener('contextmenu', (e) => e.preventDefault());
       }
       
+      window.addEventListener('mouseup', onMouseUp);
       window.addEventListener('keydown', onKeyDown);
       window.addEventListener('keyup', onKeyUp);
+      window.addEventListener('blur', releaseAllInputState);
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          releaseAllInputState();
+        }
+      });
 
       this.cleanupInputListeners = () => {
         if (canvas) {
