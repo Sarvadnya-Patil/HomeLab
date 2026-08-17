@@ -65,8 +65,8 @@
  
        <!-- Live Stream View Container -->
        <div id="desktop-stream-view" style="display: none; width: 100%; height: 100vh; background: #000; position: relative; overflow: hidden; justify-content: center; align-items: center;">
-         <video id="desktop-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: contain; cursor: crosshair; display: block;"></video>
-         <canvas id="desktop-canvas" style="width: 100%; height: 100%; object-fit: contain; cursor: crosshair; display: none;"></canvas>
+         <video id="desktop-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: contain; cursor: default; display: block;"></video>
+         <canvas id="desktop-canvas" style="width: 100%; height: 100%; object-fit: contain; cursor: default; display: none;"></canvas>
          
          <!-- Live Developer Diagnostics HUD -->
          <div id="desktop-diag-hud" style="position: absolute; top: 1rem; left: 1rem; width: 380px; background: rgba(5, 7, 12, 0.92); border: 1px solid #38bdf8; box-shadow: 0 4px 20px rgba(0,0,0,0.8); padding: 0.85rem; z-index: 120; font-family: var(--font-mono); font-size: 0.65rem; color: #e2e8f0; pointer-events: auto;">
