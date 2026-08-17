@@ -21,116 +21,29 @@ from av import VideoFrame
 from PIL import Image, ImageDraw, ImageStat
 
 try:
-    from evdev import UInput, ecodes as e
+    from evdev import UInput, AbsInfo, ecodes as e
 except ImportError:
     UInput = None
+    AbsInfo = None
     e = None
 
-try:
-    import pyautogui
-    pyautogui.FAILSAFE = False
-    screen_width, screen_height = pyautogui.size()
-except Exception:
-    pyautogui = None
-    screen_width, screen_height = 1920, 1080
+import shutil
 
-
-class TelemetryCollector:
-    def __init__(self):
-        self.capture_state = "INITIALIZING"
-        self.capture_engine = "ROOT_KERNEL_KMS"
-        self.resolution = "0x0"
-        self.capture_fps = 0.0
-        self.mean_brightness = 0.0
-        self.consecutive_black_frames = 0
-        self.frames_captured = 0
-        self.error_detail = ""
-
-        self.encoder_codec = "H264"
-        self.encoder_fps = 0.0
-        self.frames_encoded = 0
-        self.bytes_encoded = 0
-
-        self.peer_state = "new"
-        self.ice_state = "new"
-
-        self.last_report_time = time.time()
-        self.capture_count_window = 0
-        self.encode_count_window = 0
-
-    def tick_capture(self, width, height, brightness, is_black, error=None):
-        self.frames_captured += 1
-        self.capture_count_window += 1
-        self.resolution = f"{width}x{height}"
-        self.mean_brightness = round(brightness, 1)
-
-        if error:
-            self.capture_state = "ERROR"
-            self.error_detail = str(error)
-        elif is_black:
-            self.consecutive_black_frames += 1
-            if self.consecutive_black_frames >= 5:
-                self.capture_state = "CAPTURE_BLACK_FRAMES"
-                self.error_detail = "Direct GPU scanout returned black buffer"
-        else:
-            self.consecutive_black_frames = 0
-            self.capture_state = "CAPTURING"
-            self.error_detail = ""
-
-    def tick_encode(self, byte_count):
-        self.frames_encoded += 1
-        self.encode_count_window += 1
-        self.bytes_encoded += byte_count
-
-    def compute_rates(self):
-        now = time.time()
-        dt = now - self.last_report_time
-        if dt >= 1.0:
-            self.capture_fps = round(self.capture_count_window / dt, 1)
-            self.encoder_fps = round(self.encode_count_window / dt, 1)
-            self.capture_count_window = 0
-            self.encode_count_window = 0
-            self.last_report_time = now
-
-    def to_dict(self):
-        self.compute_rates()
-        return {
-            "type": "telemetry",
-            "capture": {
-                "state": self.capture_state,
-                "engine": "ROOT_KERNEL_KMS",
-                "resolution": self.resolution,
-                "fps": self.capture_fps,
-                "mean_brightness": self.mean_brightness,
-                "consecutive_black_frames": self.consecutive_black_frames,
-                "frames_captured": self.frames_captured,
-                "error_detail": self.error_detail
-            },
-            "encoder": {
-                "codec": self.encoder_codec,
-                "fps": self.encoder_fps,
-                "frames_encoded": self.frames_encoded,
-                "bytes_encoded": self.bytes_encoded
-            },
-            "webrtc": {
-                "peer_state": self.peer_state,
-                "ice_state": self.ice_state,
-                "frames_sent": self.frames_encoded
-            }
-        }
-
-
-telemetry = TelemetryCollector()
-
+def get_ffmpeg_bin():
+    for p in ["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/bin/ffmpeg", "/snap/bin/ffmpeg"]:
+        if os.path.exists(p) and os.access(p, os.X_OK):
+            return p
+    return shutil.which("ffmpeg") or "ffmpeg"
 
 def grab_kernel_drm_frame():
     """Reads raw physical GPU display output directly from Linux Kernel DRM/KMS scanout."""
+    ffmpeg_bin = get_ffmpeg_bin()
     candidates = ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"]
     for card in candidates:
         if os.path.exists(card):
             try:
                 proc = subprocess.run([
-                    "ffmpeg", "-nostdin", "-loglevel", "quiet", "-device", card,
+                    ffmpeg_bin, "-nostdin", "-loglevel", "quiet", "-device", card,
                     "-f", "kmsgrab", "-i", "-",
                     "-vf", "hwdownload,format=bgr0,scale=1280:720",
                     "-vframes", "1", "-f", "image2pipe", "-vcodec", "mjpeg", "-"
@@ -231,11 +144,13 @@ def init_uinput():
         sys.stderr.flush()
         return
     try:
+        abs_x = AbsInfo(value=0, min=0, max=1920, fuzz=0, flat=0, resolution=0) if AbsInfo else (0, 1920, 0, 0)
+        abs_y = AbsInfo(value=0, min=0, max=1080, fuzz=0, flat=0, resolution=0) if AbsInfo else (0, 1080, 0, 0)
         cap_mouse = {
             e.EV_KEY: [e.BTN_LEFT, e.BTN_RIGHT, e.BTN_MIDDLE, e.BTN_TOUCH],
             e.EV_ABS: [
-                (e.ABS_X, (0, 1920, 0, 0)),
-                (e.ABS_Y, (0, 1080, 0, 0))
+                (e.ABS_X, abs_x),
+                (e.ABS_Y, abs_y)
             ]
         }
         cap_keyboard = {
