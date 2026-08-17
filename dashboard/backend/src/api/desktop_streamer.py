@@ -231,9 +231,8 @@ class SafeDisplayGrabber:
 
     def read_frame(self):
         setup_display_env()
-        target_file = "/dev/shm/homelab_frame.jpg"
 
-        # 1. Try native user-session capture (grim / GNOME D-Bus) as the session user
+        # 1. Try native user-session capture (GNOME D-Bus / gnome-screenshot / grim) as the session user
         for uid_dir in sorted(glob.glob("/run/user/*"), key=lambda p: 0 if p.endswith("1000") else 1):
             if os.path.isdir(uid_dir):
                 uid_str = os.path.basename(uid_dir)
@@ -241,27 +240,9 @@ class SafeDisplayGrabber:
                     uid_int = int(uid_str)
                     uname = get_session_user(uid_int)
                     if uname:
-                        # Try Wayland grim as session user
-                        wl_sock = os.path.join(uid_dir, "wayland-0")
-                        if os.path.exists(wl_sock):
-                            cmd = [
-                                "runuser", "-u", uname, "--",
-                                "env", f"XDG_RUNTIME_DIR={uid_dir}", "WAYLAND_DISPLAY=wayland-0",
-                                "grim", "-t", "jpeg", "-q", "75", target_file
-                            ]
-                            try:
-                                proc = subprocess.run(cmd, capture_output=True, timeout=0.2)
-                                if proc.returncode == 0 and os.path.exists(target_file) and os.path.getsize(target_file) > 500:
-                                    with open(target_file, "rb") as rf:
-                                        img = Image.open(io.BytesIO(rf.read()))
-                                        img.load()
-                                    self.active_engine = f"WAYLAND_GRIM_{uname}"
-                                    self.error_detail = ""
-                                    return img, None
-                            except Exception as e:
-                                self.error_detail = str(e)
+                        target_file = f"/dev/shm/homelab_frame_{uid_int}.png"
 
-                        # Try GNOME D-Bus Screencast as session user
+                        # Try GNOME D-Bus Screencast as session user (GNOME 46 Wayland)
                         dbus_sock = os.path.join(uid_dir, "bus")
                         if os.path.exists(dbus_sock):
                             cmd = [
@@ -274,12 +255,50 @@ class SafeDisplayGrabber:
                                 "false", "false", target_file
                             ]
                             try:
-                                proc = subprocess.run(cmd, capture_output=True, timeout=0.25)
-                                if proc.returncode == 0 and os.path.exists(target_file) and os.path.getsize(target_file) > 500:
+                                proc = subprocess.run(cmd, capture_output=True, timeout=0.3)
+                                if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
                                     with open(target_file, "rb") as rf:
                                         img = Image.open(io.BytesIO(rf.read()))
                                         img.load()
                                     self.active_engine = f"GNOME_DBUS_{uname}"
+                                    self.error_detail = ""
+                                    return img, None
+                            except Exception as e:
+                                self.error_detail = str(e)
+
+                        # Try gnome-screenshot CLI as session user
+                        try:
+                            cmd = [
+                                "runuser", "-u", uname, "--",
+                                "env", f"XDG_RUNTIME_DIR={uid_dir}", "DISPLAY=:0",
+                                "gnome-screenshot", "-f", target_file
+                            ]
+                            proc = subprocess.run(cmd, capture_output=True, timeout=0.3)
+                            if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
+                                with open(target_file, "rb") as rf:
+                                    img = Image.open(io.BytesIO(rf.read()))
+                                    img.load()
+                                self.active_engine = f"GNOME_CLI_{uname}"
+                                self.error_detail = ""
+                                return img, None
+                        except Exception as e:
+                            self.error_detail = str(e)
+
+                        # Try Wayland grim as session user
+                        wl_sock = os.path.join(uid_dir, "wayland-0")
+                        if os.path.exists(wl_sock):
+                            cmd = [
+                                "runuser", "-u", uname, "--",
+                                "env", f"XDG_RUNTIME_DIR={uid_dir}", "WAYLAND_DISPLAY=wayland-0",
+                                "grim", target_file
+                            ]
+                            try:
+                                proc = subprocess.run(cmd, capture_output=True, timeout=0.2)
+                                if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
+                                    with open(target_file, "rb") as rf:
+                                        img = Image.open(io.BytesIO(rf.read()))
+                                        img.load()
+                                    self.active_engine = f"WAYLAND_GRIM_{uname}"
                                     self.error_detail = ""
                                     return img, None
                             except Exception as e:
