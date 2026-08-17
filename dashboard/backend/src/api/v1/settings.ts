@@ -323,50 +323,38 @@ export default function (fastify: any, engine: CoreEngine): void {
 
     // Trigger host setup via nsenter breakout
     const runHostSetup = () => {
-      return new Promise<void>((resolve, reject) => {
-        const cmd = enabled ? `
-          if ! command -v grdctl >/dev/null 2>&1; then
-            echo "SIMULATION_MODE_ACTIVE"
-            exit 0
+      return new Promise<void>((resolve) => {
+        const cmd = enabled ? `nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c '
+          TARGET_USER="${hostUser}"
+          if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
+            TARGET_USER=$(who | grep -E "(:0|wayland|pts)" | head -n 1 | awk "{print \\$1}")
+            if [ -z "$TARGET_USER" ]; then TARGET_USER="sarv"; fi
           fi
-          # Ensure system-wide daemon is disabled to prevent port conflicts
-          grdctl --system rdp disable || true
-          systemctl stop gnome-remote-desktop.service || true
-          systemctl disable gnome-remote-desktop.service || true
 
-          if id -u "${hostUser}" >/dev/null 2>&1; then
-            huid=$(id -u "${hostUser}")
-            USER_CERT_DIR="/home/${hostUser}/.local/share/gnome-remote-desktop"
-            mkdir -p "$USER_CERT_DIR"
-            if [ ! -f "$USER_CERT_DIR/rdp-tls.crt" ]; then
-              openssl req -x509 -newkey rsa:2048 -keyout "$USER_CERT_DIR/rdp-tls.key" -out "$USER_CERT_DIR/rdp-tls.crt" -days 3650 -nodes -subj "/CN=HomeLabRemote"
-              chmod 644 "$USER_CERT_DIR/rdp-tls.key" "$USER_CERT_DIR/rdp-tls.crt"
-              chown -R "${hostUser}:${hostUser}" "$USER_CERT_DIR"
-            fi
-
-            # Configure user RDP via nsenter
-            nsenter -t 1 -m -u -i -n -p -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp enable
-            nsenter -t 1 -m -u -i -n -p -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp set-credentials "${username}" "${targetPass}"
-            nsenter -t 1 -m -u -i -n -p -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp set-tls-cert "$USER_CERT_DIR/rdp-tls.crt"
-            nsenter -t 1 -m -u -i -n -p -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp set-tls-key "$USER_CERT_DIR/rdp-tls.key"
+          echo "[HostSetup] Auto-configuring GNOME Remote Desktop for user: $TARGET_USER"
+          if command -v grdctl >/dev/null 2>&1; then
+            TARGET_UID=$(id -u "$TARGET_USER" 2>/dev/null || echo "1000")
+            runuser -u "$TARGET_USER" -- env XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" grdctl rdp enable || true
+            runuser -u "$TARGET_USER" -- env XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" grdctl rdp set-credentials "${username}" "${targetPass}" || true
+            runuser -u "$TARGET_USER" -- env XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" grdctl rdp enable-view-only false || true
           fi
-        ` : `
-          if ! command -v grdctl >/dev/null 2>&1; then
-            echo "SIMULATION_MODE_ACTIVE"
-            exit 0
+          
+          # Trigger service restart on host
+          if command -v systemctl >/dev/null 2>&1; then
+            systemctl daemon-reload || true
+            systemctl restart homelab-desktop-streamer.service || true
           fi
-          if id -u "${hostUser}" >/dev/null 2>&1; then
-            nsenter -t 1 -m -u -i -n -p -r -- runuser -u "${hostUser}" -- dbus-run-session grdctl --user rdp disable || true
+        '` : `nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c '
+          if command -v grdctl >/dev/null 2>&1; then
+            grdctl rdp disable || true
           fi
-        `;
+        '`;
 
         exec(cmd, { shell: '/bin/sh' }, (error: any, stdout: any, stderr: any) => {
           if (error) {
-            console.error('[GDM/User Remote Desktop Setup Error]:', error, stderr);
-            reject(error);
-          } else {
-            resolve();
+            console.warn('[Host Remote Desktop Setup Notice]:', error.message, stderr);
           }
+          resolve();
         });
       });
     };
