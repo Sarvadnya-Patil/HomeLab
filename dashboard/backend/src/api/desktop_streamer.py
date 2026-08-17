@@ -375,14 +375,48 @@ class ScreenCaptureTrack(VideoStreamTrack):
                 except Exception as e:
                     capture_err = e
 
+            # Calculate initial image statistics
+            mean_val = 0.0
             if raw_img is not None:
-                w, h = raw_img.size
                 try:
                     stats = ImageStat.Stat(raw_img)
                     mean_val = sum(stats.mean) / max(len(stats.mean), 1)
                 except Exception:
                     mean_val = 0.0
 
+            # If black frames detected (common on Wayland / isolated Xwayland), try grim or xwd
+            if raw_img is None or mean_val < 1.0:
+                import io, glob
+                # 1. Try grim (Native Wayland)
+                try:
+                    if not os.environ.get("WAYLAND_DISPLAY"):
+                        w_sockets = glob.glob("/run/user/*/wayland-*")
+                        if w_sockets:
+                            os.environ["WAYLAND_DISPLAY"] = os.path.basename(w_sockets[0])
+                    
+                    grim_proc = subprocess.run(["grim", "-t", "jpeg", "-q", "70", "-"], capture_output=True, timeout=0.2)
+                    if grim_proc.returncode == 0 and len(grim_proc.stdout) > 200:
+                        raw_img = Image.open(io.BytesIO(grim_proc.stdout))
+                        engine_name = "GRIM"
+                        stats = ImageStat.Stat(raw_img)
+                        mean_val = sum(stats.mean) / max(len(stats.mean), 1)
+                except Exception:
+                    pass
+
+                # 2. Try xwd / ImageMagick (X11 direct)
+                if raw_img is None or mean_val < 1.0:
+                    try:
+                        xwd_proc = subprocess.run(["import", "-window", "root", "-quality", "70", "jpeg:-"], capture_output=True, timeout=0.2)
+                        if xwd_proc.returncode == 0 and len(xwd_proc.stdout) > 200:
+                            raw_img = Image.open(io.BytesIO(xwd_proc.stdout))
+                            engine_name = "X11_IMPORT"
+                            stats = ImageStat.Stat(raw_img)
+                            mean_val = sum(stats.mean) / max(len(stats.mean), 1)
+                    except Exception:
+                        pass
+
+            if raw_img is not None:
+                w, h = raw_img.size
                 is_black = (mean_val < 1.0)
                 telemetry.tick_capture(w, h, mean_val, engine_name, is_black)
 

@@ -491,7 +491,7 @@ WantedBy=multi-user.target
           if command -v apt-get >/dev/null 2>&1; then
             echo "[HostInstaller] Ubuntu/Debian host detected. Installing pre-compiled packages..."
             export DEBIAN_FRONTEND=noninteractive
-            apt-get update && apt-get install -y python3-pip python3-websockets python3-aiortc python3-mss python3-pyautogui python3-av || true
+            apt-get update && apt-get install -y python3-pip python3-websockets python3-aiortc python3-mss python3-pyautogui python3-av grim imagemagick || true
           elif command -v dnf >/dev/null 2>&1; then
             echo "[HostInstaller] Fedora/RHEL host detected. Installing packages..."
             dnf install -y python3-pip python3-websockets python3-mss || true
