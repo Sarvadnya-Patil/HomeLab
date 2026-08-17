@@ -305,8 +305,11 @@ class SafeDisplayGrabber:
                 ret = self._drmtap_lib.drmtap_grab_mapped(self._drmtap_ctx, ctypes.byref(frame))
                 if ret == 0 and frame.data and frame.width > 0 and frame.height > 0:
                     raw_bytes = ctypes.string_at(frame.data, frame.height * frame.stride)
-                    img = Image.frombytes("RGBA", (frame.width, frame.height), raw_bytes, "raw", "RGBA", frame.stride, 1)
-                    img = img.convert("RGB")
+                    # DRM/KMS scanouts are 32-bit XRGB8888 stored in little-endian order (BGRX bytes)
+                    if frame.format in (0x34325258, 0x34325241, 0x34324241, 0):
+                        img = Image.frombytes("RGB", (frame.width, frame.height), raw_bytes, "raw", "BGRX", frame.stride)
+                    else:
+                        img = Image.frombytes("RGB", (frame.width, frame.height), raw_bytes, "raw", "RGBX", frame.stride)
                     self._drmtap_lib.drmtap_frame_release(self._drmtap_ctx, ctypes.byref(frame))
                     return img, "LIBDRMTAP"
             except Exception as e:
