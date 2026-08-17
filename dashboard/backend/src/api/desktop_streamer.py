@@ -337,6 +337,75 @@ class TelemetryCollector:
 
 telemetry = TelemetryCollector()
 
+def run_user_session_capture_process(pipe_conn, target_uid, target_user, disp, xauth, w_disp, xdg_dir):
+    try:
+        import pwd
+        pw = pwd.getpwuid(target_uid) if target_uid else (pwd.getpwnam(target_user) if target_user else None)
+        if pw:
+            uid = pw.pw_uid
+            gid = pw.pw_gid
+            os.environ["HOME"] = pw.pw_dir
+            os.environ["USER"] = pw.pw_name
+            os.environ["LOGNAME"] = pw.pw_name
+            if disp: os.environ["DISPLAY"] = disp
+            if xauth: os.environ["XAUTHORITY"] = xauth
+            if w_disp: os.environ["WAYLAND_DISPLAY"] = w_disp
+            if xdg_dir: os.environ["XDG_RUNTIME_DIR"] = xdg_dir
+            else: os.environ["XDG_RUNTIME_DIR"] = f"/run/user/{uid}"
+            os.environ["DBUS_SESSION_BUS_ADDRESS"] = f"unix:path=/run/user/{uid}/bus"
+            
+            # Drop root privileges cleanly to the logged-in desktop user
+            try:
+                os.initgroups(pw.pw_name, gid)
+                os.setgid(gid)
+                os.setuid(uid)
+            except Exception:
+                pass
+
+        # Authorize X11 locally
+        try:
+            subprocess.run(["xhost", "+local:"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=0.5)
+        except Exception:
+            pass
+
+        import mss, io
+        sct = None
+        try:
+            sct = mss.mss()
+        except Exception:
+            pass
+
+        while True:
+            frame_bytes = None
+            if sct:
+                try:
+                    mon = sct.monitors[1] if len(sct.monitors) > 1 else sct.monitors[0]
+                    shot = sct.grab(mon)
+                    img = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
+                    buf = io.BytesIO()
+                    if img.size[0] > 1280 or img.size[1] > 720:
+                        img = img.resize((1280, 720), Image.Resampling.BILINEAR)
+                    img.save(buf, format="JPEG", quality=65)
+                    frame_bytes = buf.getvalue()
+                except Exception:
+                    sct = None
+            if not frame_bytes:
+                try:
+                    img = ImageGrab.grab()
+                    buf = io.BytesIO()
+                    if img.size[0] > 1280 or img.size[1] > 720:
+                        img = img.resize((1280, 720), Image.Resampling.BILINEAR)
+                    img.save(buf, format="JPEG", quality=65)
+                    frame_bytes = buf.getvalue()
+                except Exception:
+                    pass
+            
+            if frame_bytes:
+                pipe_conn.send_bytes(frame_bytes)
+            time.sleep(0.033)
+    except Exception:
+        sys.exit(1)
+
 class ScreenCaptureTrack(VideoStreamTrack):
     def __init__(self):
         super().__init__()
@@ -344,11 +413,14 @@ class ScreenCaptureTrack(VideoStreamTrack):
         self.running = True
         self.mss_instance = None
         self.captured_count = 0
+        self.worker_pid = None
+        self.parent_pipe = None
         
         self.capture_thread = threading.Thread(target=self._capture_worker, daemon=True)
         self.capture_thread.start()
 
     def _capture_worker(self):
+        import multiprocessing, io
         use_mss = False
         reconnect_timer = 0
 
@@ -363,41 +435,71 @@ class ScreenCaptureTrack(VideoStreamTrack):
             if w_disp: os.environ["WAYLAND_DISPLAY"] = w_disp
             if xdg_dir: os.environ["XDG_RUNTIME_DIR"] = xdg_dir
 
-            # If previous frames were black, disable MSS to force Wayland/X11 direct capture
-            if has_mss and self.mss_instance is None and telemetry.consecutive_black_frames < 3:
+            # Launch RustDesk-style user-session capture worker process if on Linux as root
+            if sys.platform.startswith("linux") and os.getuid() == 0 and self.worker_pid is None:
                 try:
-                    self.mss_instance = mss.mss()
-                    use_mss = True
-                except Exception as e:
-                    capture_err = e
-                    use_mss = False
-            
-            reconnect_timer += 1
-            engine_name = "MSS" if use_mss else "PIL"
+                    import pwd
+                    pw = pwd.getpwnam(u_name) if u_name else (pwd.getpwuid(1000) if os.path.exists("/run/user/1000") else None)
+                    if pw:
+                        p_pipe, c_pipe = multiprocessing.Pipe()
+                        pid = os.fork()
+                        if pid == 0:
+                            p_pipe.close()
+                            run_user_session_capture_process(c_pipe, pw.pw_uid, pw.pw_name, disp, auth, w_disp, xdg_dir)
+                            sys.exit(0)
+                        else:
+                            c_pipe.close()
+                            self.parent_pipe = p_pipe
+                            self.worker_pid = pid
+                except Exception as ex:
+                    sys.stderr.write(f"[DesktopStreamer] User worker fork notice: {str(ex)}\n")
 
-            if use_mss and self.mss_instance and telemetry.consecutive_black_frames < 3:
+            # Receive frame from RustDesk user-session worker pipe
+            if self.parent_pipe and self.parent_pipe.poll(0.05):
                 try:
-                    monitors = self.mss_instance.monitors
-                    target_mon = monitors[1] if len(monitors) > 1 else monitors[0]
-                    shot = self.mss_instance.grab(target_mon)
-                    raw_img = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
+                    data = self.parent_pipe.recv_bytes()
+                    if data:
+                        raw_img = Image.open(io.BytesIO(data))
+                        engine_name = "USER_SESSION_WORKER"
                 except Exception as e:
                     capture_err = e
-                    self.mss_instance = None
+                    self.parent_pipe = None
+                    self.worker_pid = None
+
+            # Fallback to local root capture or virtual display
+            if not raw_img:
+                if has_mss and self.mss_instance is None and telemetry.consecutive_black_frames < 3:
+                    try:
+                        self.mss_instance = mss.mss()
+                        use_mss = True
+                    except Exception as e:
+                        capture_err = e
+                        use_mss = False
+                
+                engine_name = "MSS" if use_mss else "PIL"
+                if use_mss and self.mss_instance and telemetry.consecutive_black_frames < 3:
+                    try:
+                        monitors = self.mss_instance.monitors
+                        target_mon = monitors[1] if len(monitors) > 1 else monitors[0]
+                        shot = self.mss_instance.grab(target_mon)
+                        raw_img = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
+                    except Exception as e:
+                        capture_err = e
+                        self.mss_instance = None
+                        try:
+                            raw_img = ImageGrab.grab()
+                            engine_name = "PIL"
+                            capture_err = None
+                        except Exception as pe:
+                            capture_err = pe
+                elif not raw_img:
                     try:
                         raw_img = ImageGrab.grab()
                         engine_name = "PIL"
-                        capture_err = None
-                    except Exception as pe:
-                        capture_err = pe
-            elif not raw_img:
-                try:
-                    raw_img = ImageGrab.grab()
-                    engine_name = "PIL"
-                except Exception as e:
-                    capture_err = e
+                    except Exception as e:
+                        capture_err = e
 
-            # Calculate initial image statistics
+            # Calculate image statistics
             mean_val = 0.0
             if raw_img is not None:
                 try:
