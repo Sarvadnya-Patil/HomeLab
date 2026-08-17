@@ -42,21 +42,22 @@ except Exception:
 def discover_host_display():
     if not sys.platform.startswith("linux"):
         return None, None
-    if not os.path.exists("/host/proc"):
-        return None, None
+    proc_dir = "/proc" if os.path.exists("/proc") else "/host/proc"
+    if not os.path.exists(proc_dir):
+        return ":0", None
     
-    for name in sorted(os.listdir("/host/proc")):
+    for name in sorted(os.listdir(proc_dir)):
         if not name.isdigit():
             continue
         try:
-            cmd_path = f"/host/proc/{name}/cmdline"
+            cmd_path = f"{proc_dir}/{name}/cmdline"
             if not os.path.exists(cmd_path):
                 continue
             with open(cmd_path, "r", errors="ignore") as f:
                 cmd = f.read().lower()
             
-            if "gnome-shell" in cmd or "xorg" in cmd or "xwayland" in cmd or "kwin" in cmd or "gnome-session" in cmd:
-                env_path = f"/host/proc/{name}/environ"
+            if any(k in cmd for k in ["gnome-shell", "xorg", "xwayland", "kwin", "gnome-session", "lightdm", "plasma", "wayland"]):
+                env_path = f"{proc_dir}/{name}/environ"
                 if not os.path.exists(env_path):
                     continue
                 with open(env_path, "rb") as env_f:
@@ -74,7 +75,7 @@ def discover_host_display():
                     return display, xauth
         except Exception:
             continue
-    return None, None
+    return ":0", None
 
 def get_host_ip():
     try:
@@ -388,6 +389,9 @@ class ScreenCaptureTrack(VideoStreamTrack):
                     })
                     sys.stdout.write(frame_pkt + "\n")
                     sys.stdout.flush()
+
+                    if active_ws and main_loop:
+                        asyncio.run_coroutine_threadsafe(active_ws.send(frame_pkt), main_loop)
                 except Exception:
                     pass
 
@@ -540,126 +544,141 @@ def handle_input_message(msg_str):
        sys.stderr.write(f"UInput Input Error: {str(err)}\n")
        sys.stderr.flush()
 
-async def telemetry_broadcaster(data_channel_holder):
-   while True:
-       await asyncio.sleep(1.0)
-       report = telemetry.to_dict()
-       msg_str = json.dumps(report)
-       sys.stdout.write(msg_str + "\n")
-       sys.stdout.flush()
-       
-       channel = data_channel_holder.get("channel")
-       if channel and channel.readyState == "open":
-           try:
-               channel.send(msg_str)
-           except Exception:
-               pass
-
-# Global variables for WebRTC peer connections
+# Global variables for WebRTC peer connections and active WS tunnel
 pc = None
 video_track = None
 data_channel_holder = {"channel": None}
+active_ws = None
+main_loop = None
+
+async def telemetry_broadcaster(data_channel_holder):
+    while True:
+        await asyncio.sleep(1.0)
+        report = telemetry.to_dict()
+        msg_str = json.dumps(report)
+        sys.stdout.write(msg_str + "\n")
+        sys.stdout.flush()
+        
+        if active_ws:
+            try:
+                await active_ws.send(msg_str)
+            except Exception:
+                pass
+
+        channel = data_channel_holder.get("channel")
+        if channel and channel.readyState == "open":
+            try:
+                channel.send(msg_str)
+            except Exception:
+                pass
 
 def recreate_peer_connection():
-   global pc, video_track
-   if pc:
-       try:
-           asyncio.get_event_loop().create_task(pc.close())
-       except Exception:
-           pass
-           
-   rtc_config = RTCConfiguration(iceServers=[
-       RTCIceServer(urls="stun:stun.l.google.com:19302"),
-       RTCIceServer(urls="stun:stun1.l.google.com:19302"),
-       RTCIceServer(urls="stun:stun2.l.google.com:19302")
-   ])
-   pc = RTCPeerConnection(configuration=rtc_config)
-   
-   video_track = ScreenCaptureTrack()
-   pc.addTrack(video_track)
-   
-   @pc.on("connectionstatechange")
-   def on_connectionstatechange():
-       telemetry.peer_state = pc.connectionState
-       sys.stderr.write(f"[DesktopStreamer] Peer Connection State: {pc.connectionState}\n")
-       sys.stderr.flush()
-       
-   @pc.on("iceconnectionstatechange")
-   def on_iceconnectionstatechange():
-       telemetry.ice_state = pc.iceConnectionState
-       sys.stderr.write(f"[DesktopStreamer] ICE Connection State: {pc.iceConnectionState}\n")
-       sys.stderr.flush()
-       
-   @pc.on("datachannel")
-   def on_datachannel(channel):
-       if channel.label == "input":
-           data_channel_holder["channel"] = channel
-           sys.stderr.write("[DesktopStreamer] RTCDataChannel connected.\n")
-           sys.stderr.flush()
-           
-           @channel.on("message")
-           def on_message(message):
-               handle_input_message(message)
+    global pc, video_track
+    if pc:
+        try:
+            asyncio.get_event_loop().create_task(pc.close())
+        except Exception:
+            pass
+            
+    rtc_config = RTCConfiguration(iceServers=[
+        RTCIceServer(urls="stun:stun.l.google.com:19302"),
+        RTCIceServer(urls="stun:stun1.l.google.com:19302"),
+        RTCIceServer(urls="stun:stun2.l.google.com:19302")
+    ])
+    pc = RTCPeerConnection(configuration=rtc_config)
+    
+    video_track = ScreenCaptureTrack()
+    pc.addTrack(video_track)
+    
+    @pc.on("connectionstatechange")
+    def on_connectionstatechange():
+        telemetry.peer_state = pc.connectionState
+        sys.stderr.write(f"[DesktopStreamer] Peer Connection State: {pc.connectionState}\n")
+        sys.stderr.flush()
+        
+    @pc.on("iceconnectionstatechange")
+    def on_iceconnectionstatechange():
+        telemetry.ice_state = pc.iceConnectionState
+        sys.stderr.write(f"[DesktopStreamer] ICE Connection State: {pc.iceConnectionState}\n")
+        sys.stderr.flush()
+        
+    @pc.on("datachannel")
+    def on_datachannel(channel):
+        if channel.label == "input":
+            data_channel_holder["channel"] = channel
+            sys.stderr.write("[DesktopStreamer] RTCDataChannel connected.\n")
+            sys.stderr.flush()
+            
+            @channel.on("message")
+            def on_message(message):
+                handle_input_message(message)
 
 async def daemon_signaling_loop(daemon_token):
-   global pc
-   if not websockets:
-       sys.stderr.write("[DesktopStreamer] Error: websockets library not available. Cannot run in daemon-mode.\n")
-       sys.stderr.flush()
-       return
-       
-   uri = f"ws://127.0.0.1:8081/ws/desktop/daemon?token={daemon_token}"
-   sys.stderr.write(f"[DesktopStreamer] Daemon mode active. Connecting to dashboard: {uri}\n")
-   sys.stderr.flush()
-   
-   while True:
-       try:
-           async with websockets.connect(uri, ping_interval=10, ping_timeout=10) as ws:
-               sys.stderr.write("[DesktopStreamer] Connected to signaling bridge WebSocket!\n")
-               sys.stderr.flush()
-               
-               async for message in ws:
-                   try:
-                       payload = json.loads(message)
-                       if payload.get("type") == "offer":
-                           sys.stderr.write("[DesktopStreamer] Received WebRTC offer from bridge. Initializing connection...\n")
-                           sys.stderr.flush()
-                           
-                           recreate_peer_connection()
-                           
-                           offer = RTCSessionDescription(sdp=payload["sdp"], type=payload["type"])
-                           await pc.setRemoteDescription(offer)
-                           
-                           answer = await pc.createAnswer()
-                           await pc.setLocalDescription(answer)
-                           
-                           if pc.iceGatheringState != "complete":
-                               for _ in range(30):
-                                   if pc.iceGatheringState == "complete":
-                                       break
-                                   await asyncio.sleep(0.05)
-                                   
-                           sys.stderr.write(f"[DesktopStreamer] Sending SDP answer to bridge...\n")
-                           sys.stderr.flush()
-                           await ws.send(json.dumps({
-                               "type": pc.localDescription.type,
-                               "sdp": pc.localDescription.sdp
-                           }))
-                       elif payload.get("type") == "close":
-                           sys.stderr.write("[DesktopStreamer] Received close signaling from bridge.\n")
-                           sys.stderr.flush()
-                           if pc:
-                               await pc.close()
-                       else:
-                           # Forward WebSocket-based mouse/keyboard events directly to uinput
-                           handle_input_message(message)
-                   except Exception as e:
-                       sys.stderr.write(f"[DesktopStreamer] Error parsing WS payload: {str(e)}\n")
-                       sys.stderr.flush()
-       except Exception as err:
-           sys.stderr.write(f"[DesktopStreamer] Connection lost or failed: {str(err)}. Reconnecting in 5 seconds...\n")
-           sys.stderr.flush()
-           await asyncio.sleep(5)
+    global pc, active_ws, main_loop, video_track
+    main_loop = asyncio.get_running_loop()
+    if not websockets:
+        sys.stderr.write("[DesktopStreamer] Error: websockets library not available. Cannot run in daemon-mode.\n")
+        sys.stderr.flush()
+        return
+        
+    uri = f"ws://127.0.0.1:8081/ws/desktop/daemon?token={daemon_token}"
+    sys.stderr.write(f"[DesktopStreamer] Daemon mode active. Connecting to dashboard: {uri}\n")
+    sys.stderr.flush()
+    
+    # Ensure capture track is running
+    if not video_track:
+        recreate_peer_connection()
+    
+    while True:
+        try:
+            async with websockets.connect(uri, ping_interval=10, ping_timeout=10) as ws:
+                active_ws = ws
+                sys.stderr.write("[DesktopStreamer] Connected to signaling bridge WebSocket!\n")
+                sys.stderr.flush()
+                
+                async for message in ws:
+                    try:
+                        payload = json.loads(message)
+                        if payload.get("type") == "offer":
+                            sys.stderr.write("[DesktopStreamer] Received WebRTC offer from bridge. Initializing connection...\n")
+                            sys.stderr.flush()
+                            
+                            recreate_peer_connection()
+                            
+                            offer = RTCSessionDescription(sdp=payload["sdp"], type=payload["type"])
+                            await pc.setRemoteDescription(offer)
+                            
+                            answer = await pc.createAnswer()
+                            await pc.setLocalDescription(answer)
+                            
+                            if pc.iceGatheringState != "complete":
+                                for _ in range(30):
+                                    if pc.iceGatheringState == "complete":
+                                        break
+                                    await asyncio.sleep(0.05)
+                                    
+                            sys.stderr.write(f"[DesktopStreamer] Sending SDP answer to bridge...\n")
+                            sys.stderr.flush()
+                            await ws.send(json.dumps({
+                                "type": pc.localDescription.type,
+                                "sdp": pc.localDescription.sdp
+                            }))
+                        elif payload.get("type") == "close":
+                            sys.stderr.write("[DesktopStreamer] Received close signaling from bridge.\n")
+                            sys.stderr.flush()
+                            if pc:
+                                await pc.close()
+                        else:
+                            # Forward WebSocket-based mouse/keyboard events directly to uinput
+                            handle_input_message(message)
+                    except Exception as e:
+                        sys.stderr.write(f"[DesktopStreamer] Error parsing WS payload: {str(e)}\n")
+                        sys.stderr.flush()
+        except Exception as err:
+            active_ws = None
+            sys.stderr.write(f"[DesktopStreamer] Connection lost or failed: {str(err)}. Reconnecting in 5 seconds...\n")
+            sys.stderr.flush()
+            await asyncio.sleep(5)
 
 async def main():
     import argparse
