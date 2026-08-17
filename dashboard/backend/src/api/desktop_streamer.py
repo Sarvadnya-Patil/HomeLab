@@ -387,9 +387,6 @@ class ScreenCaptureTrack(VideoStreamTrack):
                         "h": thumb.size[1],
                         "seq": self.captured_count
                     })
-                    sys.stdout.write(frame_pkt + "\n")
-                    sys.stdout.flush()
-
                     if active_ws and main_loop:
                         asyncio.run_coroutine_threadsafe(active_ws.send(frame_pkt), main_loop)
                 except Exception:
