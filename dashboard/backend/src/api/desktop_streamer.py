@@ -316,15 +316,15 @@ class SafeDisplayGrabber:
                         if os.path.exists(dbus_sock):
                             cmd = [
                                 "runuser", "-u", uname, "--",
-                                "env", f"DBUS_SESSION_BUS_ADDRESS=unix:path={dbus_sock}",
+                                "env", f"DBUS_SESSION_BUS_ADDRESS=unix:path={dbus_sock}", f"XDG_RUNTIME_DIR={uid_dir}",
                                 "gdbus", "call", "--session",
                                 "--dest", "org.gnome.Shell.Screenshot",
                                 "--object-path", "/org/gnome/Shell/Screenshot",
                                 "--method", "org.gnome.Shell.Screenshot.Screenshot",
-                                "false", "false", target_file
+                                "false", "false", f'"{target_file}"'
                             ]
                             try:
-                                proc = subprocess.run(cmd, capture_output=True, timeout=0.3)
+                                proc = subprocess.run(cmd, capture_output=True, timeout=0.2)
                                 if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
                                     with open(target_file, "rb") as rf:
                                         img = Image.open(io.BytesIO(rf.read()))
