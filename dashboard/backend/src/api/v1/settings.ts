@@ -427,14 +427,15 @@ WantedBy=multi-user.target
             exit 0
           fi
 
-          # 3. Install packages via host package manager if available
+          # 3. Install packages via host package manager as root
           if command -v apt-get >/dev/null 2>&1; then
-            echo "[HostInstaller] Ubuntu/Debian host detected. Installing pre-compiled packages..."
+            echo "[HostInstaller] Ubuntu/Debian host detected. Installing ffmpeg and kernel stream packages..."
             export DEBIAN_FRONTEND=noninteractive
-            apt-get update && apt-get install -y ffmpeg xvfb x11-apps xdotool freerdp2-x11 freerdp3-x11 python3-pip python3-websockets python3-aiortc python3-mss python3-pyautogui python3-av grim imagemagick || true
+            apt-get update -y
+            apt-get install -y --no-install-recommends ffmpeg python3-pip python3-websockets python3-aiortc python3-pyautogui python3-av python3-evdev python3-pil || true
           elif command -v dnf >/dev/null 2>&1; then
             echo "[HostInstaller] Fedora/RHEL host detected. Installing packages..."
-            dnf install -y python3-pip python3-websockets python3-mss || true
+            dnf install -y ffmpeg python3-pip python3-websockets python3-evdev || true
           fi
 
           # Re-evaluate pip3 path in case it was just installed
@@ -445,12 +446,10 @@ WantedBy=multi-user.target
             fi
           done
 
-          if [ -z "$PIP3" ]; then
-            echo "SIMULATION_MODE_ACTIVE (pip3 missing and auto-install failed)"
-            exit 0
+          if [ -n "$PIP3" ]; then
+            echo "[HostInstaller] Ensuring python dependencies are satisfied via pip..."
+            "$PIP3" install --break-system-packages --ignore-installed --no-cache-dir websockets aiortc pyautogui av evdev Pillow || true
           fi
-
-          "$PIP3" install --break-system-packages --ignore-installed --no-cache-dir websockets aiortc pyautogui av evdev Pillow
           
           echo "[HostInstaller] Triggering daemon reload and service start..."
           "$SYSTEMCTL" daemon-reload
