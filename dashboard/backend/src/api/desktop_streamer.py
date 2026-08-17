@@ -211,15 +211,21 @@ def initialize_linux_display():
                     from PIL import ImageGrab
                     test_img = ImageGrab.grab()
                     if test_img:
-                        has_existing = True
-                        is_working = True
-                        sys.stderr.write(f"[DisplayInit] Successfully connected to host display: {display}\n")
-                        sys.stderr.flush()
+                        stats = ImageStat.Stat(test_img)
+                        mean_val = sum(stats.mean) / max(len(stats.mean), 1)
+                        if mean_val >= 1.0:
+                            has_existing = True
+                            is_working = True
+                            sys.stderr.write(f"[DisplayInit] Successfully connected to host display: {display} (Mean Brightness: {mean_val:.1f})\n")
+                            sys.stderr.flush()
+                        else:
+                            sys.stderr.write(f"[DisplayInit] Host display {display} returned black frame (Wayland isolated). Initializing virtual desktop session on :99...\n")
+                            sys.stderr.flush()
                 except Exception as e:
-                    sys.stderr.write(f"[DisplayInit] Host display probe failed: {str(e)}\n")
+                    sys.stderr.write(f"[DisplayInit] Host display probe failed: {str(e)}. Initializing virtual desktop session on :99...\n")
                     sys.stderr.flush()
                     
-            if not is_working and not has_existing:
+            if not is_working:
                 sys.stderr.write("[DisplayInit] Starting container-local virtual display session on :99\n")
                 sys.stderr.flush()
                 try:
@@ -400,41 +406,17 @@ class ScreenCaptureTrack(VideoStreamTrack):
                 except Exception:
                     mean_val = 0.0
 
-            # If black frames detected (common on Wayland / isolated Xwayland), try grim or xwd
+            # If black frames detected or capture failed on physical display, fallback to virtual display :99
             if raw_img is None or mean_val < 1.0:
-                import io, glob
-                grim_env = os.environ.copy()
-                if xdg_dir: grim_env["XDG_RUNTIME_DIR"] = xdg_dir
-                if w_disp: grim_env["WAYLAND_DISPLAY"] = w_disp
-                if disp: grim_env["DISPLAY"] = disp
-                if auth: grim_env["XAUTHORITY"] = auth
-
-                # 1. Try grim (Native Wayland)
-                try:
-                    cmd = ["runuser", "-u", u_name, "--", "grim", "-t", "jpeg", "-q", "70", "-"] if (u_name and u_name != "root") else ["grim", "-t", "jpeg", "-q", "70", "-"]
-                    grim_proc = subprocess.run(cmd, env=grim_env, capture_output=True, timeout=0.2)
-                    if grim_proc.returncode == 0 and len(grim_proc.stdout) > 200:
-                        raw_img = Image.open(io.BytesIO(grim_proc.stdout))
-                        engine_name = "GRIM"
+                if os.environ.get("DISPLAY") != ":99" and os.path.exists("/tmp/.X11-unix/X99"):
+                    os.environ["DISPLAY"] = ":99"
+                    self.mss_instance = None
+                    use_mss = False
+                    try:
+                        raw_img = ImageGrab.grab()
+                        engine_name = "VIRTUAL_DISPLAY"
                         stats = ImageStat.Stat(raw_img)
                         mean_val = sum(stats.mean) / max(len(stats.mean), 1)
-                        use_mss = False
-                        self.mss_instance = None
-                except Exception:
-                    pass
-
-                # 2. Try xwd / ImageMagick (X11 direct)
-                if raw_img is None or mean_val < 1.0:
-                    try:
-                        cmd = ["runuser", "-u", u_name, "--", "import", "-window", "root", "-quality", "70", "jpeg:-"] if (u_name and u_name != "root") else ["import", "-window", "root", "-quality", "70", "jpeg:-"]
-                        xwd_proc = subprocess.run(cmd, env=grim_env, capture_output=True, timeout=0.2)
-                        if xwd_proc.returncode == 0 and len(xwd_proc.stdout) > 200:
-                            raw_img = Image.open(io.BytesIO(xwd_proc.stdout))
-                            engine_name = "X11_IMPORT"
-                            stats = ImageStat.Stat(raw_img)
-                            mean_val = sum(stats.mean) / max(len(stats.mean), 1)
-                            use_mss = False
-                            self.mss_instance = None
                     except Exception:
                         pass
 
