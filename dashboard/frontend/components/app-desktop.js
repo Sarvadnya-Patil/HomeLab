@@ -568,34 +568,22 @@
        });
      };
  
-     const keyMap = {
-       'control': 'ctrl',
-       'escape': 'esc',
-       'arrowup': 'up',
-       'arrowdown': 'down',
-       'arrowleft': 'left',
-       'arrowright': 'right',
-       ' ': 'space',
-       'enter': 'enter',
-       'backspace': 'backspace'
-     };
- 
      const onKeyDown = (e) => {
-       if (e.key === 'Tab' || e.key === 'Backspace') {
+       if (['Tab', 'Backspace', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
          e.preventDefault();
        }
-       const key = e.key.toLowerCase();
        sendInput({
          type: 'keydown',
-         key: keyMap[key] || key
+         key: e.key,
+         code: e.code
        });
      };
  
      const onKeyUp = (e) => {
-       const key = e.key.toLowerCase();
        sendInput({
          type: 'keyup',
-         key: keyMap[key] || key
+         key: e.key,
+         code: e.code
        });
      };
  

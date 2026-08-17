@@ -134,8 +134,25 @@ def get_ffmpeg_bin():
 
 def grab_kernel_drm_frame():
     """Reads raw physical GPU display output directly from Linux Kernel DRM/KMS scanout."""
-    ffmpeg_bin = get_ffmpeg_bin()
     candidates = ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"]
+    
+    # 1. Try PyAV direct in-process KMS grab (works without ffmpeg binary)
+    for card in candidates:
+        if os.path.exists(card):
+            try:
+                import av
+                container = av.open(card, format="kmsgrab")
+                for packet in container.demux():
+                    for frame in packet.decode():
+                        img = frame.to_image()
+                        container.close()
+                        if img:
+                            return img, None
+            except Exception:
+                pass
+
+    # 2. Try FFmpeg CLI binary if installed
+    ffmpeg_bin = get_ffmpeg_bin()
     for card in candidates:
         if os.path.exists(card):
             try:
@@ -265,21 +282,47 @@ def init_uinput():
 
 
 KEY_MAP = {
+    # Letters
     "KeyA": 30, "KeyB": 48, "KeyC": 46, "KeyD": 32, "KeyE": 18, "KeyF": 33, "KeyG": 34, "KeyH": 35,
     "KeyI": 23, "KeyJ": 36, "KeyK": 37, "KeyL": 38, "KeyM": 50, "KeyN": 49, "KeyO": 24, "KeyP": 25,
     "KeyQ": 16, "KeyR": 19, "KeyS": 31, "KeyT": 20, "KeyU": 22, "KeyV": 47, "KeyW": 17, "KeyX": 45,
     "KeyY": 21, "KeyZ": 44,
-    "Digit1": 2, "Digit2": 3, "Digit3": 4, "Digit4": 5, "Digit5": 6, "Digit6": 7, "Digit7": 8, "Digit9": 10, "Digit0": 11,
-    "Enter": 28, "Escape": 1, "Backspace": 14, "Tab": 15, "Space": 57,
-    "Minus": 12, "Equal": 13, "BracketLeft": 26, "BracketRight": 27, "Backslash": 43,
-    "Semicolon": 39, "Quote": 40, "Backquote": 41, "Comma": 51, "Period": 52, "Slash": 53,
-    "CapsLock": 58,
-    "F1": 59, "F2": 60, "F3": 61, "F4": 62, "F5": 63, "F6": 64, "F7": 65, "F8": 66, "F9": 67, "F10": 68,
-    "F11": 87, "F12": 88,
+    "a": 30, "b": 48, "c": 46, "d": 32, "e": 18, "f": 33, "g": 34, "h": 35, "i": 23, "j": 36,
+    "k": 37, "l": 38, "m": 50, "n": 49, "o": 24, "p": 25, "q": 16, "r": 19, "s": 31, "t": 20,
+    "u": 22, "v": 47, "w": 17, "x": 45, "y": 21, "z": 44,
+    "A": 30, "B": 48, "C": 46, "D": 32, "E": 18, "F": 33, "G": 34, "H": 35, "I": 23, "J": 36,
+    "K": 37, "L": 38, "M": 50, "N": 49, "O": 24, "P": 25, "Q": 16, "R": 19, "S": 31, "T": 20,
+    "U": 22, "V": 47, "W": 17, "X": 45, "Y": 21, "Z": 44,
+    # Digits
+    "Digit1": 2, "Digit2": 3, "Digit3": 4, "Digit4": 5, "Digit5": 6, "Digit6": 7, "Digit7": 8, "Digit8": 9, "Digit9": 10, "Digit0": 11,
+    "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8, "8": 9, "9": 10, "0": 11,
+    # Controls & Navigation
+    "Enter": 28, "enter": 28, "Return": 28, "Escape": 1, "escape": 1, "esc": 1, "Backspace": 14, "backspace": 14,
+    "Tab": 15, "tab": 15, "Space": 57, "space": 57, " ": 57,
+    "CapsLock": 58, "capslock": 58,
+    "ShiftLeft": 42, "ShiftRight": 54, "shift": 42,
+    "ControlLeft": 29, "ControlRight": 97, "control": 29, "ctrl": 29,
+    "AltLeft": 56, "AltRight": 100, "alt": 56,
+    "MetaLeft": 125, "MetaRight": 126, "meta": 125, "super": 125,
     "ArrowRight": 106, "ArrowLeft": 105, "ArrowDown": 108, "ArrowUp": 103,
-    "Insert": 110, "Home": 102, "PageUp": 104, "Delete": 111, "End": 107, "PageDown": 109,
-    "ControlLeft": 29, "ShiftLeft": 42, "AltLeft": 56, "MetaLeft": 125,
-    "ControlRight": 97, "ShiftRight": 54, "AltRight": 100, "MetaRight": 126
+    "right": 106, "left": 105, "down": 108, "up": 103,
+    "Insert": 110, "insert": 110, "Home": 102, "home": 102, "PageUp": 104, "pageup": 104,
+    "Delete": 111, "delete": 111, "End": 107, "end": 107, "PageDown": 109, "pagedown": 109,
+    # Symbols & Punctuation
+    "Minus": 12, "minus": 12, "-": 12, "_": 12,
+    "Equal": 13, "equal": 13, "=": 13, "+": 13,
+    "BracketLeft": 26, "[": 26, "{": 26,
+    "BracketRight": 27, "]": 27, "}": 27,
+    "Backslash": 43, "\\": 43, "|": 43,
+    "Semicolon": 39, ";": 39, ":": 39,
+    "Quote": 40, "'": 40, '"': 40,
+    "Backquote": 41, "`": 41, "~": 41,
+    "Comma": 51, ",": 51, "<": 51,
+    "Period": 52, ".": 52, ">": 52,
+    "Slash": 53, "/": 53, "?": 53,
+    "!": 2, "@": 3, "#": 4, "$": 5, "%": 6, "^": 7, "&": 8, "*": 9, "(": 10, ")": 11,
+    # Function Keys
+    "F1": 59, "F2": 60, "F3": 61, "F4": 62, "F5": 63, "F6": 64, "F7": 65, "F8": 66, "F9": 67, "F10": 68, "F11": 87, "F12": 88
 }
 
 
@@ -325,7 +368,7 @@ def handle_input_message(msg_str):
             code = KEY_MAP.get(raw_code)
             if not code and isinstance(raw_code, str):
                 if len(raw_code) == 1:
-                    code = KEY_MAP.get(f"Key{raw_code.upper()}") or KEY_MAP.get(f"Digit{raw_code}")
+                    code = KEY_MAP.get(f"Key{raw_code.upper()}") or KEY_MAP.get(f"Digit{raw_code}") or KEY_MAP.get(raw_code.lower())
             if code:
                 val = 1 if action == "keydown" else 0
                 ui_keyboard.write(e.EV_KEY, code, val)
