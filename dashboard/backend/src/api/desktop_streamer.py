@@ -59,6 +59,13 @@ def find_xauthority():
             pass
     return None
 
+def wake_display_dpms():
+    if sys.platform.startswith("linux"):
+        try:
+            subprocess.run(["xset", "dpms", "force", "on"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=0.2)
+        except Exception:
+            pass
+
 def discover_host_display():
     if not sys.platform.startswith("linux"):
         return ":0", None, None, None, None
@@ -81,7 +88,7 @@ def discover_host_display():
                 with open(cmd_path, "r", errors="ignore") as f:
                     cmd = f.read().lower()
                 
-                if any(k in cmd for k in ["gnome-shell", "xorg", "xwayland", "kwin", "gnome-session", "lightdm", "plasma", "wayland"]):
+                if any(k in cmd for k in ["gnome-shell", "xorg", "xwayland", "kwin", "gnome-session", "lightdm", "plasma", "wayland", "gdm", "gdm3", "gdm-x-session", "gdm-wayland-session", "sddm"]):
                     env_path = f"{proc_dir}/{name}/environ"
                     if not os.path.exists(env_path):
                         continue
@@ -802,6 +809,7 @@ async def daemon_signaling_loop(daemon_token):
         try:
             async with websockets.connect(uri, ping_interval=10, ping_timeout=10) as ws:
                 active_ws = ws
+                wake_display_dpms()
                 sys.stderr.write("[DesktopStreamer] Connected to signaling bridge WebSocket!\n")
                 sys.stderr.flush()
                 
