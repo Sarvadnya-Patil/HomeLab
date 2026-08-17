@@ -238,6 +238,29 @@ class SafeDisplayGrabber:
         setup_display_env()
         self._init_mss()
 
+class DrmtapFrameInfo(ctypes.Structure):
+    _fields_ = [
+        ("data", ctypes.c_void_p),
+        ("dma_buf_fd", ctypes.c_int),
+        ("width", ctypes.c_uint32),
+        ("height", ctypes.c_uint32),
+        ("stride", ctypes.c_uint32),
+        ("format", ctypes.c_uint32),
+        ("modifier", ctypes.c_uint64),
+        ("fb_id", ctypes.c_uint32),
+        ("_priv", ctypes.c_void_p),
+    ]
+
+
+class SafeDisplayGrabber:
+    def __init__(self):
+        self.sct = None
+        self._drmtap_lib = None
+        self._drmtap_ctx = None
+        self.active_engine = "NONE"
+        self.error_detail = ""
+        self._init_drmtap()
+
     def _init_mss(self):
         setup_display_env()
         if mss:
@@ -257,7 +280,17 @@ class SafeDisplayGrabber:
             if os.path.exists(lib_path):
                 try:
                     self._drmtap_lib = ctypes.CDLL(lib_path)
-                    sys.stderr.write(f"[SafeDisplayGrabber] libdrmtap loaded from {lib_path}\n")
+                    self._drmtap_lib.drmtap_open.restype = ctypes.c_void_p
+                    self._drmtap_lib.drmtap_open.argtypes = [ctypes.c_void_p]
+                    self._drmtap_lib.drmtap_grab_mapped.restype = ctypes.c_int
+                    self._drmtap_lib.drmtap_grab_mapped.argtypes = [ctypes.c_void_p, ctypes.POINTER(DrmtapFrameInfo)]
+                    self._drmtap_lib.drmtap_frame_release.restype = None
+                    self._drmtap_lib.drmtap_frame_release.argtypes = [ctypes.c_void_p, ctypes.POINTER(DrmtapFrameInfo)]
+                    self._drmtap_lib.drmtap_close.restype = None
+                    self._drmtap_lib.drmtap_close.argtypes = [ctypes.c_void_p]
+
+                    self._drmtap_ctx = self._drmtap_lib.drmtap_open(None)
+                    sys.stderr.write(f"[SafeDisplayGrabber] libdrmtap native context initialized from {lib_path}\n")
                     sys.stderr.flush()
                     break
                 except Exception as err:
@@ -265,35 +298,19 @@ class SafeDisplayGrabber:
                     sys.stderr.flush()
 
     def _try_drm_scanout(self):
-        # 1. If compiled libdrmtap.so is loaded, invoke snapshot interface
-        if self._drmtap_lib:
+        # 1. Native libdrmtap hardware capture
+        if self._drmtap_lib and self._drmtap_ctx:
             try:
-                target_file = "/dev/shm/homelab_drmtap_frame.png"
-                if hasattr(self._drmtap_lib, "drmtap_snapshot"):
-                    ret = self._drmtap_lib.drmtap_snapshot(target_file.encode("utf-8"))
-                    if ret == 0 and os.path.exists(target_file) and os.path.getsize(target_file) > 500:
-                        with open(target_file, "rb") as rf:
-                            img = Image.open(io.BytesIO(rf.read()))
-                            img.load()
-                        return img, "LIBDRMTAP"
-            except Exception:
-                pass
-
-        # 2. Try direct DRM dumb buffer / framebuffer read on /dev/dri/card*
-        for card in ["/dev/dri/card0", "/dev/dri/card1"]:
-            if os.path.exists(card):
-                try:
-                    # Check DRM sysfs modesetting attributes
-                    card_name = os.path.basename(card)
-                    # Test if frame can be dumped or read via KMS framebuffer
-                    target_file = f"/dev/shm/homelab_{card_name}_frame.png"
-                    if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
-                        with open(target_file, "rb") as rf:
-                            img = Image.open(io.BytesIO(rf.read()))
-                            img.load()
-                        return img, f"DRM_KMS_{card_name}"
-                except Exception:
-                    pass
+                frame = DrmtapFrameInfo()
+                ret = self._drmtap_lib.drmtap_grab_mapped(self._drmtap_ctx, ctypes.byref(frame))
+                if ret == 0 and frame.data and frame.width > 0 and frame.height > 0:
+                    raw_bytes = ctypes.string_at(frame.data, frame.height * frame.stride)
+                    img = Image.frombytes("RGBA", (frame.width, frame.height), raw_bytes, "raw", "RGBA", frame.stride, 1)
+                    img = img.convert("RGB")
+                    self._drmtap_lib.drmtap_frame_release(self._drmtap_ctx, ctypes.byref(frame))
+                    return img, "LIBDRMTAP"
+            except Exception as e:
+                self.error_detail = f"libdrmtap: {e}"
 
         return None, None
 
@@ -303,7 +320,14 @@ class SafeDisplayGrabber:
         fallback_black_frame = None
         fallback_black_engine = "NONE"
 
-        # 1. Priority 1: GNOME Shell D-Bus screencast as active session user
+        # 1. Priority 1: Direct Hardware DRM/KMS scanout via libdrmtap (Zero user-space flashing)
+        drm_img, drm_engine = self._try_drm_scanout()
+        if drm_img is not None:
+            self.active_engine = drm_engine
+            self.error_detail = ""
+            return drm_img, None
+
+        # 2. Priority 2: Wayland User Session capture (grim - silent CLI)
         for uid_dir in sorted(glob.glob("/run/user/*"), key=lambda p: 0 if p.endswith("1000") else 1):
             if os.path.isdir(uid_dir):
                 uid_str = os.path.basename(uid_dir)
@@ -312,56 +336,6 @@ class SafeDisplayGrabber:
                     uname = get_session_user(uid_int)
                     if uname:
                         target_file = f"/dev/shm/homelab_frame_{uid_int}.png"
-                        dbus_sock = os.path.join(uid_dir, "bus")
-                        if os.path.exists(dbus_sock):
-                            try:
-                                if os.path.exists(target_file):
-                                    os.remove(target_file)
-                            except Exception:
-                                pass
-
-                            cmd = [
-                                "runuser", "-u", uname, "--",
-                                "env", f"DBUS_SESSION_BUS_ADDRESS=unix:path={dbus_sock}", f"XDG_RUNTIME_DIR={uid_dir}",
-                                "gdbus", "call", "--session",
-                                "--dest", "org.gnome.Shell.Screenshot",
-                                "--object-path", "/org/gnome/Shell/Screenshot",
-                                "--method", "org.gnome.Shell.Screenshot.Screenshot",
-                                "true", "false", target_file
-                            ]
-                            try:
-                                proc = subprocess.run(cmd, capture_output=True, timeout=0.5)
-                                if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
-                                    with open(target_file, "rb") as rf:
-                                        raw_bytes = rf.read()
-                                    try:
-                                        os.remove(target_file)
-                                    except Exception:
-                                        pass
-                                    img = Image.open(io.BytesIO(raw_bytes))
-                                    img.load()
-                                    b = compute_image_brightness(img)
-                                    if b >= 1.0:
-                                        self.active_engine = f"GNOME_DBUS_{uname}"
-                                        self.error_detail = ""
-                                        return img, None
-                                    elif fallback_black_frame is None:
-                                        fallback_black_frame = img
-                                        fallback_black_engine = f"GNOME_DBUS_{uname}"
-                            except Exception as e:
-                                self.error_detail = str(e)
-
-        # 2. Priority 2: Wayland User Session capture (grim / gnome-screenshot CLI)
-        for uid_dir in sorted(glob.glob("/run/user/*"), key=lambda p: 0 if p.endswith("1000") else 1):
-            if os.path.isdir(uid_dir):
-                uid_str = os.path.basename(uid_dir)
-                if uid_str.isdigit():
-                    uid_int = int(uid_str)
-                    uname = get_session_user(uid_int)
-                    if uname:
-                        target_file = f"/dev/shm/homelab_frame_{uid_int}.png"
-
-                        # Try Wayland grim as session user
                         wl_sock = os.path.join(uid_dir, "wayland-0")
                         if os.path.exists(wl_sock):
                             try:
@@ -395,39 +369,6 @@ class SafeDisplayGrabber:
                                         fallback_black_engine = f"WAYLAND_GRIM_{uname}"
                             except Exception as e:
                                 self.error_detail = str(e)
-
-                        # Try gnome-screenshot CLI as session user
-                        try:
-                            if os.path.exists(target_file):
-                                os.remove(target_file)
-                        except Exception:
-                            pass
-                        try:
-                            cmd = [
-                                "runuser", "-u", uname, "--",
-                                "env", f"XDG_RUNTIME_DIR={uid_dir}", "DISPLAY=:0",
-                                "gnome-screenshot", "-f", target_file
-                            ]
-                            proc = subprocess.run(cmd, capture_output=True, timeout=0.4)
-                            if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
-                                with open(target_file, "rb") as rf:
-                                    raw_bytes = rf.read()
-                                try:
-                                    os.remove(target_file)
-                                except Exception:
-                                    pass
-                                img = Image.open(io.BytesIO(raw_bytes))
-                                img.load()
-                                b = compute_image_brightness(img)
-                                if b >= 1.0:
-                                    self.active_engine = f"GNOME_CLI_{uname}"
-                                    self.error_detail = ""
-                                    return img, None
-                                elif fallback_black_frame is None:
-                                    fallback_black_frame = img
-                                    fallback_black_engine = f"GNOME_CLI_{uname}"
-                        except Exception as e:
-                            self.error_detail = str(e)
 
         # 3. Priority 3: Shared Memory MSS for active X11 / Xwayland desktop
         if not self.sct and mss:

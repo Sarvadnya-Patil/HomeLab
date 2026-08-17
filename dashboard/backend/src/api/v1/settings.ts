@@ -458,11 +458,11 @@ fi
 if command -v apt-get >/dev/null 2>&1; then
   echo "[HostInstaller] Ubuntu/Debian host detected. Installing dependencies..."
   export DEBIAN_FRONTEND=noninteractive
-  apt-get install -y --no-install-recommends ffmpeg libglib2.0-bin gnome-screenshot libdrm-dev meson ninja-build gcc || true
+  apt-get install -y --no-install-recommends ffmpeg libglib2.0-bin pkg-config libdrm-dev meson ninja-build gcc || true
   apt-get install -y --no-install-recommends python3-pip python3-evdev python3-pil python3-websockets || true
 elif command -v dnf >/dev/null 2>&1; then
   echo "[HostInstaller] Fedora/RHEL host detected. Installing dependencies..."
-  dnf install -y ffmpeg python3-pip python3-websockets python3-evdev libdrm-devel meson ninja-build gcc || true
+  dnf install -y ffmpeg python3-pip python3-websockets python3-evdev pkgconfig libdrm-devel meson ninja-build gcc || true
 fi
 
 # 3.5 Compile vendored libdrmtap (by fxd0h) for direct hardware DRM scanout
@@ -474,6 +474,10 @@ if [ ! -f /opt/homelab/libdrmtap.so ]; then
     meson setup build 2>/dev/null || true
     ninja -C build 2>/dev/null || true
     find build -name "*.so*" -exec cp {} /opt/homelab/libdrmtap.so ';' 2>/dev/null || true
+    if [ ! -f /opt/homelab/libdrmtap.so ]; then
+      echo "[HostInstaller] Direct gcc compilation for libdrmtap.so..."
+      gcc -shared -fPIC -O3 -Iinclude -I/usr/include/libdrm src/*.c -ldrm -o /opt/homelab/libdrmtap.so 2>/dev/null || true
+    fi
     if [ -f /opt/homelab/libdrmtap.so ]; then
       echo "[HostInstaller] libdrmtap.so (fxd0h) compiled successfully to /opt/homelab/libdrmtap.so"
     fi
