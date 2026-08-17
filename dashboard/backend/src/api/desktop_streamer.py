@@ -310,25 +310,26 @@ def handle_input_message(msg_str):
             abs_y = int(data.get("y", 0) * 1080)
             ui_mouse.write(e.EV_ABS, e.ABS_X, abs_x)
             ui_mouse.write(e.EV_ABS, e.ABS_Y, abs_y)
-            ui_mouse.write(e.EV_SYN, e.SYN_REPORT, 0)
-            ui_mouse.flush()
+            ui_mouse.syn()
         elif action in ["mousedown", "mouseup", "click"]:
             btn_name = data.get("button", "left")
             btn_code = e.BTN_LEFT if btn_name == "left" else (e.BTN_RIGHT if btn_name == "right" else e.BTN_MIDDLE)
             val = 1 if action in ["mousedown", "click"] else 0
             ui_mouse.write(e.EV_KEY, btn_code, val)
-            ui_mouse.write(e.EV_SYN, e.SYN_REPORT, 0)
+            ui_mouse.syn()
             if action == "click":
                 ui_mouse.write(e.EV_KEY, btn_code, 0)
-                ui_mouse.write(e.EV_SYN, e.SYN_REPORT, 0)
-            ui_mouse.flush()
+                ui_mouse.syn()
         elif action in ["keydown", "keyup"]:
-            code = KEY_MAP.get(data.get("key"))
+            raw_code = data.get("code") or data.get("key")
+            code = KEY_MAP.get(raw_code)
+            if not code and isinstance(raw_code, str):
+                if len(raw_code) == 1:
+                    code = KEY_MAP.get(f"Key{raw_code.upper()}") or KEY_MAP.get(f"Digit{raw_code}")
             if code:
                 val = 1 if action == "keydown" else 0
                 ui_keyboard.write(e.EV_KEY, code, val)
-                ui_keyboard.write(e.EV_SYN, e.SYN_REPORT, 0)
-                ui_keyboard.flush()
+                ui_keyboard.syn()
     except Exception as err:
         sys.stderr.write(f"[Input] Error: {str(err)}\n")
         sys.stderr.flush()
