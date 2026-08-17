@@ -422,84 +422,88 @@ WantedBy=multi-user.target
       // 5. Reload systemd, enable and restart service (only on Linux)
       if (process.platform === 'linux') {
         console.log('[DesktopInstaller] Executing host environment libraries install & systemd service startup...');
-        const installCmd = `nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c '
-          set -e
-          echo "[Diagnostics] Host user: $(whoami)"
-          echo "[Diagnostics] Host PATH: $PATH"
+        
+        const hostInstallScriptPath = path.join(hostRoot, 'tmp/homelab-install-daemon.sh');
+        const scriptBody = `#!/bin/sh
+echo "[Diagnostics] Host user: $(whoami)"
+echo "[Diagnostics] Host PATH: $PATH"
 
-          # 1. Resolve systemctl path
-          SYSTEMCTL=""
-          for p in /bin/systemctl /usr/bin/systemctl /usr/sbin/systemctl /sbin/systemctl; do
-            if [ -x "$p" ]; then
-              SYSTEMCTL="$p"
-              break
-            fi
-          done
+# 1. Resolve systemctl path
+SYSTEMCTL=""
+for p in /bin/systemctl /usr/bin/systemctl /usr/sbin/systemctl /sbin/systemctl; do
+  if [ -x "$p" ]; then
+    SYSTEMCTL="$p"
+    break
+  fi
+done
 
-          # 2. Resolve pip3 path
-          PIP3=""
-          for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
-            if [ -x "$p" ]; then
-              PIP3="$p"
-              break
-            fi
-          done
+# 2. Resolve pip3 path
+PIP3=""
+for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
+  if [ -x "$p" ]; then
+    PIP3="$p"
+    break
+  fi
+done
 
-          echo "[Diagnostics] Located systemctl: $SYSTEMCTL"
-          echo "[Diagnostics] Located pip3: $PIP3"
+echo "[Diagnostics] Located systemctl: $SYSTEMCTL"
+echo "[Diagnostics] Located pip3: $PIP3"
 
-          if [ -z "$SYSTEMCTL" ]; then
-            echo "SIMULATION_MODE_ACTIVE (systemctl not found)"
-            exit 0
-          fi
+if [ -z "$SYSTEMCTL" ]; then
+  echo "SIMULATION_MODE_ACTIVE (systemctl not found)"
+  exit 0
+fi
 
-          # 3. Install packages via host package manager as root
-          if command -v apt-get >/dev/null 2>&1; then
-            echo "[HostInstaller] Ubuntu/Debian host detected. Installing dependencies..."
-            export DEBIAN_FRONTEND=noninteractive
-            apt-get install -y --no-install-recommends ffmpeg libglib2.0-bin gnome-screenshot libdrm-dev meson ninja-build gcc || true
-            apt-get install -y --no-install-recommends python3-pip python3-evdev python3-pil python3-websockets python3-mss || true
-          elif command -v dnf >/dev/null 2>&1; then
-            echo "[HostInstaller] Fedora/RHEL host detected. Installing dependencies..."
-            dnf install -y ffmpeg python3-pip python3-websockets python3-evdev libdrm-devel meson ninja-build gcc || true
-          fi
+# 3. Install packages via host package manager as root
+if command -v apt-get >/dev/null 2>&1; then
+  echo "[HostInstaller] Ubuntu/Debian host detected. Installing dependencies..."
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get install -y --no-install-recommends ffmpeg libglib2.0-bin gnome-screenshot libdrm-dev meson ninja-build gcc || true
+  apt-get install -y --no-install-recommends python3-pip python3-evdev python3-pil python3-websockets || true
+elif command -v dnf >/dev/null 2>&1; then
+  echo "[HostInstaller] Fedora/RHEL host detected. Installing dependencies..."
+  dnf install -y ffmpeg python3-pip python3-websockets python3-evdev libdrm-devel meson ninja-build gcc || true
+fi
 
-          # 3.5 Compile vendored libdrmtap (by fxd0h) for direct hardware DRM scanout
-          if [ ! -f /opt/homelab/libdrmtap.so ]; then
-            echo "[HostInstaller] Compiling vendored libdrmtap (by fxd0h) from local source..."
-            mkdir -p /opt/homelab
-            if [ -d /tmp/libdrmtap ]; then
-              cd /tmp/libdrmtap
-              meson setup build 2>/dev/null || true
-              ninja -C build 2>/dev/null || true
-              find build -name "*.so*" -exec cp {} /opt/homelab/libdrmtap.so ';' 2>/dev/null || true
-              if [ -f /opt/homelab/libdrmtap.so ]; then
-                echo "[HostInstaller] libdrmtap.so (fxd0h) compiled successfully to /opt/homelab/libdrmtap.so"
-              fi
-            else
-              echo "[HostInstaller] Warning: /tmp/libdrmtap not found for compilation."
-            fi
-          fi
+# 3.5 Compile vendored libdrmtap (by fxd0h) for direct hardware DRM scanout
+if [ ! -f /opt/homelab/libdrmtap.so ]; then
+  echo "[HostInstaller] Compiling vendored libdrmtap (by fxd0h) from local source..."
+  mkdir -p /opt/homelab
+  if [ -d /tmp/libdrmtap ]; then
+    cd /tmp/libdrmtap
+    meson setup build 2>/dev/null || true
+    ninja -C build 2>/dev/null || true
+    find build -name "*.so*" -exec cp {} /opt/homelab/libdrmtap.so ';' 2>/dev/null || true
+    if [ -f /opt/homelab/libdrmtap.so ]; then
+      echo "[HostInstaller] libdrmtap.so (fxd0h) compiled successfully to /opt/homelab/libdrmtap.so"
+    fi
+  else
+    echo "[HostInstaller] Warning: /tmp/libdrmtap not found for compilation."
+  fi
+fi
 
-          # Re-evaluate pip3 path in case it was just installed
-          for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
-            if [ -x "$p" ]; then
-              PIP3="$p"
-              break
-            fi
-          done
+# Re-evaluate pip3 path in case it was just installed
+for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
+  if [ -x "$p" ]; then
+    PIP3="$p"
+    break
+  fi
+done
 
-          if [ -n "$PIP3" ]; then
-            echo "[HostInstaller] Ensuring python dependencies are satisfied via pip..."
-            "$PIP3" install --break-system-packages --ignore-installed --no-cache-dir websockets aiortc pyautogui av evdev Pillow || true
-          fi
-          
-          echo "[HostInstaller] Triggering daemon reload and service start..."
-          "$SYSTEMCTL" daemon-reload
-          "$SYSTEMCTL" enable homelab-desktop-streamer.service
-          "$SYSTEMCTL" restart homelab-desktop-streamer.service
-          echo "[HostInstaller] systemd service setup complete."
-        '`;
+if [ -n "$PIP3" ]; then
+  echo "[HostInstaller] Ensuring python dependencies are satisfied via pip..."
+  "$PIP3" install --break-system-packages --ignore-installed --no-cache-dir websockets aiortc pyautogui av evdev Pillow mss || true
+fi
+
+echo "[HostInstaller] Triggering daemon reload and service start..."
+"$SYSTEMCTL" daemon-reload || true
+"$SYSTEMCTL" enable homelab-desktop-streamer.service || true
+"$SYSTEMCTL" restart homelab-desktop-streamer.service || true
+echo "[HostInstaller] systemd service setup complete."
+`;
+
+        fs.writeFileSync(hostInstallScriptPath, scriptBody, { mode: 0o755 });
+        const installCmd = `nsenter -t 1 -m -u -i -n -p -r -- /bin/sh /tmp/homelab-install-daemon.sh`;
 
         await new Promise<void>((resolve, reject) => {
           exec(installCmd, { shell: '/bin/sh' }, (error: any, stdout: any, stderr: any) => {
