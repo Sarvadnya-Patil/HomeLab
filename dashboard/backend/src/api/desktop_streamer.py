@@ -515,7 +515,27 @@ class ScreenCaptureTrack(VideoStreamTrack):
                 except Exception:
                     mean_val = 0.0
 
-            # If black frames detected or capture failed on physical display, fallback to virtual display :99
+            # If black frames detected or capture failed, try Kernel DRM/KMS hardware grabber (zero popups)
+            if raw_img is None or mean_val < 1.0:
+                for card in ["/dev/dri/card0", "/dev/dri/card1"]:
+                    if os.path.exists(card):
+                        try:
+                            proc = subprocess.run([
+                                "ffmpeg", "-nostdin", "-loglevel", "quiet", "-device", card,
+                                "-f", "kmsgrab", "-i", "-",
+                                "-vf", "hwdownload,format=bgr0,scale=1280:720",
+                                "-vframes", "1", "-f", "image2pipe", "-vcodec", "mjpeg", "-"
+                            ], capture_output=True, timeout=0.15)
+                            if proc.returncode == 0 and len(proc.stdout) > 500:
+                                raw_img = Image.open(io.BytesIO(proc.stdout))
+                                engine_name = "KERNEL_DRM_KMS"
+                                stats = ImageStat.Stat(raw_img)
+                                mean_val = sum(stats.mean) / max(len(stats.mean), 1)
+                                break
+                        except Exception:
+                            pass
+
+            # If still black, fallback to virtual display :99
             if raw_img is None or mean_val < 1.0:
                 if os.environ.get("DISPLAY") != ":99" and os.path.exists("/tmp/.X11-unix/X99"):
                     os.environ["DISPLAY"] = ":99"
