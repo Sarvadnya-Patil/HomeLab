@@ -318,53 +318,9 @@ export default function (fastify: any, engine: CoreEngine): void {
     }
     engine.settingsRepo.set('desktop.rdp.hostUser', hostUser || '', 'desktop');
 
-    const savedPass = engine.settingsRepo.get('desktop.rdp.password');
-    const targetPass = (password && password !== '••••••••') ? password : (savedPass ? decryptSecret(savedPass) : '');
-
-    // Trigger host setup via nsenter breakout
-    const runHostSetup = () => {
-      return new Promise<void>((resolve) => {
-        const cmd = enabled ? `nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c '
-          TARGET_USER="${hostUser}"
-          if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
-            TARGET_USER=$(who | grep -E "(:0|wayland|pts)" | head -n 1 | awk "{print \\$1}")
-            if [ -z "$TARGET_USER" ]; then TARGET_USER="sarv"; fi
-          fi
-
-          echo "[HostSetup] Auto-configuring GNOME Remote Desktop for user: $TARGET_USER"
-          if command -v grdctl >/dev/null 2>&1; then
-            TARGET_UID=$(id -u "$TARGET_USER" 2>/dev/null || echo "1000")
-            runuser -u "$TARGET_USER" -- env XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" grdctl rdp enable || true
-            runuser -u "$TARGET_USER" -- env XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" grdctl rdp set-credentials "${username}" "${targetPass}" || true
-            runuser -u "$TARGET_USER" -- env XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" grdctl rdp enable-view-only false || true
-          fi
-          
-          # Trigger service restart on host
-          if command -v systemctl >/dev/null 2>&1; then
-            systemctl daemon-reload || true
-            systemctl restart homelab-desktop-streamer.service || true
-          fi
-        '` : `nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c '
-          if command -v grdctl >/dev/null 2>&1; then
-            grdctl rdp disable || true
-          fi
-        '`;
-
-        exec(cmd, { shell: '/bin/sh' }, (error: any, stdout: any, stderr: any) => {
-          if (error) {
-            console.warn('[Host Remote Desktop Setup Notice]:', error.message, stderr);
-          }
-          resolve();
-        });
-      });
-    };
-
+    // Restart host daemon if on Linux
     if (process.platform === 'linux') {
-      try {
-        await runHostSetup();
-      } catch (err: any) {
-        return reply.status(500).send({ error: `Failed to configure GNOME Remote Desktop on Host OS: ${err.message}` });
-      }
+      exec('nsenter -t 1 -m -u -i -n -p -r -- systemctl restart homelab-desktop-streamer.service || true', { shell: '/bin/sh' }, () => {});
     }
 
     const actor = request.user?.id || 'admin';
@@ -396,14 +352,10 @@ export default function (fastify: any, engine: CoreEngine): void {
       fs.mkdirSync(hostOptDir, { recursive: true });
 
       // 2. Read the source desktop_streamer.py content inside the container
-      let sourceStreamerPath = path.join(__dirname, '../desktop_streamer.py');
+      let sourceStreamerPath = path.join(__dirname, 'desktop_streamer.py');
       if (!fs.existsSync(sourceStreamerPath)) {
-        // Fallback for compiled TS runtime where __dirname is under dist/src/...
-        const devSrcPath = sourceStreamerPath.replace(path.join('dist', 'src'), 'src').replace('dist', 'src');
-        if (fs.existsSync(devSrcPath)) {
-          sourceStreamerPath = devSrcPath;
-        } else {
-          // Fallback to absolute docker container path
+        sourceStreamerPath = path.join(__dirname, '../desktop_streamer.py');
+        if (!fs.existsSync(sourceStreamerPath)) {
           const containerPath = '/app/backend/src/api/desktop_streamer.py';
           if (fs.existsSync(containerPath)) {
             sourceStreamerPath = containerPath;
@@ -422,11 +374,7 @@ export default function (fastify: any, engine: CoreEngine): void {
       console.log(`[DesktopInstaller] Writing python script to host: ${hostStreamerPath}`);
       fs.writeFileSync(hostStreamerPath, streamerContent, { mode: 0o755 });
 
-      // 4. Construct and write the systemd service file on the host
-      const currentRdpUser = engine.settingsRepo.get('desktop.rdp.username') || '';
-      const currentRdpPass = engine.settingsRepo.get('desktop.rdp.password') || '';
-      const rdpArgs = (currentRdpUser && currentRdpPass) ? ` --rdp-user "${currentRdpUser}" --rdp-pass "${currentRdpPass}"` : '';
-
+      // 4. Construct and write the pure Root systemd service file on the host
       const serviceContent = `[Unit]
 Description=HomeLab Remote Desktop Streamer Daemon
 After=network.target
@@ -434,7 +382,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/homelab
-ExecStart=/usr/bin/python3 /opt/homelab/desktop_streamer.py --daemon-mode --daemon-token ${daemonToken}${rdpArgs}
+ExecStart=/usr/bin/python3 /opt/homelab/desktop_streamer.py --daemon-mode --daemon-token ${daemonToken}
 Restart=always
 RestartSec=5
 User=root
@@ -502,8 +450,7 @@ WantedBy=multi-user.target
             exit 0
           fi
 
-          echo "[HostInstaller] Using pip3 at: $PIP3"
-          "$PIP3" install --break-system-packages --ignore-installed --no-cache-dir websockets aiortc mss pyautogui av
+          "$PIP3" install --break-system-packages --ignore-installed --no-cache-dir websockets aiortc pyautogui av evdev Pillow
           
           echo "[HostInstaller] Triggering daemon reload and service start..."
           "$SYSTEMCTL" daemon-reload
