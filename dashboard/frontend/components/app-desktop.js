@@ -587,16 +587,27 @@
        });
      };
  
+     const onWheel = (e) => {
+       e.preventDefault();
+       sendInput({
+         type: 'wheel',
+         dx: e.deltaX,
+         dy: e.deltaY
+       });
+     };
+ 
      if (canvas) {
        canvas.addEventListener('mousemove', onMouseMove);
        canvas.addEventListener('mousedown', onMouseDown);
        canvas.addEventListener('mouseup', onMouseUp);
+       canvas.addEventListener('wheel', onWheel, { passive: false });
        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
      }
      if (video) {
        video.addEventListener('mousemove', onMouseMove);
        video.addEventListener('mousedown', onMouseDown);
        video.addEventListener('mouseup', onMouseUp);
+       video.addEventListener('wheel', onWheel, { passive: false });
        video.addEventListener('contextmenu', (e) => e.preventDefault());
      }
      
@@ -608,11 +619,13 @@
          canvas.removeEventListener('mousemove', onMouseMove);
          canvas.removeEventListener('mousedown', onMouseDown);
          canvas.removeEventListener('mouseup', onMouseUp);
+         canvas.removeEventListener('wheel', onWheel);
        }
        if (video) {
          video.removeEventListener('mousemove', onMouseMove);
          video.removeEventListener('mousedown', onMouseDown);
          video.removeEventListener('mouseup', onMouseUp);
+         video.removeEventListener('wheel', onWheel);
        }
        window.removeEventListener('keydown', onKeyDown);
        window.removeEventListener('keyup', onKeyUp);

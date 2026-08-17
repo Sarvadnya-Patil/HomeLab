@@ -340,6 +340,10 @@ def init_uinput():
             e.EV_ABS: [
                 (e.ABS_X, abs_x),
                 (e.ABS_Y, abs_y)
+            ],
+            e.EV_REL: [
+                e.REL_WHEEL,
+                e.REL_HWHEEL
             ]
         }
         cap_keyboard = {
@@ -417,6 +421,10 @@ def handle_input_message(msg_str):
                     pyautogui.mouseUp(button=data.get("button", "left"))
                 elif action == "click":
                     pyautogui.click(button=data.get("button", "left"))
+                elif action == "wheel":
+                    dy = int(data.get("dy", 0))
+                    if dy != 0:
+                        pyautogui.scroll(-1 if dy > 0 else 1)
                 elif action == "keydown" and data.get("key"):
                     pyautogui.keyDown(data.get("key"))
                 elif action == "keyup" and data.get("key"):
@@ -438,6 +446,16 @@ def handle_input_message(msg_str):
             if action == "click":
                 ui_mouse.write(e.EV_KEY, btn_code, 0)
                 ui_mouse.syn()
+        elif action == "wheel":
+            dx = int(data.get("dx", 0))
+            dy = int(data.get("dy", 0))
+            if dy != 0:
+                steps = -1 if dy > 0 else 1
+                ui_mouse.write(e.EV_REL, e.REL_WHEEL, steps)
+            if dx != 0:
+                steps = -1 if dx > 0 else 1
+                ui_mouse.write(e.EV_REL, e.REL_HWHEEL, steps)
+            ui_mouse.syn()
         elif action in ["keydown", "keyup"]:
             raw_code = data.get("code") or data.get("key")
             code = KEY_MAP.get(raw_code)
