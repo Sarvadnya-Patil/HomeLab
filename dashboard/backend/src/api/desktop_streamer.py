@@ -61,11 +61,15 @@ def find_xauthority():
 
 def discover_host_display():
     if not sys.platform.startswith("linux"):
-        return None, None
+        return ":0", None, None, None, None
     proc_dir = "/proc" if os.path.exists("/proc") else "/host/proc"
     
     display = None
     xauth = None
+    wayland_display = None
+    xdg_runtime_dir = None
+    user_name = None
+
     if os.path.exists(proc_dir):
         for name in sorted(os.listdir(proc_dir)):
             if not name.isdigit():
@@ -89,8 +93,14 @@ def discover_host_display():
                             display = item.split(b"=", 1)[1].decode("utf-8", errors="ignore")
                         elif item.startswith(b"XAUTHORITY="):
                             xauth = item.split(b"=", 1)[1].decode("utf-8", errors="ignore")
+                        elif item.startswith(b"WAYLAND_DISPLAY="):
+                            wayland_display = item.split(b"=", 1)[1].decode("utf-8", errors="ignore")
+                        elif item.startswith(b"XDG_RUNTIME_DIR="):
+                            xdg_runtime_dir = item.split(b"=", 1)[1].decode("utf-8", errors="ignore")
+                        elif item.startswith(b"USER="):
+                            user_name = item.split(b"=", 1)[1].decode("utf-8", errors="ignore")
                     
-                    if display:
+                    if display or wayland_display:
                         break
             except Exception:
                 continue
@@ -98,7 +108,7 @@ def discover_host_display():
         display = ":0"
     if not xauth or not os.path.exists(xauth):
         xauth = find_xauthority()
-    return display, xauth
+    return display, xauth, wayland_display, xdg_runtime_dir, user_name
 
 def get_host_ip():
     try:
@@ -181,12 +191,16 @@ def initialize_linux_display():
                 sys.stderr.flush()
 
         if not is_working:
-            disp, auth = discover_host_display()
+            disp, auth, w_disp, xdg_dir, u_name = discover_host_display()
             if disp:
                 os.environ["DISPLAY"] = disp
                 if auth:
                     os.environ["XAUTHORITY"] = auth
-                sys.stderr.write(f"[DisplayInit] Auto-discovered host display config: DISPLAY={disp}, XAUTHORITY={auth}\n")
+                if w_disp:
+                    os.environ["WAYLAND_DISPLAY"] = w_disp
+                if xdg_dir:
+                    os.environ["XDG_RUNTIME_DIR"] = xdg_dir
+                sys.stderr.write(f"[DisplayInit] Auto-discovered host display config: DISPLAY={disp}, XAUTHORITY={auth}, WAYLAND={w_disp}\n")
                 sys.stderr.flush()
                 
             display = os.environ.get("DISPLAY")
@@ -337,23 +351,25 @@ class ScreenCaptureTrack(VideoStreamTrack):
             raw_img = None
             capture_err = None
             
-            # Periodically ensure display environment is attached
-            if self.mss_instance is None or reconnect_timer % 30 == 0:
-                disp, auth = discover_host_display()
-                if disp: os.environ["DISPLAY"] = disp
-                if auth: os.environ["XAUTHORITY"] = auth
-                if has_mss and self.mss_instance is None:
-                    try:
-                        self.mss_instance = mss.mss()
-                        use_mss = True
-                    except Exception as e:
-                        capture_err = e
-                        use_mss = False
+            disp, auth, w_disp, xdg_dir, u_name = discover_host_display()
+            if disp: os.environ["DISPLAY"] = disp
+            if auth: os.environ["XAUTHORITY"] = auth
+            if w_disp: os.environ["WAYLAND_DISPLAY"] = w_disp
+            if xdg_dir: os.environ["XDG_RUNTIME_DIR"] = xdg_dir
+
+            # If previous frames were black, disable MSS to force Wayland/X11 direct capture
+            if has_mss and self.mss_instance is None and telemetry.consecutive_black_frames < 3:
+                try:
+                    self.mss_instance = mss.mss()
+                    use_mss = True
+                except Exception as e:
+                    capture_err = e
+                    use_mss = False
             
             reconnect_timer += 1
             engine_name = "MSS" if use_mss else "PIL"
 
-            if use_mss and self.mss_instance:
+            if use_mss and self.mss_instance and telemetry.consecutive_black_frames < 3:
                 try:
                     monitors = self.mss_instance.monitors
                     target_mon = monitors[1] if len(monitors) > 1 else monitors[0]
@@ -387,31 +403,38 @@ class ScreenCaptureTrack(VideoStreamTrack):
             # If black frames detected (common on Wayland / isolated Xwayland), try grim or xwd
             if raw_img is None or mean_val < 1.0:
                 import io, glob
+                grim_env = os.environ.copy()
+                if xdg_dir: grim_env["XDG_RUNTIME_DIR"] = xdg_dir
+                if w_disp: grim_env["WAYLAND_DISPLAY"] = w_disp
+                if disp: grim_env["DISPLAY"] = disp
+                if auth: grim_env["XAUTHORITY"] = auth
+
                 # 1. Try grim (Native Wayland)
                 try:
-                    if not os.environ.get("WAYLAND_DISPLAY"):
-                        w_sockets = glob.glob("/run/user/*/wayland-*")
-                        if w_sockets:
-                            os.environ["WAYLAND_DISPLAY"] = os.path.basename(w_sockets[0])
-                    
-                    grim_proc = subprocess.run(["grim", "-t", "jpeg", "-q", "70", "-"], capture_output=True, timeout=0.2)
+                    cmd = ["runuser", "-u", u_name, "--", "grim", "-t", "jpeg", "-q", "70", "-"] if (u_name and u_name != "root") else ["grim", "-t", "jpeg", "-q", "70", "-"]
+                    grim_proc = subprocess.run(cmd, env=grim_env, capture_output=True, timeout=0.2)
                     if grim_proc.returncode == 0 and len(grim_proc.stdout) > 200:
                         raw_img = Image.open(io.BytesIO(grim_proc.stdout))
                         engine_name = "GRIM"
                         stats = ImageStat.Stat(raw_img)
                         mean_val = sum(stats.mean) / max(len(stats.mean), 1)
+                        use_mss = False
+                        self.mss_instance = None
                 except Exception:
                     pass
 
                 # 2. Try xwd / ImageMagick (X11 direct)
                 if raw_img is None or mean_val < 1.0:
                     try:
-                        xwd_proc = subprocess.run(["import", "-window", "root", "-quality", "70", "jpeg:-"], capture_output=True, timeout=0.2)
+                        cmd = ["runuser", "-u", u_name, "--", "import", "-window", "root", "-quality", "70", "jpeg:-"] if (u_name and u_name != "root") else ["import", "-window", "root", "-quality", "70", "jpeg:-"]
+                        xwd_proc = subprocess.run(cmd, env=grim_env, capture_output=True, timeout=0.2)
                         if xwd_proc.returncode == 0 and len(xwd_proc.stdout) > 200:
                             raw_img = Image.open(io.BytesIO(xwd_proc.stdout))
                             engine_name = "X11_IMPORT"
                             stats = ImageStat.Stat(raw_img)
                             mean_val = sum(stats.mean) / max(len(stats.mean), 1)
+                            use_mss = False
+                            self.mss_instance = None
                     except Exception:
                         pass
 
