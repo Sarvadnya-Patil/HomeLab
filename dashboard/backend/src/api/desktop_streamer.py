@@ -137,15 +137,52 @@ try:
 except ImportError:
     mss = None
 
+import glob
+
+
+def setup_display_env():
+    # 1. Attach to active user runtime directory & Wayland socket
+    for uid in [1000, 1001, 120, 110]:
+        uid_dir = f"/run/user/{uid}"
+        if os.path.exists(uid_dir):
+            os.environ["XDG_RUNTIME_DIR"] = uid_dir
+            for wl in ["wayland-0", "wayland-1"]:
+                if os.path.exists(f"{uid_dir}/{wl}"):
+                    os.environ["WAYLAND_DISPLAY"] = wl
+                    break
+            break
+
+    # 2. Attach to active X11 display socket
+    for sock in ["/tmp/.X11-unix/X0", "/tmp/.X11-unix/X1"]:
+        if os.path.exists(sock):
+            os.environ["DISPLAY"] = ":0" if sock.endswith("X0") else ":1"
+            break
+    if "DISPLAY" not in os.environ:
+        os.environ["DISPLAY"] = ":0"
+
+    # 3. Locate active XAUTHORITY
+    for auth_pattern in [
+        "/home/*/.Xauthority",
+        "/run/user/*/gdm/Xauthority",
+        "/run/user/*/xauth_*",
+        "/var/run/gdm3/auth-for-gdm-*/database"
+    ]:
+        matches = glob.glob(auth_pattern)
+        if matches:
+            os.environ["XAUTHORITY"] = matches[0]
+            break
+
 
 class SafeDisplayGrabber:
     def __init__(self):
         self.sct = None
         self.error_detail = ""
         self.active_engine = "NONE"
+        setup_display_env()
         self._init_mss()
 
     def _init_mss(self):
+        setup_display_env()
         if mss:
             try:
                 self.sct = mss.mss()
@@ -153,7 +190,25 @@ class SafeDisplayGrabber:
                 self.sct = None
 
     def read_frame(self):
-        # 1. Try high-performance shared-memory scanout (mss)
+        setup_display_env()
+
+        # 1. Try Wayland native capture (grim) for active GNOME/Wayland desktop
+        if os.environ.get("WAYLAND_DISPLAY") and os.environ.get("XDG_RUNTIME_DIR"):
+            try:
+                proc = subprocess.run(
+                    ["grim", "-t", "jpeg", "-q", "75", "-"],
+                    capture_output=True,
+                    timeout=0.15
+                )
+                if proc.returncode == 0 and len(proc.stdout) > 500:
+                    img = Image.open(io.BytesIO(proc.stdout))
+                    self.active_engine = "WAYLAND_GRIM"
+                    self.error_detail = ""
+                    return img, None
+            except Exception as e:
+                self.error_detail = str(e)
+
+        # 2. Try shared-memory scanout (mss) for X11 / Xwayland active desktop
         if not self.sct and mss:
             self._init_mss()
 
@@ -170,7 +225,7 @@ class SafeDisplayGrabber:
                 self.error_detail = str(e)
                 self.sct = None
 
-        # 2. Try safe Linux kernel linear framebuffer (/dev/fb0)
+        # 3. Try safe Linux kernel linear framebuffer (/dev/fb0)
         for fb in ["/dev/fb0", "/dev/fb1"]:
             if os.path.exists(fb):
                 try:
@@ -193,7 +248,7 @@ class SafeDisplayGrabber:
                 except Exception as e:
                     self.error_detail = str(e)
 
-        # 3. Try PyAutoGUI safe capture
+        # 4. Try PyAutoGUI safe capture
         if pyautogui:
             try:
                 img = pyautogui.screenshot()
