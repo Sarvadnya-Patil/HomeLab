@@ -643,19 +643,52 @@ export const AppSettings = {
 
   async installDesktopDaemon() {
     const btn = this.container.querySelector('#btn-install-desktop-daemon');
+    const badge = this.container.querySelector('#daemon-status-badge');
     if (btn) {
       btn.textContent = 'INSTALLING SERVICE...';
       btn.disabled = true;
     }
+    if (badge) {
+      badge.textContent = 'INSTALLING HOST PACKAGES...';
+      badge.style.background = '#eab308';
+      badge.style.color = '#000000';
+    }
 
     try {
       const res = await api.post('/api/v1/settings/desktop/install');
-      alert(res.message || 'Host Remote Desktop daemon service installed successfully!');
+      if (badge) {
+        badge.textContent = 'DAEMON ACTIVE (RUNNING)';
+        badge.style.background = '#22c55e';
+        badge.style.color = '#000000';
+      }
       this.loadSettings();
       const apps = await api.get('/api/v1/apps');
       store.set('apps', apps);
+
+      // Auto-poll service state for 5 seconds to guarantee badge sync
+      let attempts = 0;
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        try {
+          const cfg = await api.get('/api/v1/settings/desktop');
+          if (cfg.serviceActive && badge) {
+            badge.textContent = 'DAEMON ACTIVE (RUNNING)';
+            badge.style.background = '#22c55e';
+            badge.style.color = '#000000';
+            clearInterval(pollInterval);
+          }
+        } catch {
+          // ignore
+        }
+        if (attempts > 5) clearInterval(pollInterval);
+      }, 1200);
     } catch (err) {
-      alert(`Failed to install host daemon service: ${err.message}`);
+      if (badge) {
+        badge.textContent = 'INSTALLATION FAILED';
+        badge.style.background = '#ef4444';
+        badge.style.color = '#ffffff';
+      }
+      alert(`Installation error: ${err.message}`);
     } finally {
       if (btn) {
         btn.textContent = 'INSTALL HOST DAEMON';

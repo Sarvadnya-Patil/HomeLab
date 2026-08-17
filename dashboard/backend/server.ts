@@ -30,10 +30,17 @@ if (!fs.existsSync(frontendDir)) {
 
 Logger.info('ServerBoot', `Serving static frontend files from: ${frontendDir}`);
 
-// Serve static frontend files
+// Serve static frontend files with live freshness headers to prevent stale browser caching
 fastify.register(staticPlugin, {
   root: frontendDir,
-  prefix: '/'
+  prefix: '/',
+  setHeaders: (res: any, filePath: string) => {
+    if (filePath.endsWith('.html') || filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
 });
 
 const engine = new CoreEngine(fastify);
