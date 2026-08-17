@@ -429,12 +429,13 @@ WantedBy=multi-user.target
 
           # 3. Install packages via host package manager as root
           if command -v apt-get >/dev/null 2>&1; then
-            echo "[HostInstaller] Ubuntu/Debian host detected. Installing ffmpeg and kernel stream packages..."
+            echo "[HostInstaller] Ubuntu/Debian host detected. Installing ffmpeg..."
             export DEBIAN_FRONTEND=noninteractive
             apt-get update -y
-            apt-get install -y --no-install-recommends ffmpeg python3-pip python3-websockets python3-aiortc python3-pyautogui python3-av python3-evdev python3-pil || true
+            apt-get install -y --no-install-recommends ffmpeg
+            apt-get install -y --no-install-recommends python3-pip python3-evdev python3-pil python3-websockets || true
           elif command -v dnf >/dev/null 2>&1; then
-            echo "[HostInstaller] Fedora/RHEL host detected. Installing packages..."
+            echo "[HostInstaller] Fedora/RHEL host detected. Installing ffmpeg..."
             dnf install -y ffmpeg python3-pip python3-websockets python3-evdev || true
           fi
 
