@@ -159,11 +159,14 @@ class KmsPersistentGrabber:
         cards = [c for c in ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"] if os.path.exists(c)]
         
         filter_candidates = [
+            "hwdownload,format=bgr0,format=yuv420p,scale=1280:720",
+            "hwdownload,format=bgra,format=yuv420p,scale=1280:720",
+            "hwdownload,format=rgb0,format=yuv420p,scale=1280:720",
+            "hwdownload,format=rgba,format=yuv420p,scale=1280:720",
+            "hwdownload,format=nv12,format=yuv420p,scale=1280:720",
             "hwdownload,format=bgr0,scale=1280:720",
-            "hwdownload,scale=1280:720",
             "hwdownload,format=bgra,scale=1280:720",
-            "hwdownload,format=nv12,scale=1280:720",
-            "hwdownload"
+            "hwdownload,format=bgr0"
         ]
 
         for card in cards:
