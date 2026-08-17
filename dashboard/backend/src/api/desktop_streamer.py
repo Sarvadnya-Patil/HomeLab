@@ -198,6 +198,21 @@ def setup_display_env():
                 break
 
 
+try:
+    import pwd
+except ImportError:
+    pwd = None
+
+
+def get_session_user(uid):
+    if pwd:
+        try:
+            return pwd.getpwuid(int(uid)).pw_name
+        except Exception:
+            pass
+    return None
+
+
 class SafeDisplayGrabber:
     def __init__(self):
         self.sct = None
@@ -216,53 +231,59 @@ class SafeDisplayGrabber:
 
     def read_frame(self):
         setup_display_env()
+        target_file = "/dev/shm/homelab_frame.jpg"
 
-        # 1. Try GNOME Shell Native D-Bus Screencast (GNOME 46 Wayland / GDM)
-        if os.environ.get("XDG_RUNTIME_DIR"):
-            dbus_sock = f"{os.environ['XDG_RUNTIME_DIR']}/bus"
-            if os.path.exists(dbus_sock):
-                env = os.environ.copy()
-                env["DBUS_SESSION_BUS_ADDRESS"] = f"unix:path={dbus_sock}"
-                target_file = "/dev/shm/homelab_frame.png"
-                try:
-                    proc = subprocess.run(
-                        [
-                            "gdbus", "call", "--session",
-                            "--dest", "org.gnome.Shell.Screenshot",
-                            "--object-path", "/org/gnome/Shell/Screenshot",
-                            "--method", "org.gnome.Shell.Screenshot.Screenshot",
-                            "false", "false", target_file
-                        ],
-                        env=env,
-                        capture_output=True,
-                        timeout=0.25
-                    )
-                    if proc.returncode == 0 and os.path.exists(target_file):
-                        with open(target_file, "rb") as rf:
-                            img = Image.open(io.BytesIO(rf.read()))
-                            img.load()
-                        self.active_engine = "GNOME_DBUS"
-                        self.error_detail = ""
-                        return img, None
-                except Exception as e:
-                    self.error_detail = str(e)
+        # 1. Try native user-session capture (grim / GNOME D-Bus) as the session user
+        for uid_dir in sorted(glob.glob("/run/user/*"), key=lambda p: 0 if p.endswith("1000") else 1):
+            if os.path.isdir(uid_dir):
+                uid_str = os.path.basename(uid_dir)
+                if uid_str.isdigit():
+                    uid_int = int(uid_str)
+                    uname = get_session_user(uid_int)
+                    if uname:
+                        # Try Wayland grim as session user
+                        wl_sock = os.path.join(uid_dir, "wayland-0")
+                        if os.path.exists(wl_sock):
+                            cmd = [
+                                "runuser", "-u", uname, "--",
+                                "env", f"XDG_RUNTIME_DIR={uid_dir}", "WAYLAND_DISPLAY=wayland-0",
+                                "grim", "-t", "jpeg", "-q", "75", target_file
+                            ]
+                            try:
+                                proc = subprocess.run(cmd, capture_output=True, timeout=0.2)
+                                if proc.returncode == 0 and os.path.exists(target_file) and os.path.getsize(target_file) > 500:
+                                    with open(target_file, "rb") as rf:
+                                        img = Image.open(io.BytesIO(rf.read()))
+                                        img.load()
+                                    self.active_engine = f"WAYLAND_GRIM_{uname}"
+                                    self.error_detail = ""
+                                    return img, None
+                            except Exception as e:
+                                self.error_detail = str(e)
 
-        # 2. Try Wayland native capture (grim)
-        if os.environ.get("WAYLAND_DISPLAY") and os.environ.get("XDG_RUNTIME_DIR"):
-            try:
-                proc = subprocess.run(
-                    ["grim", "-t", "jpeg", "-q", "75", "-"],
-                    env=os.environ,
-                    capture_output=True,
-                    timeout=0.15
-                )
-                if proc.returncode == 0 and len(proc.stdout) > 500:
-                    img = Image.open(io.BytesIO(proc.stdout))
-                    self.active_engine = "WAYLAND_GRIM"
-                    self.error_detail = ""
-                    return img, None
-            except Exception as e:
-                self.error_detail = str(e)
+                        # Try GNOME D-Bus Screencast as session user
+                        dbus_sock = os.path.join(uid_dir, "bus")
+                        if os.path.exists(dbus_sock):
+                            cmd = [
+                                "runuser", "-u", uname, "--",
+                                "env", f"DBUS_SESSION_BUS_ADDRESS=unix:path={dbus_sock}",
+                                "gdbus", "call", "--session",
+                                "--dest", "org.gnome.Shell.Screenshot",
+                                "--object-path", "/org/gnome/Shell/Screenshot",
+                                "--method", "org.gnome.Shell.Screenshot.Screenshot",
+                                "false", "false", target_file
+                            ]
+                            try:
+                                proc = subprocess.run(cmd, capture_output=True, timeout=0.25)
+                                if proc.returncode == 0 and os.path.exists(target_file) and os.path.getsize(target_file) > 500:
+                                    with open(target_file, "rb") as rf:
+                                        img = Image.open(io.BytesIO(rf.read()))
+                                        img.load()
+                                    self.active_engine = f"GNOME_DBUS_{uname}"
+                                    self.error_detail = ""
+                                    return img, None
+                            except Exception as e:
+                                self.error_detail = str(e)
 
         # 3. Try shared-memory scanout (mss) for active X11 / Xwayland desktop
         if not self.sct and mss:
