@@ -39,43 +39,66 @@ try:
 except Exception:
     has_mss = False
 
+def find_xauthority():
+    import glob
+    candidates = [
+        "/run/user/*/gdm/Xauthority",
+        "/run/user/*/.mutter-Xwaylandauth*",
+        "/run/user/*/xauth_*",
+        "/run/user/*/.Xauthority",
+        "/home/*/.Xauthority",
+        "/root/.Xauthority"
+    ]
+    for pattern in candidates:
+        try:
+            matches = glob.glob(pattern)
+            if matches:
+                matches.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+                return matches[0]
+        except Exception:
+            pass
+    return None
+
 def discover_host_display():
     if not sys.platform.startswith("linux"):
         return None, None
     proc_dir = "/proc" if os.path.exists("/proc") else "/host/proc"
-    if not os.path.exists(proc_dir):
-        return ":0", None
     
-    for name in sorted(os.listdir(proc_dir)):
-        if not name.isdigit():
-            continue
-        try:
-            cmd_path = f"{proc_dir}/{name}/cmdline"
-            if not os.path.exists(cmd_path):
+    display = None
+    xauth = None
+    if os.path.exists(proc_dir):
+        for name in sorted(os.listdir(proc_dir)):
+            if not name.isdigit():
                 continue
-            with open(cmd_path, "r", errors="ignore") as f:
-                cmd = f.read().lower()
-            
-            if any(k in cmd for k in ["gnome-shell", "xorg", "xwayland", "kwin", "gnome-session", "lightdm", "plasma", "wayland"]):
-                env_path = f"{proc_dir}/{name}/environ"
-                if not os.path.exists(env_path):
+            try:
+                cmd_path = f"{proc_dir}/{name}/cmdline"
+                if not os.path.exists(cmd_path):
                     continue
-                with open(env_path, "rb") as env_f:
-                    data = env_f.read().split(b"\x00")
+                with open(cmd_path, "r", errors="ignore") as f:
+                    cmd = f.read().lower()
                 
-                display = None
-                xauth = None
-                for item in data:
-                    if item.startswith(b"DISPLAY="):
-                        display = item.split(b"=", 1)[1].decode("utf-8", errors="ignore")
-                    elif item.startswith(b"XAUTHORITY="):
-                        xauth = item.split(b"=", 1)[1].decode("utf-8", errors="ignore")
-                
-                if display:
-                    return display, xauth
-        except Exception:
-            continue
-    return ":0", None
+                if any(k in cmd for k in ["gnome-shell", "xorg", "xwayland", "kwin", "gnome-session", "lightdm", "plasma", "wayland"]):
+                    env_path = f"{proc_dir}/{name}/environ"
+                    if not os.path.exists(env_path):
+                        continue
+                    with open(env_path, "rb") as env_f:
+                        data = env_f.read().split(b"\x00")
+                    
+                    for item in data:
+                        if item.startswith(b"DISPLAY="):
+                            display = item.split(b"=", 1)[1].decode("utf-8", errors="ignore")
+                        elif item.startswith(b"XAUTHORITY="):
+                            xauth = item.split(b"=", 1)[1].decode("utf-8", errors="ignore")
+                    
+                    if display:
+                        break
+            except Exception:
+                continue
+    if not display:
+        display = ":0"
+    if not xauth or not os.path.exists(xauth):
+        xauth = find_xauthority()
+    return display, xauth
 
 def get_host_ip():
     try:
@@ -307,18 +330,27 @@ class ScreenCaptureTrack(VideoStreamTrack):
 
     def _capture_worker(self):
         use_mss = False
-        if has_mss:
-            try:
-                self.mss_instance = mss.mss()
-                use_mss = True
-            except Exception as e:
-                telemetry.error_detail = f"MSS init failed: {str(e)}"
-                use_mss = False
+        reconnect_timer = 0
 
         while self.running:
             self.captured_count += 1
             raw_img = None
             capture_err = None
+            
+            # Periodically ensure display environment is attached
+            if self.mss_instance is None or reconnect_timer % 30 == 0:
+                disp, auth = discover_host_display()
+                if disp: os.environ["DISPLAY"] = disp
+                if auth: os.environ["XAUTHORITY"] = auth
+                if has_mss and self.mss_instance is None:
+                    try:
+                        self.mss_instance = mss.mss()
+                        use_mss = True
+                    except Exception as e:
+                        capture_err = e
+                        use_mss = False
+            
+            reconnect_timer += 1
             engine_name = "MSS" if use_mss else "PIL"
 
             if use_mss and self.mss_instance:
@@ -329,6 +361,7 @@ class ScreenCaptureTrack(VideoStreamTrack):
                     raw_img = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
                 except Exception as e:
                     capture_err = e
+                    self.mss_instance = None
                     try:
                         raw_img = ImageGrab.grab()
                         engine_name = "PIL"
