@@ -458,11 +458,11 @@ fi
 if command -v apt-get >/dev/null 2>&1; then
   echo "[HostInstaller] Ubuntu/Debian host detected. Installing dependencies..."
   export DEBIAN_FRONTEND=noninteractive
-  apt-get install -y --no-install-recommends ffmpeg libglib2.0-bin pkg-config libdrm-dev meson ninja-build gcc || true
+  apt-get install -y --no-install-recommends ffmpeg libglib2.0-bin pkg-config libdrm-dev meson ninja-build gcc grim || true
   apt-get install -y --no-install-recommends python3-pip python3-evdev python3-pil python3-websockets || true
 elif command -v dnf >/dev/null 2>&1; then
   echo "[HostInstaller] Fedora/RHEL host detected. Installing dependencies..."
-  dnf install -y ffmpeg python3-pip python3-websockets python3-evdev pkgconfig libdrm-devel meson ninja-build gcc || true
+  dnf install -y ffmpeg python3-pip python3-websockets python3-evdev pkgconfig libdrm-devel meson ninja-build gcc grim || true
 fi
 
 # 3.5 Compile vendored libdrmtap (by fxd0h) for direct hardware DRM scanout

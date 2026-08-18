@@ -499,13 +499,14 @@ class ScreenCaptureTrack(VideoStreamTrack):
                 d.text((80, 140), f"Status: {telemetry.error_detail}", fill=(156, 163, 175))
                 self.latest_frame = diag_img
 
-            if self.latest_frame is not None:
+            is_webrtc_active = bool(pc and getattr(pc, "iceConnectionState", "") in ("connected", "completed"))
+            if not is_webrtc_active and self.latest_frame is not None and active_ws and main_loop:
                 try:
                     buf = io.BytesIO()
                     thumb = self.latest_frame
                     if thumb.size[0] > 1280 or thumb.size[1] > 720:
                         thumb = thumb.resize((1280, 720), Image.Resampling.BILINEAR)
-                    thumb.save(buf, format="JPEG", quality=65)
+                    thumb.save(buf, format="JPEG", quality=60)
                     b64_frame = base64.b64encode(buf.getvalue()).decode("utf-8")
 
                     frame_pkt = json.dumps({
@@ -515,12 +516,11 @@ class ScreenCaptureTrack(VideoStreamTrack):
                         "h": thumb.size[1],
                         "seq": self.captured_count
                     })
-                    if active_ws and main_loop:
-                        asyncio.run_coroutine_threadsafe(active_ws.send(frame_pkt), main_loop)
+                    asyncio.run_coroutine_threadsafe(active_ws.send(frame_pkt), main_loop)
                 except Exception:
                     pass
 
-            time.sleep(0.033)
+            time.sleep(0.005)
 
     async def recv(self):
         pts, time_base = await self.next_timestamp()
