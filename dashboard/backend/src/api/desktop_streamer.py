@@ -284,6 +284,9 @@ class SafeDisplayGrabber:
                     self._drmtap_lib.drmtap_open.argtypes = [ctypes.c_void_p]
                     self._drmtap_lib.drmtap_grab_mapped.restype = ctypes.c_int
                     self._drmtap_lib.drmtap_grab_mapped.argtypes = [ctypes.c_void_p, ctypes.POINTER(DrmtapFrameInfo)]
+                    if hasattr(self._drmtap_lib, "drmtap_grab_mapped_fast"):
+                        self._drmtap_lib.drmtap_grab_mapped_fast.restype = ctypes.c_int
+                        self._drmtap_lib.drmtap_grab_mapped_fast.argtypes = [ctypes.c_void_p, ctypes.POINTER(DrmtapFrameInfo)]
                     self._drmtap_lib.drmtap_frame_release.restype = None
                     self._drmtap_lib.drmtap_frame_release.argtypes = [ctypes.c_void_p, ctypes.POINTER(DrmtapFrameInfo)]
                     self._drmtap_lib.drmtap_close.restype = None
@@ -302,7 +305,11 @@ class SafeDisplayGrabber:
         if self._drmtap_lib and self._drmtap_ctx:
             try:
                 frame = DrmtapFrameInfo()
-                ret = self._drmtap_lib.drmtap_grab_mapped(self._drmtap_ctx, ctypes.byref(frame))
+                if hasattr(self._drmtap_lib, "drmtap_grab_mapped_fast"):
+                    ret = self._drmtap_lib.drmtap_grab_mapped_fast(self._drmtap_ctx, ctypes.byref(frame))
+                else:
+                    ret = self._drmtap_lib.drmtap_grab_mapped(self._drmtap_ctx, ctypes.byref(frame))
+
                 if ret == 0 and frame.data and frame.width > 0 and frame.height > 0:
                     raw_bytes = ctypes.string_at(frame.data, frame.height * frame.stride)
                     # DRM/KMS scanouts are 32-bit XRGB8888 stored in little-endian order (BGRX bytes)
@@ -310,7 +317,9 @@ class SafeDisplayGrabber:
                         img = Image.frombytes("RGB", (frame.width, frame.height), raw_bytes, "raw", "BGRX", frame.stride)
                     else:
                         img = Image.frombytes("RGB", (frame.width, frame.height), raw_bytes, "raw", "RGBX", frame.stride)
-                    self._drmtap_lib.drmtap_frame_release(self._drmtap_ctx, ctypes.byref(frame))
+                    
+                    if not hasattr(self._drmtap_lib, "drmtap_grab_mapped_fast"):
+                        self._drmtap_lib.drmtap_frame_release(self._drmtap_ctx, ctypes.byref(frame))
                     return img, "LIBDRMTAP"
             except Exception as e:
                 self.error_detail = f"libdrmtap: {e}"

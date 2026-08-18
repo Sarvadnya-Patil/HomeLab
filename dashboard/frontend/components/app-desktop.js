@@ -215,6 +215,7 @@
          };
  
          this.pc.ontrack = (event) => {
+           const canvas = this.container?.querySelector('#desktop-canvas');
            if (video) {
              if (event.streams && event.streams[0]) {
                video.srcObject = event.streams[0];
@@ -222,6 +223,8 @@
                video.srcObject = new MediaStream([event.track]);
              }
              
+             video.style.display = 'block';
+             if (canvas) canvas.style.display = 'none';
              video.play().catch((e) => console.warn('Video auto-play warning:', e));
              
              if (setupView) setupView.style.display = 'none';
@@ -282,7 +285,10 @@
              const video = this.container.querySelector('#desktop-video');
              const setupView = this.container.querySelector('#desktop-setup-view');
              const streamView = this.container.querySelector('#desktop-stream-view');
-             if (canvas && payload.data) {
+             
+             // Only draw to canvas if WebRTC video is NOT actively streaming
+             const isWebRTCPlaying = video && video.srcObject && video.readyState >= 2 && !video.paused;
+             if (!isWebRTCPlaying && canvas && payload.data) {
                const img = new Image();
                img.onload = () => {
                  canvas.width = img.width;
