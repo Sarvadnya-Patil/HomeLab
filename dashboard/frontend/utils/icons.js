@@ -138,7 +138,7 @@ const KNOWN_CDN_LOGOS = new Set([
   'prometheus', 'grafana', 'unifi', 'wireguard', 'tailscale', 'syncthing',
   'photoprism', 'immich', 'navidrome', 'audiobookshelf', 'vaultwarden', 'adguard-home',
   'caddy', 'traefik', 'watchtower', 'deconz', 'homebridge', 'scrypted', 'frigate',
-  'node-red', 'esphome', 'mosquitto', 'nginx-proxy-manager', 'dozzle', 'glances',
+  'n8n', 'node-red', 'esphome', 'mosquitto', 'nginx-proxy-manager', 'dozzle', 'glances',
   'tautulli', 'overseerr', 'jellyseerr', 'nzbget', 'sabnzbd', 'deluge', 'ruktorrent',
   'authelia', 'appwrite', 'ghost', 'gitea', 'grafana', 'ha-bridge', 'heimdall', 'homer',
   'invidious', 'kavita', 'komga', 'matrix', 'mealie', 'paperless-ngx', 'piwigo',
