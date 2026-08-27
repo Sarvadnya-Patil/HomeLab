@@ -191,6 +191,7 @@ def _cleanup_vaapi_processes():
 def _vaapi_ffmpeg_cmd(vaapi_device, width, height, bitrate):
     return [
         get_ffmpeg_bin(), "-hide_banner", "-loglevel", "error",
+        "-fflags", "nobuffer",
         "-vaapi_device", vaapi_device,
         "-f", "rawvideo", "-pixel_format", "bgr24",
         "-video_size", f"{width}x{height}", "-framerate", "30",
@@ -199,6 +200,12 @@ def _vaapi_ffmpeg_cmd(vaapi_device, width, height, bitrate):
         "-c:v", "h264_vaapi",
         "-b:v", str(bitrate),
         "-bf", "0",
+        # ffmpeg's output AVIOContext buffers writes (~32KB) before actually
+        # flushing to the pipe by default -- fine for a file, but it queues
+        # multiple frames of encoded data before our reader thread ever sees
+        # them when piping in real time. -avioflags direct forces every
+        # write straight through immediately.
+        "-avioflags", "direct",
         # Closed, fixed-interval GOP: a keyframe every ~1s regardless of
         # requests. There is no live way to signal an immediate forced
         # keyframe into an already-running raw-pipe ffmpeg process, so this
