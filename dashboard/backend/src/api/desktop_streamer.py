@@ -21,6 +21,15 @@ from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, R
 from av import VideoFrame
 from PIL import Image, ImageDraw, ImageStat
 
+# aiortc's H.264 encoder defaults to a bitrate tuned for webcam-style video, far too
+# low for a full desktop capture: dense UI text and sharp gradients get crushed into
+# blocky, discolored macroblocks at that rate. Raise the ceiling before any encoder
+# context is created so screen content stays legible.
+import aiortc.codecs.h264
+aiortc.codecs.h264.DEFAULT_BITRATE = 15_000_000
+aiortc.codecs.h264.MIN_BITRATE = 5_000_000
+aiortc.codecs.h264.MAX_BITRATE = 45_000_000
+
 try:
     from evdev import UInput, AbsInfo, ecodes as e
 except ImportError:
