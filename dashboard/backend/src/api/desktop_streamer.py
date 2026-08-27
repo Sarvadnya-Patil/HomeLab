@@ -328,8 +328,15 @@ class SafeDisplayGrabber:
                     byte_len = int(frame.height * frame.stride)
                     if 0 < byte_len < 64 * 1024 * 1024:
                         raw_bytes = ctypes.string_at(frame.data, byte_len)
-                        # DRM/KMS scanouts are 32-bit XRGB8888 stored in little-endian order (BGRX bytes)
-                        if frame.format in (0x34325258, 0x34325241, 0x34324241, 0):
+                        # XRGB8888/ARGB8888 ('XR24'/'AR24') store bytes as B,G,R,X in little-endian
+                        # memory order, so they decode as PIL's "BGRX". ABGR8888 ('AB24') is NOT the
+                        # same layout despite the similar name -- its component order is A,B,G,R
+                        # (MSB to LSB), which is R,G,B,A in memory, i.e. "RGBX". libdrmtap's own
+                        # drmtap_convert_format() draws this same distinction (see
+                        # convert_abgr_to_argb in pixel_convert.c); grouping AB24 with XR24/AR24
+                        # here swapped the red and blue channels on any GPU/compositor whose primary
+                        # plane scans out in ABGR8888.
+                        if frame.format in (0x34325258, 0x34325241, 0):
                             img = Image.frombytes("RGB", (frame.width, frame.height), raw_bytes, "raw", "BGRX", frame.stride)
                         else:
                             img = Image.frombytes("RGB", (frame.width, frame.height), raw_bytes, "raw", "RGBX", frame.stride)

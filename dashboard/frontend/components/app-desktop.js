@@ -15,6 +15,8 @@
    },
    clientStats: {
      packetsReceived: 0,
+     packetsLost: 0,
+     pliCount: 0,
      bytesReceived: 0,
      framesDecoded: 0,
      framesDropped: 0,
@@ -114,6 +116,10 @@
                <tr>
                  <td style="color: #94a3b8; padding: 2px 0;">Decode FPS / Dropped:</td>
                  <td style="text-align: right;" id="hud-rtc-decode">0 FPS (0 dropped / 0ms jit)</td>
+               </tr>
+               <tr>
+                 <td style="color: #94a3b8; padding: 2px 0;">Packet Loss / PLI Requests:</td>
+                 <td style="text-align: right;" id="hud-rtc-loss">0 lost / 0 PLI</td>
                </tr>
                <tr>
                  <td style="color: #94a3b8; padding: 2px 0;">4. Video Element Size:</td>
@@ -381,6 +387,8 @@
            const rtc = this.clientStats;
            
            rtc.packetsReceived = activeVideoReport.packetsReceived || 0;
+           rtc.packetsLost = activeVideoReport.packetsLost || 0;
+           rtc.pliCount = activeVideoReport.pliCount || 0;
            rtc.bytesReceived = activeVideoReport.bytesReceived || 0;
            rtc.framesDecoded = activeVideoReport.framesDecoded || 0;
            rtc.framesDropped = activeVideoReport.framesDropped || 0;
@@ -436,7 +444,13 @@
        rtc.pipelineDetail = `Daemon encoded ${enc.frames_encoded} frames, but browser received 0 packets. Check UDP routes.`;
        return;
      }
- 
+
+     if (rtc.packetsReceived > 0 && (rtc.packetsLost > 0 || rtc.pliCount > 0)) {
+       rtc.pipelineState = 'STATE D (PACKET LOSS / VISUAL CORRUPTION)';
+       rtc.pipelineDetail = `${rtc.packetsLost} packets lost and ${rtc.pliCount} keyframe recovery requests since connecting -- expect blocky or discolored macroblocks until loss stops.`;
+       return;
+     }
+
      if (rtc.packetsReceived > 0 && rtc.framesDecoded === 0) {
        rtc.pipelineState = 'STATE E (DECODER STALL)';
        rtc.pipelineDetail = `Browser received ${rtc.packetsReceived} packets, but hardware decoder decoded 0 frames.`;
@@ -506,7 +520,13 @@
      if (rtcDecodeEl) {
        rtcDecodeEl.textContent = `${rtc.decodeFps} FPS (${rtc.framesDropped} dropped / ${rtc.jitter}ms jit)`;
      }
- 
+
+     const rtcLossEl = this.container.querySelector('#hud-rtc-loss');
+     if (rtcLossEl) {
+       rtcLossEl.textContent = `${rtc.packetsLost} lost / ${rtc.pliCount} PLI`;
+       rtcLossEl.style.color = (rtc.packetsLost > 0 || rtc.pliCount > 0) ? '#f87171' : '#4ade80';
+     }
+
      const vidDimEl = this.container.querySelector('#hud-video-dim');
      if (vidDimEl && video) {
        vidDimEl.textContent = `${video.videoWidth}x${video.videoHeight} (Ready: ${video.readyState}, ${video.paused ? 'Paused' : 'Playing'})`;
