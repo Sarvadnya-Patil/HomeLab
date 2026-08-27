@@ -199,6 +199,13 @@ def _vaapi_ffmpeg_cmd(vaapi_device, width, height, bitrate):
         "-c:v", "h264_vaapi",
         "-b:v", str(bitrate),
         "-bf", "0",
+        # Closed, fixed-interval GOP: a keyframe every ~1s regardless of
+        # requests. There is no live way to signal an immediate forced
+        # keyframe into an already-running raw-pipe ffmpeg process, so this
+        # is the recovery mechanism for loss/PLI instead of restarting the
+        # process (see _encode_frame -- a restart burst turned out to make
+        # loss-driven corruption worse, not better).
+        "-g", "30",
         "-f", "h264", "pipe:1"
     ]
 
@@ -347,18 +354,27 @@ class VAAPIH264Encoder(H264Encoder):
         try:
             size = (frame.width, frame.height)
             now = time.time()
+            # Restarting the process is NOT used for force_keyframe anymore --
+            # that was the actual bug: a restart burst (full-size IDR sent all
+            # at once, right after a real stall while ffmpeg re-inits the
+            # VAAPI device) landing exactly when the connection was already
+            # losing packets made the corruption worse, not better, and the
+            # restart stall itself broke playback continuity. Recovery from
+            # loss/PLI is handled by the fixed 1s GOP in _vaapi_ffmpeg_cmd
+            # instead, which needs no live signal into the running process.
+            #
+            # Only a genuine resolution change forces a restart here. A large,
+            # SUSTAINED bitrate shift (REMB reporting real, lasting congestion
+            # or headroom) still eventually gets one too, but on a long
+            # cooldown -- frequent enough to honor real congestion signals
+            # over time, far too infrequent to thrash the pipeline the way
+            # force_keyframe was.
             bitrate_shifted = (
                 self._proc_bitrate is not None
-                and abs(self.target_bitrate - self._proc_bitrate) / self._proc_bitrate > 0.3
-                and (now - self._last_restart) > 3.0
+                and abs(self.target_bitrate - self._proc_bitrate) / self._proc_bitrate > 0.4
+                and (now - self._last_restart) > 20.0
             )
-            # A freshly started process always opens with a real IDR frame,
-            # which is the simplest reliable way to guarantee a keyframe on
-            # request (PLI recovery, a resolution change, or REMB moving the
-            # target bitrate) without a live control channel into a running
-            # ffmpeg process. The 3s cooldown on bitrate-only restarts keeps
-            # REMB's normal small fluctuations from thrashing the encoder.
-            if self._proc is None or size != self._proc_size or force_keyframe or bitrate_shifted:
+            if self._proc is None or size != self._proc_size or bitrate_shifted:
                 self._start_proc(*size)
                 self._last_restart = now
 
