@@ -17,6 +17,10 @@
      packetsReceived: 0,
      packetsLost: 0,
      pliCount: 0,
+     recentPacketsLost: 0,
+     recentPliCount: 0,
+     prevPacketsLost: 0,
+     prevPliCount: 0,
      bytesReceived: 0,
      framesDecoded: 0,
      framesDropped: 0,
@@ -393,6 +397,18 @@
            rtc.packetsReceived = activeVideoReport.packetsReceived || 0;
            rtc.packetsLost = activeVideoReport.packetsLost || 0;
            rtc.pliCount = activeVideoReport.pliCount || 0;
+           // packetsLost/pliCount from getStats() are cumulative since the
+           // connection started and never go back down, so a single early
+           // loss event (near-guaranteed during ICE negotiation on most
+           // connections) would otherwise permanently lock the pipeline out
+           // of STATE OK for the rest of the session. Track the per-interval
+           // delta instead so a one-time hiccup doesn't wedge isPlaying
+           // (and therefore the daemon's JPEG fallback decision) into
+           // "not playing" forever once loss actually stops.
+           rtc.recentPacketsLost = Math.max(0, rtc.packetsLost - rtc.prevPacketsLost);
+           rtc.recentPliCount = Math.max(0, rtc.pliCount - rtc.prevPliCount);
+           rtc.prevPacketsLost = rtc.packetsLost;
+           rtc.prevPliCount = rtc.pliCount;
            rtc.bytesReceived = activeVideoReport.bytesReceived || 0;
            rtc.framesDecoded = activeVideoReport.framesDecoded || 0;
            rtc.framesDropped = activeVideoReport.framesDropped || 0;
@@ -449,9 +465,9 @@
        return;
      }
 
-     if (rtc.packetsReceived > 0 && (rtc.packetsLost > 0 || rtc.pliCount > 0)) {
+     if (rtc.packetsReceived > 0 && (rtc.recentPacketsLost > 0 || rtc.recentPliCount > 0)) {
        rtc.pipelineState = 'STATE D (PACKET LOSS / VISUAL CORRUPTION)';
-       rtc.pipelineDetail = `${rtc.packetsLost} packets lost and ${rtc.pliCount} keyframe recovery requests since connecting -- expect blocky or discolored macroblocks until loss stops.`;
+       rtc.pipelineDetail = `${rtc.recentPacketsLost} packets lost and ${rtc.recentPliCount} keyframe recovery requests in the last second (${rtc.packetsLost} lost total since connecting) -- expect blocky or discolored macroblocks until loss stops.`;
        return;
      }
 
@@ -534,8 +550,8 @@
 
      const rtcLossEl = this.container.querySelector('#hud-rtc-loss');
      if (rtcLossEl) {
-       rtcLossEl.textContent = `${rtc.packetsLost} lost / ${rtc.pliCount} PLI`;
-       rtcLossEl.style.color = (rtc.packetsLost > 0 || rtc.pliCount > 0) ? '#f87171' : '#4ade80';
+       rtcLossEl.textContent = `${rtc.packetsLost} lost / ${rtc.pliCount} PLI total (${rtc.recentPacketsLost}/${rtc.recentPliCount} last 1s)`;
+       rtcLossEl.style.color = (rtc.recentPacketsLost > 0 || rtc.recentPliCount > 0) ? '#f87171' : '#4ade80';
      }
 
      const vidDimEl = this.container.querySelector('#hud-video-dim');
