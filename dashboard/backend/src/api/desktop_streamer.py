@@ -191,7 +191,6 @@ def _cleanup_vaapi_processes():
 def _vaapi_ffmpeg_cmd(vaapi_device, width, height, bitrate):
     return [
         get_ffmpeg_bin(), "-hide_banner", "-loglevel", "error",
-        "-fflags", "nobuffer",
         "-vaapi_device", vaapi_device,
         "-f", "rawvideo", "-pixel_format", "bgr24",
         "-video_size", f"{width}x{height}", "-framerate", "30",
