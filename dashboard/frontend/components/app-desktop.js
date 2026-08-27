@@ -398,6 +398,15 @@
            this.classifyPipelineHealth(activeVideoReport);
            this.updateDiagnosticsUI();
          }
+
+         // Tell the daemon whether WebRTC video is actually decoding, so it knows
+         // whether it's safe to stop the JPEG/WebSocket fallback stream. ICE being
+         // "connected" only proves connectivity negotiated, not that frames are
+         // flowing, so the daemon relies on this client-side confirmation instead.
+         const isPlaying = this.clientStats.pipelineState.startsWith('STATE OK');
+         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+           this.ws.send(JSON.stringify({ type: 'playback_status', playing: isPlaying }));
+         }
        } catch (err) {
          console.warn('Stats collector error:', err);
        }

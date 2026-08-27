@@ -506,8 +506,11 @@ class ScreenCaptureTrack(VideoStreamTrack):
                 d.text((80, 140), f"Status: {telemetry.error_detail}", fill=(156, 163, 175))
                 self.latest_frame = diag_img
 
-            is_webrtc_active = bool(pc and getattr(pc, "iceConnectionState", "") in ("connected", "completed"))
-            if not is_webrtc_active and self.latest_frame is not None and active_ws and main_loop:
+            webrtc_confirmed_playing = (
+                client_confirmed_playing
+                and (time.time() - client_confirmed_playing_at) < PLAYBACK_CONFIRMATION_TIMEOUT
+            )
+            if not webrtc_confirmed_playing and self.latest_frame is not None and active_ws and main_loop:
                 try:
                     buf = io.BytesIO()
                     thumb = self.latest_frame
@@ -759,6 +762,16 @@ data_channel_holder = {"channel": None}
 active_ws = None
 main_loop = None
 
+# Client-reported confirmation that it is actually decoding and rendering
+# WebRTC video frames (as opposed to merely having negotiated an ICE
+# connection, which says nothing about whether media is flowing). The
+# JPEG-over-WebSocket fallback stays live until this is confirmed, and
+# resumes automatically if the confirmation goes stale, so a client that
+# never receives real frames is never left staring at a frozen frame.
+client_confirmed_playing = False
+client_confirmed_playing_at = 0.0
+PLAYBACK_CONFIRMATION_TIMEOUT = 2.0
+
 
 async def telemetry_broadcaster(data_channel_holder):
     while True:
@@ -780,8 +793,16 @@ async def telemetry_broadcaster(data_channel_holder):
                 pass
 
 
+def handle_playback_status(payload):
+    global client_confirmed_playing, client_confirmed_playing_at
+    client_confirmed_playing = bool(payload.get("playing"))
+    client_confirmed_playing_at = time.time()
+
+
 def recreate_peer_connection():
-    global pc, video_track
+    global pc, video_track, client_confirmed_playing, client_confirmed_playing_at
+    client_confirmed_playing = False
+    client_confirmed_playing_at = 0.0
     if pc:
         try:
             asyncio.get_event_loop().create_task(pc.close())
@@ -874,6 +895,8 @@ async def daemon_signaling_loop(daemon_token):
                         elif payload.get("type") == "close":
                             if pc:
                                 await pc.close()
+                        elif payload.get("type") == "playback_status":
+                            handle_playback_status(payload)
                         else:
                             handle_input_message(message)
                     except Exception as e:
@@ -940,6 +963,8 @@ async def main():
                     sys.stdout.flush()
                 elif payload.get("type") == "close":
                     break
+                elif payload.get("type") == "playback_status":
+                    handle_playback_status(payload)
                 else:
                     handle_input_message(line)
             except Exception as e:
