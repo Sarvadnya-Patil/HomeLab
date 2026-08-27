@@ -21,14 +21,23 @@ from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, R
 from av import VideoFrame
 from PIL import Image, ImageDraw, ImageStat
 
-# aiortc's H.264 encoder defaults to a bitrate tuned for webcam-style video, far too
-# low for a full desktop capture: dense UI text and sharp gradients get crushed into
-# blocky, discolored macroblocks at that rate. Raise the ceiling before any encoder
-# context is created so screen content stays legible.
+# aiortc's H.264 encoder defaults to a bitrate ceiling tuned for webcam-style video,
+# far too low for a full desktop capture: dense UI text and sharp gradients get
+# crushed into blocky macroblocks at that rate. Raise the ceiling so quality can climb
+# on networks that can sustain it. MIN_BITRATE must stay low, though: the encoder's
+# target_bitrate is driven live by REMB feedback from the browser's own congestion
+# control (see RTCRtpSender._handle_rtcp_packet), and every assignment gets clamped to
+# max(MIN_BITRATE, min(bitrate, MAX_BITRATE)). A high floor here would override the
+# browser telling the encoder to send less on a constrained link, forcing it to keep
+# overshooting the network's real capacity -- the encoder can't back off, packets get
+# lost, and the browser's decoder paints the undecodable macroblocks as a flat fill
+# color instead of real pixels. Keeping MIN_BITRATE at aiortc's own conservative
+# default preserves that adaptive behavior for exactly the restricted-network case the
+# JPEG/WebSocket fallback below already exists to handle.
 import aiortc.codecs.h264
-aiortc.codecs.h264.DEFAULT_BITRATE = 15_000_000
-aiortc.codecs.h264.MIN_BITRATE = 5_000_000
-aiortc.codecs.h264.MAX_BITRATE = 45_000_000
+aiortc.codecs.h264.DEFAULT_BITRATE = 2_000_000
+aiortc.codecs.h264.MIN_BITRATE = 500_000
+aiortc.codecs.h264.MAX_BITRATE = 20_000_000
 
 try:
     from evdev import UInput, AbsInfo, ecodes as e
