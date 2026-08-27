@@ -18,6 +18,7 @@ except ImportError:
     websockets = None
 
 from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, RTCConfiguration, RTCIceServer
+from aiortc.codecs.h264 import H264Encoder
 from av import VideoFrame
 from PIL import Image, ImageDraw, ImageStat
 
@@ -67,6 +68,7 @@ class TelemetryCollector:
         self.error_detail = ""
 
         self.encoder_codec = "H264"
+        self.encoder_hardware = "PROBING"
         self.encoder_fps = 0.0
         self.frames_encoded = 0
         self.bytes_encoded = 0
@@ -131,6 +133,7 @@ class TelemetryCollector:
             },
             "encoder": {
                 "codec": self.encoder_codec,
+                "hardware": self.encoder_hardware,
                 "fps": self.encoder_fps,
                 "frames_encoded": self.frames_encoded,
                 "bytes_encoded": self.bytes_encoded
@@ -151,6 +154,250 @@ def get_ffmpeg_bin():
         if os.path.exists(p) and os.access(p, os.X_OK):
             return p
     return shutil.which("ffmpeg") or "ffmpeg"
+
+
+# ---------------------------------------------------------------------------
+# Optional hardware-accelerated H.264 encoding (Intel/AMD VAAPI)
+# ---------------------------------------------------------------------------
+# aiortc's built-in encoder always runs software libx264, which is heavy on
+# modest hosts: screen capture, the JPEG fallback, and real-time software H.264
+# encoding running concurrently can pin a low-power CPU at sustained high
+# usage. Where the host has a VAAPI-capable GPU (most Intel iGPUs, and AMD via
+# Mesa radeonsi), this offloads the actual compression work onto that
+# fixed-function hardware block instead.
+#
+# This is entirely opportunistic and additive: a real end-to-end hardware
+# encode is probed once at startup, and the stock software path runs
+# completely unchanged if that probe fails for ANY reason (no VAAPI device,
+# driver lacks encode support, ffmpeg wasn't built with --enable-vaapi, etc).
+# Hosts without this hardware -- AMD without Mesa, Nvidia, ARM, VMs, anything
+# -- see zero behavior change; this project needs to run on all of them.
+VAAPI_DEVICE_CANDIDATES = ["/dev/dri/renderD128", "/dev/dri/renderD129"]
+
+_active_vaapi_processes = []
+
+
+def _cleanup_vaapi_processes():
+    while _active_vaapi_processes:
+        proc = _active_vaapi_processes.pop()
+        try:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait(timeout=2)
+        except Exception:
+            pass
+
+
+def _vaapi_ffmpeg_cmd(vaapi_device, width, height, bitrate):
+    return [
+        get_ffmpeg_bin(), "-hide_banner", "-loglevel", "error",
+        "-vaapi_device", vaapi_device,
+        "-f", "rawvideo", "-pixel_format", "bgr24",
+        "-video_size", f"{width}x{height}", "-framerate", "30",
+        "-i", "pipe:0",
+        "-vf", "format=nv12,hwupload",
+        "-c:v", "h264_vaapi",
+        "-b:v", str(bitrate),
+        "-bf", "0",
+        "-f", "h264", "pipe:1"
+    ]
+
+
+def probe_vaapi_h264_encode():
+    """Run a tiny real end-to-end hardware encode to confirm the whole chain
+    (device node, kernel driver, ffmpeg's own VAAPI build) actually works,
+    rather than just checking that files exist. Returns the working device
+    path, or None if nothing usable was found."""
+    for device in VAAPI_DEVICE_CANDIDATES:
+        if not os.path.exists(device):
+            continue
+        try:
+            width, height = 64, 64
+            cmd = _vaapi_ffmpeg_cmd(device, width, height, 500_000)
+            proc = subprocess.Popen(
+                cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            blank_frame = b"\x00" * (width * height * 3)
+            out, err = proc.communicate(input=blank_frame, timeout=5)
+            if proc.returncode == 0 and len(out) > 0:
+                sys.stderr.write(f"[VAAPI] Hardware H.264 encode confirmed on {device}.\n")
+                sys.stderr.flush()
+                return device
+            sys.stderr.write(
+                f"[VAAPI] Probe on {device} failed (rc={proc.returncode}): "
+                f"{err.decode(errors='replace')[:200]}\n"
+            )
+            sys.stderr.flush()
+        except Exception as err:
+            sys.stderr.write(f"[VAAPI] Probe on {device} raised: {err}\n")
+            sys.stderr.flush()
+    return None
+
+
+def _frame_to_packed_bgr24(bgr_frame):
+    # planes[0].line_size can include row-alignment padding added by
+    # swscale during reformat(); a naive bytes(plane) would hand ffmpeg's
+    # rawvideo demuxer a stride it doesn't know about, producing exactly the
+    # kind of sheared/torn image this hardware path exists to avoid.
+    plane = bgr_frame.planes[0]
+    width_bytes = bgr_frame.width * 3
+    raw = bytes(plane)
+    if plane.line_size == width_bytes:
+        return raw
+    return b"".join(
+        raw[y * plane.line_size: y * plane.line_size + width_bytes]
+        for y in range(bgr_frame.height)
+    )
+
+
+class VAAPIH264Encoder(H264Encoder):
+    """
+    Hardware-accelerated H264Encoder subclass. Overrides ONLY _encode_frame --
+    the raw-bitstream production step -- and inherits H264Encoder's NAL
+    splitting and RTP packetization (_split_bitstream, _packetize, encode)
+    completely unchanged. That's deliberate: those are the parts that, if
+    subtly wrong, produce a bitstream that LOOKS valid but decodes as
+    corrupted macroblocks -- exactly the failure mode already chased through
+    this file. Keeping them untouched means a hardware/driver hiccup can only
+    ever fall back to the proven software path, never corrupt framing.
+    """
+
+    def __init__(self, vaapi_device):
+        super().__init__()
+        self.vaapi_device = vaapi_device
+        self._proc = None
+        self._proc_size = None
+        self._proc_bitrate = None
+        self._last_restart = 0.0
+        self._pending = bytearray()
+        self._stdout_buf = bytearray()
+        self._stdout_lock = threading.Lock()
+        self._hw_failed = False
+
+    def _drain_stdout(self, proc):
+        try:
+            while True:
+                chunk = proc.stdout.read(65536)
+                if not chunk:
+                    return
+                with self._stdout_lock:
+                    self._stdout_buf.extend(chunk)
+        except Exception:
+            return
+
+    def _start_proc(self, width, height):
+        self._teardown_proc()
+        cmd = _vaapi_ffmpeg_cmd(self.vaapi_device, width, height, self.target_bitrate)
+        self._proc = subprocess.Popen(
+            cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL
+        )
+        _active_vaapi_processes.append(self._proc)
+        self._proc_size = (width, height)
+        self._proc_bitrate = self.target_bitrate
+        self._pending = bytearray()
+        with self._stdout_lock:
+            self._stdout_buf.clear()
+        threading.Thread(target=self._drain_stdout, args=(self._proc,), daemon=True).start()
+
+    def _teardown_proc(self):
+        if self._proc:
+            try:
+                _active_vaapi_processes.remove(self._proc)
+            except ValueError:
+                pass
+            try:
+                self._proc.kill()
+                self._proc.wait(timeout=2)
+            except Exception:
+                pass
+            self._proc = None
+
+    def _extract_complete_nals(self):
+        # Only release NAL units for which we've already seen the START of
+        # the NEXT one. ffmpeg's stdout can be drained mid-NAL, and treating
+        # a chunk's tail as complete would corrupt whichever NAL was still
+        # in flight at that moment.
+        with self._stdout_lock:
+            if self._stdout_buf:
+                self._pending.extend(self._stdout_buf)
+                self._stdout_buf.clear()
+        buf = bytes(self._pending)
+        starts = []
+        i = 0
+        while True:
+            i = buf.find(b"\x00\x00\x01", i)
+            if i == -1:
+                break
+            starts.append(i)
+            i += 3
+        if len(starts) < 2:
+            return b""
+        complete_end = starts[-1]
+        complete = buf[:complete_end]
+        self._pending = bytearray(buf[complete_end:])
+        return complete
+
+    def _encode_frame(self, frame, force_keyframe):
+        if self._hw_failed:
+            yield from super()._encode_frame(frame, force_keyframe)
+            return
+
+        try:
+            size = (frame.width, frame.height)
+            now = time.time()
+            bitrate_shifted = (
+                self._proc_bitrate is not None
+                and abs(self.target_bitrate - self._proc_bitrate) / self._proc_bitrate > 0.3
+                and (now - self._last_restart) > 3.0
+            )
+            # A freshly started process always opens with a real IDR frame,
+            # which is the simplest reliable way to guarantee a keyframe on
+            # request (PLI recovery, a resolution change, or REMB moving the
+            # target bitrate) without a live control channel into a running
+            # ffmpeg process. The 3s cooldown on bitrate-only restarts keeps
+            # REMB's normal small fluctuations from thrashing the encoder.
+            if self._proc is None or size != self._proc_size or force_keyframe or bitrate_shifted:
+                self._start_proc(*size)
+                self._last_restart = now
+
+            bgr = frame.reformat(width=frame.width, height=frame.height, format="bgr24")
+            self._proc.stdin.write(_frame_to_packed_bgr24(bgr))
+            self._proc.stdin.flush()
+
+            complete = self._extract_complete_nals()
+            if complete:
+                yield from self._split_bitstream(complete)
+        except Exception as err:
+            sys.stderr.write(f"[VAAPI] Hardware encode failed, falling back to software: {err}\n")
+            sys.stderr.flush()
+            self._hw_failed = True
+            telemetry.encoder_hardware = "SOFTWARE (hardware failed mid-stream)"
+            self._teardown_proc()
+            yield from super()._encode_frame(frame, force_keyframe)
+
+
+def enable_vaapi_encoder_if_available():
+    device = probe_vaapi_h264_encode()
+    if not device:
+        sys.stderr.write("[VAAPI] No working hardware H.264 encoder found; using software libx264.\n")
+        sys.stderr.flush()
+        telemetry.encoder_hardware = "SOFTWARE"
+        return
+
+    import aiortc.rtcrtpsender
+    original_get_encoder = aiortc.rtcrtpsender.get_encoder
+
+    def patched_get_encoder(codec):
+        if codec.mimeType.lower() == "video/h264":
+            return VAAPIH264Encoder(device)
+        return original_get_encoder(codec)
+
+    aiortc.rtcrtpsender.get_encoder = patched_get_encoder
+    telemetry.encoder_hardware = f"VAAPI ({device})"
+    sys.stderr.write(f"[VAAPI] Hardware H.264 encoding enabled via {device}.\n")
+    sys.stderr.flush()
 
 
 try:
@@ -828,6 +1075,12 @@ def recreate_peer_connection():
     global pc, video_track, client_confirmed_playing, client_confirmed_playing_at
     client_confirmed_playing = False
     client_confirmed_playing_at = 0.0
+    # aiortc gives encoders no close()/teardown hook -- the previous
+    # connection's RTCRtpSender and its encoder are simply dropped and left
+    # for GC. That's harmless for the stock software encoder, but a
+    # VAAPIH264Encoder's ffmpeg subprocess would otherwise leak across
+    # repeated reconnects, which this daemon sees a lot of.
+    _cleanup_vaapi_processes()
     if pc:
         try:
             asyncio.get_event_loop().create_task(pc.close())
@@ -946,6 +1199,8 @@ async def main():
 
     sys.stderr.write("[DesktopStreamer] Root GPU Direct KMS Daemon Initialized.\n")
     sys.stderr.flush()
+
+    enable_vaapi_encoder_if_available()
 
     asyncio.create_task(telemetry_broadcaster(data_channel_holder))
 

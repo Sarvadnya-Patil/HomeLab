@@ -106,6 +106,10 @@
                  <td style="text-align: right;" id="hud-enc-info">H.264 (0 FPS)</td>
                </tr>
                <tr>
+                 <td style="color: #94a3b8; padding: 2px 0;">Encoder Backend:</td>
+                 <td style="text-align: right;" id="hud-enc-backend">PROBING</td>
+               </tr>
+               <tr>
                  <td style="color: #94a3b8; padding: 2px 0;">3. WebRTC Peer / ICE:</td>
                  <td style="text-align: right;" id="hud-rtc-state">new / new</td>
                </tr>
@@ -502,6 +506,13 @@
      const encInfoEl = this.container.querySelector('#hud-enc-info');
      if (encInfoEl) {
        encInfoEl.textContent = `${enc.codec || 'H264'} (${enc.fps || 0} FPS / ${enc.frames_encoded || 0} frames)`;
+     }
+
+     const encBackendEl = this.container.querySelector('#hud-enc-backend');
+     if (encBackendEl) {
+       const backend = enc.hardware || 'PROBING';
+       encBackendEl.textContent = backend;
+       encBackendEl.style.color = backend.startsWith('VAAPI') ? '#4ade80' : (backend.startsWith('SOFTWARE') ? '#facc15' : '#94a3b8');
      }
  
      const rtcStateEl = this.container.querySelector('#hud-rtc-state');

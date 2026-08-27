@@ -460,9 +460,16 @@ if command -v apt-get >/dev/null 2>&1; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get install -y --no-install-recommends ffmpeg libglib2.0-bin pkg-config libdrm-dev meson ninja-build gcc grim || true
   apt-get install -y --no-install-recommends python3-pip python3-evdev python3-pil python3-websockets || true
+  # Opportunistic: VAAPI hardware H.264 encode drivers, covering both Intel
+  # generations (iHD for Broadwell+, i965 for older chips like Haswell) and
+  # AMD via Mesa. Harmless no-ops on hardware that doesn't use them --
+  # desktop_streamer.py probes for a working encoder at runtime regardless
+  # and falls back to software encoding if none of this applies.
+  apt-get install -y --no-install-recommends intel-media-va-driver i965-va-driver mesa-va-drivers || true
 elif command -v dnf >/dev/null 2>&1; then
   echo "[HostInstaller] Fedora/RHEL host detected. Installing dependencies..."
   dnf install -y ffmpeg python3-pip python3-websockets python3-evdev pkgconfig libdrm-devel meson ninja-build gcc grim || true
+  dnf install -y intel-media-driver libva-intel-driver mesa-va-drivers || true
 fi
 
 # 3.5 Compile vendored libdrmtap (by fxd0h) for direct hardware DRM scanout
