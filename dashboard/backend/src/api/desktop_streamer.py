@@ -551,6 +551,17 @@ class DrmtapFrameInfo(ctypes.Structure):
     ]
 
 
+def _decode_fourcc(value):
+    # DRM fourccs are 4 ASCII bytes packed little-endian into a uint32 (e.g.
+    # 'X','R','2','4' -> 0x34325258), so unpacking it back to text is far
+    # more readable in logs than the raw hex value alone.
+    try:
+        chars = bytes((value >> (8 * i)) & 0xFF for i in range(4))
+        return chars.decode("ascii", errors="replace")
+    except Exception:
+        return "????"
+
+
 class SafeDisplayGrabber:
     def __init__(self):
         self.sct = None
@@ -558,6 +569,7 @@ class SafeDisplayGrabber:
         self._drmtap_ctx = None
         self.active_engine = "NONE"
         self.error_detail = ""
+        self._logged_unknown_format = None
         self._init_drmtap()
 
     def _init_mss(self):
@@ -628,12 +640,24 @@ class SafeDisplayGrabber:
                 RGBX_FORMATS = (0x34324241, 0x34324258)     # AB24, XB24
                 if ret == 0 and frame.data and frame.width > 0 and frame.height > 0 and frame.stride >= frame.width * 4:
                     byte_len = int(frame.height * frame.stride)
-                    if 0 < byte_len < 64 * 1024 * 1024 and frame.format in BGRX_FORMATS + RGBX_FORMATS:
-                        raw_bytes = ctypes.string_at(frame.data, byte_len)
-                        raw_mode = "BGRX" if frame.format in BGRX_FORMATS else "RGBX"
-                        img = Image.frombytes("RGB", (frame.width, frame.height), raw_bytes, "raw", raw_mode, frame.stride)
-                        self._drmtap_lib.drmtap_frame_release(self._drmtap_ctx, ctypes.byref(frame))
-                        return img, "LIBDRMTAP"
+                    if 0 < byte_len < 64 * 1024 * 1024:
+                        if frame.format in BGRX_FORMATS + RGBX_FORMATS:
+                            raw_bytes = ctypes.string_at(frame.data, byte_len)
+                            raw_mode = "BGRX" if frame.format in BGRX_FORMATS else "RGBX"
+                            img = Image.frombytes("RGB", (frame.width, frame.height), raw_bytes, "raw", raw_mode, frame.stride)
+                            self._drmtap_lib.drmtap_frame_release(self._drmtap_ctx, ctypes.byref(frame))
+                            return img, "LIBDRMTAP"
+                        elif self._logged_unknown_format != frame.format:
+                            # Rate-limited to once per distinct format value seen,
+                            # so a sustained unrecognized-format condition doesn't
+                            # flood the log every capture cycle.
+                            self._logged_unknown_format = frame.format
+                            sys.stderr.write(
+                                f"[SafeDisplayGrabber] libdrmtap scanout format not decoded: "
+                                f"0x{frame.format:08x} ('{_decode_fourcc(frame.format)}'). "
+                                f"Falling through to the next capture tier.\n"
+                            )
+                            sys.stderr.flush()
                 if frame.data:
                     self._drmtap_lib.drmtap_frame_release(self._drmtap_ctx, ctypes.byref(frame))
             except Exception as e:
