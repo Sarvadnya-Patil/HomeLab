@@ -192,7 +192,11 @@ def _vaapi_ffmpeg_cmd(vaapi_device, width, height, bitrate):
     return [
         get_ffmpeg_bin(), "-hide_banner", "-loglevel", "error",
         "-vaapi_device", vaapi_device,
-        "-f", "rawvideo", "-pixel_format", "bgr24",
+        # Captured frames are already PIL "RGB" -> av "rgb24" (every capture
+        # tier in SafeDisplayGrabber produces Image.frombytes("RGB", ...) or
+        # Image.new("RGB", ...)); matching that here instead of converting to
+        # bgr24 skips a full-frame colorspace reshuffle on every single frame.
+        "-f", "rawvideo", "-pixel_format", "rgb24",
         "-video_size", f"{width}x{height}", "-framerate", "30",
         "-i", "pipe:0",
         "-vf", "format=nv12,hwupload",
@@ -209,8 +213,10 @@ def _vaapi_ffmpeg_cmd(vaapi_device, width, height, bitrate):
         # requests. There is no live way to signal an immediate forced
         # keyframe into an already-running raw-pipe ffmpeg process, so this
         # is the recovery mechanism for loss/PLI instead of restarting the
-        # process (see _encode_frame -- a restart burst turned out to make
-        # loss-driven corruption worse, not better).
+        # process (see _encode_frame -- restarting on every keyframe request
+        # would mean a real stall plus a fresh-IDR burst landing right when
+        # the link may already be dropping packets, worsening loss-driven
+        # corruption rather than fixing it).
         "-g", "30",
         "-f", "h264", "pipe:1"
     ]
@@ -248,19 +254,19 @@ def probe_vaapi_h264_encode():
     return None
 
 
-def _frame_to_packed_bgr24(bgr_frame):
+def _frame_to_packed_rgb24(rgb_frame):
     # planes[0].line_size can include row-alignment padding added by
     # swscale during reformat(); a naive bytes(plane) would hand ffmpeg's
     # rawvideo demuxer a stride it doesn't know about, producing exactly the
     # kind of sheared/torn image this hardware path exists to avoid.
-    plane = bgr_frame.planes[0]
-    width_bytes = bgr_frame.width * 3
+    plane = rgb_frame.planes[0]
+    width_bytes = rgb_frame.width * 3
     raw = bytes(plane)
     if plane.line_size == width_bytes:
         return raw
     return b"".join(
         raw[y * plane.line_size: y * plane.line_size + width_bytes]
-        for y in range(bgr_frame.height)
+        for y in range(rgb_frame.height)
     )
 
 
@@ -271,9 +277,9 @@ class VAAPIH264Encoder(H264Encoder):
     splitting and RTP packetization (_split_bitstream, _packetize, encode)
     completely unchanged. That's deliberate: those are the parts that, if
     subtly wrong, produce a bitstream that LOOKS valid but decodes as
-    corrupted macroblocks -- exactly the failure mode already chased through
-    this file. Keeping them untouched means a hardware/driver hiccup can only
-    ever fall back to the proven software path, never corrupt framing.
+    corrupted macroblocks. Keeping them untouched means a hardware/driver
+    hiccup can only ever fall back to the proven software path, never
+    corrupt framing.
     """
 
     def __init__(self, vaapi_device):
@@ -360,14 +366,14 @@ class VAAPIH264Encoder(H264Encoder):
         try:
             size = (frame.width, frame.height)
             now = time.time()
-            # Restarting the process is NOT used for force_keyframe anymore --
-            # that was the actual bug: a restart burst (full-size IDR sent all
-            # at once, right after a real stall while ffmpeg re-inits the
-            # VAAPI device) landing exactly when the connection was already
-            # losing packets made the corruption worse, not better, and the
-            # restart stall itself broke playback continuity. Recovery from
-            # loss/PLI is handled by the fixed 1s GOP in _vaapi_ffmpeg_cmd
-            # instead, which needs no live signal into the running process.
+            # force_keyframe does NOT restart the process. A restart is a real
+            # stall (ffmpeg re-initializing the VAAPI device) followed by a
+            # full-size IDR burst sent all at once -- landing that right when
+            # the link may already be dropping packets worsens loss-driven
+            # corruption rather than fixing it, and the stall itself breaks
+            # playback continuity. Recovery from loss/PLI comes from the
+            # fixed 1s GOP in _vaapi_ffmpeg_cmd instead, which needs no live
+            # signal into the running process.
             #
             # Only a genuine resolution change forces a restart here. A large,
             # SUSTAINED bitrate shift (REMB reporting real, lasting congestion
@@ -384,8 +390,8 @@ class VAAPIH264Encoder(H264Encoder):
                 self._start_proc(*size)
                 self._last_restart = now
 
-            bgr = frame.reformat(width=frame.width, height=frame.height, format="bgr24")
-            self._proc.stdin.write(_frame_to_packed_bgr24(bgr))
+            rgb = frame.reformat(width=frame.width, height=frame.height, format="rgb24")
+            self._proc.stdin.write(_frame_to_packed_rgb24(rgb))
             self._proc.stdin.flush()
 
             complete = self._extract_complete_nals()
@@ -436,7 +442,13 @@ def compute_image_brightness(img):
     if img is None:
         return 0.0
     try:
-        stats = ImageStat.Stat(img)
+        # This runs on every single captured frame purely to decide "is this
+        # black/unusable", so full-resolution accuracy is wasted work --
+        # ImageStat.Stat's cost scales with pixel count, and a black frame
+        # looks black at 160x90 too. Downsampling first cuts this from a
+        # ~2M-pixel scan to a ~14K-pixel one.
+        thumb = img.resize((160, 90), Image.Resampling.NEAREST) if img.size[0] > 160 else img
+        stats = ImageStat.Stat(thumb)
         return sum(stats.mean) / max(len(stats.mean), 1)
     except Exception:
         return 0.0
@@ -762,6 +774,11 @@ class SafeDisplayGrabber:
 
 display_grabber = SafeDisplayGrabber()
 
+# Matches the encoder's own output rate (aiortc's H264Encoder targets 30fps,
+# and _vaapi_ffmpeg_cmd is configured for 30fps too) -- capturing faster than
+# either consumer can use is pure wasted CPU.
+CAPTURE_TARGET_FPS = 30
+
 
 class ScreenCaptureTrack(VideoStreamTrack):
     def __init__(self):
@@ -774,7 +791,9 @@ class ScreenCaptureTrack(VideoStreamTrack):
         self.capture_thread.start()
 
     def _capture_worker(self):
+        target_interval = 1.0 / CAPTURE_TARGET_FPS
         while self.running:
+            loop_start = time.time()
             self.captured_count += 1
             raw_img, capture_err = display_grabber.read_frame()
 
@@ -824,7 +843,8 @@ class ScreenCaptureTrack(VideoStreamTrack):
                 except Exception:
                     pass
 
-            time.sleep(0.005)
+            elapsed = time.time() - loop_start
+            time.sleep(max(0.001, target_interval - elapsed))
 
     async def recv(self):
         pts, time_base = await self.next_timestamp()
