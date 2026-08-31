@@ -605,22 +605,33 @@ class SafeDisplayGrabber:
             try:
                 frame = DrmtapFrameInfo()
                 ret = self._drmtap_lib.drmtap_grab_mapped(self._drmtap_ctx, ctypes.byref(frame))
+                # DRM fourccs this decode path actually understands: 32-bit,
+                # 8-bit-per-channel formats only. XRGB8888/ARGB8888 ('XR24'/
+                # 'AR24') store bytes as B,G,R,X in little-endian memory order
+                # (PIL's "BGRX"). ABGR8888/XBGR8888 ('AB24'/'XB24') are NOT the
+                # same layout despite the similar names -- their component
+                # order is [A/X],B,G,R (MSB to LSB), which is R,G,B,[A/X] in
+                # memory, i.e. "RGBX" (libdrmtap's own drmtap_convert_format()
+                # draws this same distinction; see convert_abgr_to_argb in
+                # pixel_convert.c). Anything outside this set -- most notably
+                # the 10/30-bit HDR formats (XR30/AR30/XB30/AB30), which pack
+                # three 10-bit channels into 32 bits rather than one byte
+                # each -- is a fundamentally different bit layout that this
+                # simple byte-order decode cannot represent at all. Guessing
+                # RGBX for an unrecognized format would silently reinterpret
+                # bit-packed data at the wrong width, producing exactly the
+                # kind of periodic banding/checkering corruption this check
+                # exists to prevent -- so an unrecognized format is treated
+                # as a failed grab and falls through to the next capture
+                # tier, the same as any other libdrmtap failure.
+                BGRX_FORMATS = (0x34325258, 0x34325241, 0)  # XR24, AR24, unreported
+                RGBX_FORMATS = (0x34324241, 0x34324258)     # AB24, XB24
                 if ret == 0 and frame.data and frame.width > 0 and frame.height > 0 and frame.stride >= frame.width * 4:
                     byte_len = int(frame.height * frame.stride)
-                    if 0 < byte_len < 64 * 1024 * 1024:
+                    if 0 < byte_len < 64 * 1024 * 1024 and frame.format in BGRX_FORMATS + RGBX_FORMATS:
                         raw_bytes = ctypes.string_at(frame.data, byte_len)
-                        # XRGB8888/ARGB8888 ('XR24'/'AR24') store bytes as B,G,R,X in little-endian
-                        # memory order, so they decode as PIL's "BGRX". ABGR8888 ('AB24') is NOT the
-                        # same layout despite the similar name -- its component order is A,B,G,R
-                        # (MSB to LSB), which is R,G,B,A in memory, i.e. "RGBX". libdrmtap's own
-                        # drmtap_convert_format() draws this same distinction (see
-                        # convert_abgr_to_argb in pixel_convert.c); grouping AB24 with XR24/AR24
-                        # here swapped the red and blue channels on any GPU/compositor whose primary
-                        # plane scans out in ABGR8888.
-                        if frame.format in (0x34325258, 0x34325241, 0):
-                            img = Image.frombytes("RGB", (frame.width, frame.height), raw_bytes, "raw", "BGRX", frame.stride)
-                        else:
-                            img = Image.frombytes("RGB", (frame.width, frame.height), raw_bytes, "raw", "RGBX", frame.stride)
+                        raw_mode = "BGRX" if frame.format in BGRX_FORMATS else "RGBX"
+                        img = Image.frombytes("RGB", (frame.width, frame.height), raw_bytes, "raw", raw_mode, frame.stride)
                         self._drmtap_lib.drmtap_frame_release(self._drmtap_ctx, ctypes.byref(frame))
                         return img, "LIBDRMTAP"
                 if frame.data:
@@ -637,11 +648,20 @@ class SafeDisplayGrabber:
         fallback_black_engine = "NONE"
 
         # 1. Priority 1: Direct Hardware DRM/KMS scanout via libdrmtap (Zero user-space flashing)
+        # Validated the same way every tier below it already is (brightness
+        # check, fall through instead of trusting a black buffer) -- this was
+        # previously the only tier that skipped that check and accepted
+        # whatever came back unconditionally.
         drm_img, drm_engine = self._try_drm_scanout()
         if drm_img is not None:
-            self.active_engine = drm_engine
-            self.error_detail = ""
-            return drm_img, None
+            b = compute_image_brightness(drm_img)
+            if b >= 1.0:
+                self.active_engine = drm_engine
+                self.error_detail = ""
+                return drm_img, None
+            elif fallback_black_frame is None:
+                fallback_black_frame = drm_img
+                fallback_black_engine = drm_engine or "LIBDRMTAP"
 
         # 2. Priority 2: Wayland User Session capture (grim - silent CLI)
         for uid_dir in sorted(glob.glob("/run/user/*"), key=lambda p: 0 if p.endswith("1000") else 1):
