@@ -672,20 +672,20 @@ class SafeDisplayGrabber:
         fallback_black_engine = "NONE"
 
         # 1. Priority 1: Direct Hardware DRM/KMS scanout via libdrmtap (Zero user-space flashing)
-        # Validated the same way every tier below it already is (brightness
-        # check, fall through instead of trusting a black buffer) -- this was
-        # previously the only tier that skipped that check and accepted
-        # whatever came back unconditionally.
+        # Deliberately NOT brightness-gated like the tiers below: unlike
+        # grim/mss, which can silently hand back a genuinely black image on a
+        # compositor hiccup, libdrmtap already has a clean success/failure
+        # signal (ret/frame.data), so a low-brightness result here is real
+        # content -- a dark wallpaper, a mostly-black window -- not a failure
+        # to route around. Gating on it was tried and reverted: it forced the
+        # full fallback chain (including spawning grim via runuser, which is
+        # expected to fail against GNOME/Mutter anyway) on every single dark
+        # frame, at a real, sustained CPU cost with nothing to show for it.
         drm_img, drm_engine = self._try_drm_scanout()
         if drm_img is not None:
-            b = compute_image_brightness(drm_img)
-            if b >= 1.0:
-                self.active_engine = drm_engine
-                self.error_detail = ""
-                return drm_img, None
-            elif fallback_black_frame is None:
-                fallback_black_frame = drm_img
-                fallback_black_engine = drm_engine or "LIBDRMTAP"
+            self.active_engine = drm_engine
+            self.error_detail = ""
+            return drm_img, None
 
         # 2. Priority 2: Wayland User Session capture (grim - silent CLI)
         for uid_dir in sorted(glob.glob("/run/user/*"), key=lambda p: 0 if p.endswith("1000") else 1):
