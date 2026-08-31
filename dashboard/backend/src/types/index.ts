@@ -126,6 +126,7 @@ export interface SystemMetrics {
   ipAddress: string;
   cpuModel: string;
   cpuCores: number;
+  cpuThreads: number;
   cpu: number | null;
   cpuTemp: number | null;
   cpuFreq: string | null;

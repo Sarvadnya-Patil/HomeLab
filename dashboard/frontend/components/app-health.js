@@ -154,7 +154,7 @@ export const AppHealth = {
           <span style="text-transform: uppercase; font-weight: 800;">Kernel Release:</span> <span style="color: #ffffff; font-family: var(--font-mono);">${host.kernel}</span>
           <span style="text-transform: uppercase; font-weight: 800;">Host Uptime:</span> <span style="color: #ffffff;">${host.uptime}</span>
           <span style="text-transform: uppercase; font-weight: 800;">IP Address:</span> <span style="color: #ffffff;">${stats.ipAddress || '127.0.0.1'}</span>
-          <span style="text-transform: uppercase; font-weight: 800;">Hardware Model:</span> <span style="font-size: 0.65rem; color: #ffffff;">${stats.cpuModel} (${stats.cpuCores} Cores)</span>
+          <span style="text-transform: uppercase; font-weight: 800;">Hardware Model:</span> <span style="font-size: 0.65rem; color: #ffffff;">${stats.cpuModel} (${stats.cpuCores} Cores / ${stats.cpuThreads ?? stats.cpuCores} Threads)</span>
         </div>
       </div>
 
