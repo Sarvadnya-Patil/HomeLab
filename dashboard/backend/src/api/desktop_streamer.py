@@ -209,15 +209,28 @@ def _vaapi_ffmpeg_cmd(vaapi_device, width, height, bitrate):
         # them when piping in real time. -avioflags direct forces every
         # write straight through immediately.
         "-avioflags", "direct",
-        # Closed, fixed-interval GOP: a keyframe every ~1s regardless of
-        # requests. There is no live way to signal an immediate forced
-        # keyframe into an already-running raw-pipe ffmpeg process, so this
-        # is the recovery mechanism for loss/PLI instead of restarting the
-        # process (see _encode_frame -- restarting on every keyframe request
-        # would mean a real stall plus a fresh-IDR burst landing right when
-        # the link may already be dropping packets, worsening loss-driven
-        # corruption rather than fixing it).
-        "-g", "30",
+        # Closed GOP: a keyframe every -g frames, since there is no live way
+        # to signal an immediate forced keyframe into an already-running
+        # raw-pipe ffmpeg process (see _encode_frame -- restarting on every
+        # keyframe request would mean a real stall plus a fresh-IDR burst
+        # landing right when the link may already be dropping packets,
+        # worsening loss-driven corruption rather than fixing it). This is
+        # the recovery mechanism for loss/PLI instead.
+        #
+        # Deliberately a small, fixed frame count rather than "-framerate"
+        # frames (which would read as "1 second"): ffmpeg assigns pts to raw
+        # pipe input purely from the declared -framerate above, with no way
+        # to know the real wall-clock rate frames actually arrive at, so a
+        # GOP sized to the declared rate silently stretches to real GOP
+        # DURATION / declared FPS whenever actual throughput falls short of
+        # it -- capture speed varies a lot across host hardware, so this
+        # can't assume the declared rate is what's actually achieved. A
+        # small fixed count instead bounds worst-case recovery time (how
+        # long any packet loss keeps corrupting predicted frames) to a few
+        # hundred ms even on slow hardware, at the cost of a few more
+        # keyframes than strictly needed on fast hardware -- a reasonable
+        # trade given the alternative is corruption lingering for seconds.
+        "-g", "10",
         "-f", "h264", "pipe:1"
     ]
 
