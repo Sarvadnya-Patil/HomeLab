@@ -112,12 +112,16 @@ HomeLab OS communicates with the Docker Engine through Tecnativa's Docker Socket
 
 ## 7. Cloudflare Tunnel Integration
 
-HomeLab OS integrates seamlessly with existing Cloudflare Tunnel deployments. Mount the read-only configuration file into the dashboard container:
+HomeLab OS integrates seamlessly with existing Cloudflare Tunnel deployments. Mount the read-only configuration file(s) into the dashboard container:
 
 ```yaml
 volumes:
   - ~/.cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+  - /etc/cloudflared:/host/etc/cloudflared:ro
+  - /root/.cloudflared:/host/root/.cloudflared:ro
 ```
+
+If `cloudflared` runs as a Docker container, HomeLab OS inspects that container directly (its launch arguments and bind mounts) to determine which `config.yml` it actually uses, rather than guessing among the well-known host locations above -- this matters on hosts with more than one candidate file (e.g. a stale file left in a user's home directory alongside the real one under `/etc/cloudflared`). When that detection isn't possible (`cloudflared` running natively via systemd, or its container not reachable), HomeLab OS falls back to scanning `/etc/cloudflared`, `/root/.cloudflared`, the dashboard user's own home directory, and every other user under `/home`, in that order. Set `CLOUDFLARE_CONFIG_PATH` to override with an explicit path.
 
 Tunnel private keys and certificate files remain isolated on the host operating system and are never exposed to the control plane.
 

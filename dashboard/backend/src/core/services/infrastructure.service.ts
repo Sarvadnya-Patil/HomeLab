@@ -547,25 +547,169 @@ export class InfrastructureService {
     return this.docker.getNetworks();
   }
 
-  parseCloudflareIngressConfig(): Record<string, string> {
-    const map: Record<string, string> = {};
+  // Resolves an ingress hostname for a lookup key that may be shared by multiple tunneled
+  // services (e.g. several backends published on the same port number). When more than one
+  // candidate hostname is registered under the given keys, only returns a match if one of the
+  // candidates' hostname labels clearly corresponds to the service's own id/name -- guessing
+  // among ambiguous candidates is what silently dropped services sharing a port previously.
+  private resolveIngressDomain(
+    map: Record<string, string[]>,
+    keys: string[],
+    identifiers: string[]
+  ): string | undefined {
+    const candidates = new Set<string>();
+    for (const key of keys) {
+      for (const hostname of map[key] || []) {
+        candidates.add(hostname);
+      }
+    }
+    if (candidates.size === 0) return undefined;
+    if (candidates.size === 1) return candidates.values().next().value;
+
+    const normalizedIdentifiers = identifiers
+      .filter(Boolean)
+      .map((id) => id.toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+    for (const hostname of candidates) {
+      const label = hostname.toLowerCase().split('.')[0].replace(/[^a-z0-9]/g, '');
+      if (normalizedIdentifiers.some((id) => id && (label.includes(id) || id.includes(label)))) {
+        return hostname;
+      }
+    }
+
+    return undefined;
+  }
+
+  // Bind mounts declared in docker-compose.yml that let this container read specific host
+  // paths. Used to translate a host-side path (learned from `docker inspect` on the actual
+  // cloudflared container) into the corresponding path visible inside this container, since
+  // the two do not otherwise share a filesystem namespace.
+  private static readonly HOST_PATH_MOUNTS: Array<{ hostPrefix: string; containerPrefix: string }> = [
+    { hostPrefix: '/home', containerPrefix: '/home' },
+    { hostPrefix: '/etc/cloudflared', containerPrefix: '/host/etc/cloudflared' },
+    { hostPrefix: '/root/.cloudflared', containerPrefix: '/host/root/.cloudflared' }
+  ];
+
+  private translateHostPathToDashboardPath(hostPath: string): string | null {
+    const normalized = hostPath.replace(/\\/g, '/');
+    for (const { hostPrefix, containerPrefix } of InfrastructureService.HOST_PATH_MOUNTS) {
+      if (normalized === hostPrefix || normalized.startsWith(`${hostPrefix}/`)) {
+        return containerPrefix + normalized.slice(hostPrefix.length);
+      }
+    }
+    return null;
+  }
+
+  // When cloudflared runs as a Docker container, a host can have several config.yml candidates
+  // lying around (a stale ~/.cloudflared alongside the real one under /etc/cloudflared, for
+  // example) and only the running container's own bind mount says which one is actually live.
+  // Inspects the container's launch arguments for an explicit --config flag (falling back to
+  // cloudflared's own default path), then resolves that container-side path against the
+  // container's Mounts to recover the real host-side path.
+  private async resolveDockerCloudflaredConfigPath(): Promise<string | null> {
+    try {
+      const containers = await this.docker.getContainers();
+      const candidate = containers.find(
+        (c) =>
+          c.Id &&
+          c.Names.some((n: string) =>
+            n.toLowerCase().includes('cloudflared') ||
+            n.toLowerCase().includes('tunnel') ||
+            n.toLowerCase().includes('cloudflare')
+          )
+      );
+      if (!candidate) return null;
+
+      const inspect = await this.docker.inspectContainer(candidate.Id);
+      if (!inspect) return null;
+
+      const argv: string[] = [
+        ...(Array.isArray(inspect.Config?.Entrypoint) ? inspect.Config.Entrypoint : []),
+        ...(Array.isArray(inspect.Config?.Cmd) ? inspect.Config.Cmd : [])
+      ];
+
+      let containerConfigPath = '/etc/cloudflared/config.yml'; // cloudflared's own built-in default
+      for (let i = 0; i < argv.length; i++) {
+        const arg = argv[i];
+        if ((arg === '--config' || arg === '-config') && argv[i + 1]) {
+          containerConfigPath = argv[i + 1];
+          break;
+        }
+        if (arg.startsWith('--config=')) {
+          containerConfigPath = arg.slice('--config='.length);
+          break;
+        }
+      }
+
+      const mounts: any[] = Array.isArray(inspect.Mounts) ? inspect.Mounts : [];
+      let bestMatch: { source: string; destination: string } | null = null;
+      for (const m of mounts) {
+        const dest = (m.Destination || '').replace(/\/$/, '');
+        if (!dest || !m.Source) continue;
+        if (containerConfigPath === dest || containerConfigPath.startsWith(`${dest}/`)) {
+          if (!bestMatch || dest.length > bestMatch.destination.length) {
+            bestMatch = { source: m.Source, destination: dest };
+          }
+        }
+      }
+      if (!bestMatch) return null;
+
+      const relative = containerConfigPath.slice(bestMatch.destination.length);
+      const hostPath = `${bestMatch.source.replace(/\\/g, '/').replace(/\/$/, '')}${relative}`;
+
+      Logger.info(
+        'InfrastructureService',
+        `Detected active cloudflared Docker container [${candidate.Names[0]}] using config file: ${hostPath}`
+      );
+      return hostPath;
+    } catch (err: any) {
+      Logger.debug('InfrastructureService', `Docker cloudflared config detection skipped: ${err.message}`);
+      return null;
+    }
+  }
+
+  async parseCloudflareIngressConfig(): Promise<Record<string, string[]>> {
+    const map: Record<string, string[]> = {};
     try {
       // 1. Host system locations (priority)
       const locations: string[] = [];
       if (process.env.CLOUDFLARE_CONFIG_PATH) {
         locations.push(process.env.CLOUDFLARE_CONFIG_PATH);
       }
+
+      // If cloudflared is running as a Docker container, prefer the exact config file that
+      // container was actually launched with over guessing among the well-known paths below --
+      // a host can have more than one config.yml (e.g. a stale ~/.cloudflared next to the real
+      // /etc/cloudflared one the container is bind-mounted to), and only the container itself
+      // knows which one is live.
+      const dockerConfigHostPath = await this.resolveDockerCloudflaredConfigPath();
+      if (dockerConfigHostPath) {
+        const localPath = this.translateHostPathToDashboardPath(dockerConfigHostPath);
+        if (localPath) {
+          locations.push(localPath);
+        } else {
+          Logger.warn(
+            'InfrastructureService',
+            `Active cloudflared container uses config at host path [${dockerConfigHostPath}], but that path isn't mounted into the dashboard container -- falling back to static config locations.`
+          );
+        }
+      }
+
       locations.push(
         '/etc/cloudflared/config.yml',
         '/etc/cloudflared/config.yaml',
+        '/host/etc/cloudflared/config.yml',
+        '/host/etc/cloudflared/config.yaml',
         '/root/.cloudflared/config.yml',
         '/root/.cloudflared/config.yaml',
+        '/host/root/.cloudflared/config.yml',
+        '/host/root/.cloudflared/config.yaml',
         path.join(os.homedir(), '.cloudflared', 'config.yml'),
         path.join(os.homedir(), '.cloudflared', 'config.yaml')
       );
 
       // Dynamic host-user home directory config scanner
-      const hostHome = '/host/home';
+      const hostHome = '/home';
       if (fs.existsSync(hostHome)) {
         try {
           const users = fs.readdirSync(hostHome);
@@ -639,14 +783,19 @@ export class InfrastructureService {
             if (urlMatch && urlMatch[1]) {
               const serviceHost = urlMatch[1].toLowerCase();
               if (serviceHost !== 'localhost' && serviceHost !== '127.0.0.1') {
-                map[serviceHost] = currentHostname;
+                if (!map[serviceHost]) map[serviceHost] = [];
+                if (!map[serviceHost].includes(currentHostname)) map[serviceHost].push(currentHostname);
               }
             }
-            
-            // 2. Map by port number in URL
+
+            // 2. Map by port number in URL. Multiple distinct tunneled services can share the
+            // same backend port (different hosts/containers both on :8080, for example), so
+            // every hostname seen for a port is recorded rather than the last one winning.
             const portMatch = serviceVal.match(/:(\d+)/);
             if (portMatch && portMatch[1]) {
-              map[portMatch[1]] = currentHostname;
+              const portKey = portMatch[1];
+              if (!map[portKey]) map[portKey] = [];
+              if (!map[portKey].includes(currentHostname)) map[portKey].push(currentHostname);
             }
             
             currentHostname = '';
@@ -662,7 +811,7 @@ export class InfrastructureService {
   async getEnrichedServices(): Promise<PluginMetadata[]> {
     const services = this.plugin.discover();
     const overrides: Record<string, string> = this.category.getOverrides();
-    const ingressMap = this.parseCloudflareIngressConfig();
+    const ingressMap = await this.parseCloudflareIngressConfig();
     let dockerContainers: any[] = [];
     let dockerOnline = true;
 
@@ -708,15 +857,13 @@ export class InfrastructureService {
         }
 
         // Apply dynamic ingress config.yml URL mapping if available (match by host or port)
-        let mappedPublicDomain = ingressMap[serviceCopy.id.toLowerCase()] || ingressMap[serviceCopy.name.toLowerCase()];
+        const serviceIdentifiers = [serviceCopy.id.toLowerCase(), serviceCopy.name.toLowerCase()];
+        let mappedPublicDomain = this.resolveIngressDomain(ingressMap, serviceIdentifiers, serviceIdentifiers);
         if (!mappedPublicDomain && serviceCopy.ports) {
-          for (const pKey of Object.keys(serviceCopy.ports)) {
-            const portVal = serviceCopy.ports[pKey];
-            if (portVal && ingressMap[portVal.toString()]) {
-              mappedPublicDomain = ingressMap[portVal.toString()];
-              break;
-            }
-          }
+          const portKeys = Object.values(serviceCopy.ports)
+            .filter((p) => !!p)
+            .map((p) => p!.toString());
+          mappedPublicDomain = this.resolveIngressDomain(ingressMap, portKeys, serviceIdentifiers);
         }
 
         if (mappedPublicDomain) {
@@ -809,21 +956,26 @@ export class InfrastructureService {
       // Check if there is an explicit port binding exposed
       // Scan all ports (PublicPort or PrivatePort) to match ingress mapping
       let port = null;
-      let mappedPublicDomain = ingressMap[name.toLowerCase()];
+      const containerIdentifiers = [name.toLowerCase()];
+      let mappedPublicDomain = this.resolveIngressDomain(ingressMap, containerIdentifiers, containerIdentifiers);
 
       if (c.Ports && c.Ports.length > 0) {
-        for (const p of c.Ports) {
-          const pub = p.PublicPort;
-          const priv = p.PrivatePort;
-          if (pub && ingressMap[pub.toString()]) {
-            mappedPublicDomain = ingressMap[pub.toString()];
-            port = pub;
-            break;
-          }
-          if (priv && ingressMap[priv.toString()]) {
-            mappedPublicDomain = ingressMap[priv.toString()];
-            port = priv;
-            break;
+        if (!mappedPublicDomain) {
+          for (const p of c.Ports) {
+            const pub = p.PublicPort;
+            const priv = p.PrivatePort;
+            const pubDomain = pub ? this.resolveIngressDomain(ingressMap, [pub.toString()], containerIdentifiers) : undefined;
+            if (pubDomain) {
+              mappedPublicDomain = pubDomain;
+              port = pub;
+              break;
+            }
+            const privDomain = priv ? this.resolveIngressDomain(ingressMap, [priv.toString()], containerIdentifiers) : undefined;
+            if (privDomain) {
+              mappedPublicDomain = privDomain;
+              port = priv;
+              break;
+            }
           }
         }
         if (!port) {
