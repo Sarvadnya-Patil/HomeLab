@@ -13,10 +13,10 @@
     "generate:licenses": "node ../../scripts/generate_licenses.js"
   },
   "dependencies": {
-    "@fastify/static": "^7.0.4",
-    "@fastify/websocket": "^8.3.1",
+    "@fastify/static": "^10.1.4",
+    "@fastify/websocket": "^11.3.1",
     "better-sqlite3": "^12.11.1",
-    "fastify": "^4.28.0",
+    "fastify": "^5.12.5",
     "ssh2": "^1.17.0",
     "yaml": "^2.4.5"
   },
@@ -39,6 +39,6 @@
     ]
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   }
 }

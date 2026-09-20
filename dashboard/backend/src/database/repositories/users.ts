@@ -11,14 +11,14 @@ export class UsersRepository extends BaseRepository<User> {
 
   findById(id: string): User | undefined {
     return this.db.get<User>(
-      'SELECT id, username, password, display_name AS displayName, role, avatar, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE id = ?',
+      'SELECT id, username, password, display_name AS displayName, role, avatar, token_version AS tokenVersion, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE id = ?',
       id
     );
   }
 
   findByUsername(username: string): User | undefined {
     return this.db.get<User>(
-      'SELECT id, username, password, display_name AS displayName, role, avatar, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE username = ?',
+      'SELECT id, username, password, display_name AS displayName, role, avatar, token_version AS tokenVersion, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE username = ?',
       username
     );
   }
@@ -55,6 +55,14 @@ export class UsersRepository extends BaseRepository<User> {
       id
     );
     return this.findById(id);
+  }
+
+  /** Invalidates every token issued to this user before now. */
+  bumpTokenVersion(id: string): void {
+    this.db.run(
+      "UPDATE users SET token_version = token_version + 1, updated_at = datetime('now') WHERE id = ?",
+      id
+    );
   }
 
   delete(id: string): boolean {

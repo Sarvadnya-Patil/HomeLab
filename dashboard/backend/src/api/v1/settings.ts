@@ -3,8 +3,10 @@ import { exec } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CoreEngine } from '../../core/engine';
+import { hostAccessEnabled, HOST_ACCESS_DISABLED_MESSAGE } from '../../utils/host-access';
 import {
   encryptSecret,
+  generateSecretToken,
   decryptSecret,
   generateServerOTP,
   verifyServerOTP,
@@ -260,7 +262,7 @@ export default function (fastify: any, engine: CoreEngine): void {
     let serviceActive = false;
     if ((engine as any).simulatedServiceActive) {
       serviceActive = true;
-    } else if (process.platform === 'linux') {
+    } else if (process.platform === 'linux' && hostAccessEnabled()) {
       try {
         const checkCmd = 'nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c "systemctl is-active homelab-desktop-streamer"';
         const stdout = await new Promise<string>((resolve) => {
@@ -277,7 +279,8 @@ export default function (fastify: any, engine: CoreEngine): void {
       username,
       password: hasPassword ? '••••••••' : '',
       hostUser,
-      serviceActive
+      serviceActive,
+      hostAccess: hostAccessEnabled()
     };
   });
 
@@ -285,6 +288,9 @@ export default function (fastify: any, engine: CoreEngine): void {
   fastify.get('/api/v1/settings/desktop/logs', async (request: any, reply: any) => {
     if (process.platform !== 'linux') {
       return { logs: 'Logs only available on Linux host environments.' };
+    }
+    if (!hostAccessEnabled()) {
+      return { logs: HOST_ACCESS_DISABLED_MESSAGE };
     }
     try {
       const logsCmd = 'nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c "journalctl -u homelab-desktop-streamer -n 50 --no-pager"';
@@ -319,7 +325,7 @@ export default function (fastify: any, engine: CoreEngine): void {
     engine.settingsRepo.set('desktop.rdp.hostUser', hostUser || '', 'desktop');
 
     // Restart host daemon if on Linux
-    if (process.platform === 'linux') {
+    if (process.platform === 'linux' && hostAccessEnabled()) {
       exec('nsenter -t 1 -m -u -i -n -p -r -- systemctl restart homelab-desktop-streamer.service || true', { shell: '/bin/sh' }, () => {});
     }
 
@@ -331,12 +337,15 @@ export default function (fastify: any, engine: CoreEngine): void {
 
   // 13. POST /api/v1/settings/desktop/install (Install host systemd service)
   fastify.post('/api/v1/settings/desktop/install', async (request: any, reply: any) => {
+    if (!hostAccessEnabled()) {
+      return reply.status(409).send({ error: HOST_ACCESS_DISABLED_MESSAGE });
+    }
     console.log('[DesktopInstaller] Initiating systemd service installation on Host OS...');
     
     // Generate secure token for the daemon if not set
     let daemonToken = engine.settingsRepo.get('desktop.rdp.daemonToken');
     if (!daemonToken) {
-      daemonToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      daemonToken = generateSecretToken();
       engine.settingsRepo.set('desktop.rdp.daemonToken', daemonToken, 'desktop');
       console.log('[DesktopInstaller] Generated new secure daemonToken.');
     }

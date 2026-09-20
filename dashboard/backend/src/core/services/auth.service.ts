@@ -1,13 +1,30 @@
-// Authentication and RBAC Service Subsystem (Production Hardened)
+// Authentication Service Subsystem (Production Hardened)
 import crypto from 'crypto';
 import { DatabaseAdapter } from '../../database/adapter';
 import { UsersRepository } from '../../database/repositories/users';
 import { Logger } from '../../utils/logger';
+import { User } from '../../types';
+
+export interface AuthenticatedUser {
+  id: string;
+  username: string;
+  role: string;
+  exp?: number;
+  /** Unix time at which the session began; carried through every renewal. */
+  ss?: number;
+}
+
+const TOKEN_TTL_SECONDS = 2 * 60 * 60;
+const WS_TICKET_TTL_MS = 30 * 1000;
+const DEFAULT_MAX_SESSION_HOURS = 12;
 
 export class AuthService {
   private usersRepo: UsersRepository;
   private jwtSecret: string;
   private dummySalt = crypto.randomBytes(16).toString('hex');
+  private wsTickets = new Map<string, { userId: string; expiresAt: number }>();
+  private maxSessionSeconds: number;
+  private revocationListeners: Array<(userId: string) => void> = [];
 
   constructor(db: DatabaseAdapter) {
     this.usersRepo = new UsersRepository(db);
@@ -19,6 +36,10 @@ export class AuthService {
       throw new Error('FATAL: JWT_SECRET environment variable must be set in production mode');
     }
     this.jwtSecret = secret;
+
+    const configuredHours = Number(process.env.SESSION_MAX_HOURS);
+    this.maxSessionSeconds =
+      (Number.isFinite(configuredHours) && configuredHours > 0 ? configuredHours : DEFAULT_MAX_SESSION_HOURS) * 3600;
   }
 
   // 1. Generate salt and hash for a password
@@ -68,13 +89,58 @@ export class AuthService {
       return null;
     }
 
-    const token = this.signJwt({ id: user.id, username: user.username, role: user.role });
+    const token = this.issueToken(user);
     Logger.info('AuthService', `User [${username}] logged in successfully. Role: ${user.role}`);
     return token;
   }
 
-  // 3. Verify signed JWT token and extract payload
-  verifyToken(token: string): { id: string; username: string; role: string; exp?: number } | null {
+  /**
+   * Issues a session token bound to the user's current token version, so bumping that version
+   * (logout, password change) invalidates every token issued before it.
+   */
+  issueToken(user: User, sessionStart?: number): string {
+    return this.signJwt({
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      tv: user.tokenVersion ?? 0,
+      ss: sessionStart ?? Math.floor(Date.now() / 1000)
+    });
+  }
+
+  /**
+   * Produces a fresh token for a live session, or null once the session has outlived the
+   * absolute lifetime. Renewal keeps a busy session alive but never lets one run forever.
+   */
+  renewToken(session: AuthenticatedUser): string | null {
+    const user = this.usersRepo.findById(session.id);
+    if (!user) return null;
+    const sessionStart = session.ss ?? Math.floor(Date.now() / 1000);
+    if (Math.floor(Date.now() / 1000) - sessionStart > this.maxSessionSeconds) return null;
+    return this.issueToken(user, sessionStart);
+  }
+
+  /** Registers a callback fired after a user's sessions are revoked (used to close their sockets). */
+  onSessionsRevoked(listener: (userId: string) => void): void {
+    this.revocationListeners.push(listener);
+  }
+
+  /** Invalidates every outstanding token for the user (sign out everywhere). */
+  revokeSessions(userId: string): void {
+    this.usersRepo.bumpTokenVersion(userId);
+    Logger.info('AuthService', `All sessions revoked for user [${userId}]`);
+    for (const listener of this.revocationListeners) {
+      try {
+        listener(userId);
+      } catch (err: any) {
+        Logger.error('AuthService', `Session revocation listener failed: ${err.message}`);
+      }
+    }
+  }
+
+  // 3. Verify signed JWT token and extract payload. The user is re-read from the database on every
+  // call, so deleted users, role changes and revoked sessions take effect immediately.
+  verifyToken(token: string): AuthenticatedUser | null {
     try {
       const parts = token.split('.');
       if (parts.length !== 3) return null;
@@ -96,7 +162,17 @@ export class AuthService {
         return null;
       }
 
-      return payload;
+      const user = this.usersRepo.findById(payload.id);
+      if (!user) return null;
+      if ((payload.tv ?? 0) !== (user.tokenVersion ?? 0)) return null;
+
+      return {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        exp: payload.exp,
+        ss: payload.ss ?? (payload.exp ? payload.exp - TOKEN_TTL_SECONDS : undefined)
+      };
     } catch {
       return null;
     }
@@ -104,7 +180,7 @@ export class AuthService {
 
   // 4. Custom JWT Signer (zero external dependencies)
   signJwt(payload: any): string {
-    const exp = payload.exp || (Math.floor(Date.now() / 1000) + 7200); // 2 hours expiry
+    const exp = payload.exp || (Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS);
     const fullPayload = { ...payload, exp };
     const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
     const body = Buffer.from(JSON.stringify(fullPayload)).toString('base64url');
@@ -115,28 +191,28 @@ export class AuthService {
     return `${header}.${body}.${signature}`;
   }
 
-  // 5. Evaluate role access permissions
-  hasPermission(role: string, permission: string): boolean {
-    if (role === 'super-admin') return true;
+  /**
+   * Issues a single-use ticket that lets a browser open a WebSocket without putting its session
+   * token in the URL, where proxies and access logs would record it.
+   */
+  issueWsTicket(userId: string): string {
+    const now = Date.now();
+    for (const [key, entry] of this.wsTickets) {
+      if (entry.expiresAt <= now) this.wsTickets.delete(key);
+    }
+    const ticket = crypto.randomBytes(24).toString('base64url');
+    this.wsTickets.set(ticket, { userId, expiresAt: now + WS_TICKET_TTL_MS });
+    return ticket;
+  }
 
-    const rolePermissions: Record<string, string[]> = {
-      admin: [
-        'start_container',
-        'stop_container',
-        'restart_container',
-        'edit_settings',
-        'view_logs',
-        'view_audit',
-        'backup_run',
-        'designer_deploy',
-        'workflow_write'
-      ],
-      operator: ['start_container', 'stop_container', 'restart_container', 'view_logs'],
-      viewer: ['view_dashboard']
-    };
-
-    const allowed = rolePermissions[role] || [];
-    return allowed.includes(permission);
+  /** Consumes a ticket. Returns the user it was issued to, or null if unknown, used or expired. */
+  redeemWsTicket(ticket: unknown): AuthenticatedUser | null {
+    if (typeof ticket !== 'string' || !ticket) return null;
+    const entry = this.wsTickets.get(ticket);
+    this.wsTickets.delete(ticket);
+    if (!entry || entry.expiresAt <= Date.now()) return null;
+    const user = this.usersRepo.findById(entry.userId);
+    return user ? { id: user.id, username: user.username, role: user.role } : null;
   }
 }
 export default AuthService;

@@ -10,6 +10,7 @@ export interface User {
   displayName: string;
   role: UserRole;
   avatar: string;
+  tokenVersion?: number;
   createdAt: string;
   updatedAt: string;
 }

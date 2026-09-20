@@ -322,12 +322,27 @@ export default function (fastify: any, engine: CoreEngine): void {
       return reply.status(400).send({ error: 'Current password is incorrect' });
     }
 
-    // Hash and update to new password
+    // Hash and update to new password, then revoke every session issued under the old one
     const hashedNew = engine.auth.hashPassword(newPassword);
     engine.usersRepo.update(dbUser.id, { password: hashedNew });
+    engine.auth.revokeSessions(dbUser.id);
 
     try { engine.auditRepo.log(dbUser.id, 'password_updated', 'security', dbUser.id); } catch { /* non-fatal */ }
 
-    return { success: true, message: 'Password updated successfully' };
+    // Hand back a fresh token so the browser making the change stays signed in
+    const refreshed = engine.usersRepo.findById(dbUser.id)!;
+    return { success: true, message: 'Password updated successfully', token: engine.auth.issueToken(refreshed) };
+  });
+
+  // 6. POST: /api/v1/auth/logout (Revoke every session token for the calling user)
+  fastify.post('/api/v1/auth/logout', async (request: any) => {
+    engine.auth.revokeSessions(request.user.id);
+    try { engine.auditRepo.log(request.user.id, 'logout', 'security', request.user.id); } catch { /* non-fatal */ }
+    return { success: true };
+  });
+
+  // 7. POST: /api/v1/auth/ws-ticket (Single-use, 30 second ticket for opening a WebSocket)
+  fastify.post('/api/v1/auth/ws-ticket', async (request: any) => {
+    return { ticket: engine.auth.issueWsTicket(request.user.id) };
   });
 }

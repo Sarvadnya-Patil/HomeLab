@@ -3,24 +3,56 @@ import { CoreEngine } from '../core/engine';
 import { Client as SSHClient } from 'ssh2';
 import { spawn, exec } from 'child_process';
 import * as os from 'os';
+import { roleAtLeast } from '../core/permissions';
+import { secureCompare } from '../utils/security';
+import { hostAccessEnabled } from '../utils/host-access';
 
 export default function (fastify: any, engine: CoreEngine): void {
-  // Register /ws/terminal socket route for real-time interactive SSH
-  fastify.get('/ws/terminal', { websocket: true }, (connection: any, _req: any) => {
-    const socket = connection.socket;
+  // Authenticated browser sockets by user. A ticket only proves identity at connect time, so when a
+  // user signs out or changes their password every socket they hold open is closed as well;
+  // otherwise a revoked session would keep streaming data and running commands.
+  const liveSockets = new Map<string, Set<any>>();
 
-    const token = _req.query?.token;
-    if (!token) {
-      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Authentication token required' }));
+  const trackSocket = (userId: string, socket: any) => {
+    let sockets = liveSockets.get(userId);
+    if (!sockets) {
+      sockets = new Set();
+      liveSockets.set(userId, sockets);
+    }
+    sockets.add(socket);
+    socket.on('close', () => {
+      sockets!.delete(socket);
+      if (sockets!.size === 0) liveSockets.delete(userId);
+    });
+  };
+
+  engine.auth.onSessionsRevoked((userId: string) => {
+    for (const socket of [...(liveSockets.get(userId) || [])]) {
+      try {
+        socket.close(1008, 'Session revoked');
+      } catch {
+        // socket already closing
+      }
+    }
+  });
+
+  // Register /ws/terminal socket route for real-time interactive SSH
+  fastify.get('/ws/terminal', { websocket: true }, (socket: any, _req: any) => {
+
+    // Browsers authenticate with a single-use ticket (POST /api/v1/auth/ws-ticket) rather than the
+    // session token, which would otherwise be recorded in proxy and access logs as part of the URL.
+    const user = engine.auth.redeemWsTicket(_req.query?.ticket);
+    if (!user) {
+      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Valid connection ticket required' }));
       socket.close();
       return;
     }
-    const user = engine.auth.verifyToken(token);
-    if (!user || user.role !== 'admin') {
+    if (!roleAtLeast(user.role, 'admin')) {
       socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Admin privilege required' }));
       socket.close();
       return;
     }
+    trackSocket(user.id, socket);
 
     const sshHost = engine.settingsRepo.get('ssh.host');
     const sshPort = Number(engine.settingsRepo.get('ssh.port')) || 22;
@@ -252,21 +284,15 @@ export default function (fastify: any, engine: CoreEngine): void {
   });
 
   // Register /ws socket route
-  fastify.get('/ws', { websocket: true }, (connection: any, _req: any) => {
-    const socket = connection.socket;
+  fastify.get('/ws', { websocket: true }, (socket: any, _req: any) => {
 
-    const token = _req.query?.token;
-    if (!token) {
-      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Authentication token required' }));
-      socket.close();
-      return;
-    }
-    const user = engine.auth.verifyToken(token);
+    const user = engine.auth.redeemWsTicket(_req.query?.ticket);
     if (!user) {
-      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Invalid token' }));
+      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Valid connection ticket required' }));
       socket.close();
       return;
     }
+    trackSocket(user.id, socket);
 
     // Add client socket connection to pool
     engine.registerWsClient(socket);
@@ -287,7 +313,7 @@ export default function (fastify: any, engine: CoreEngine): void {
           engine.unsubscribe(socket, [`docker.logs.${payload.serviceId}`]);
           engine.stopLogPoller(payload.serviceId);
         } else if (payload.type === 'terminal' && payload.command) {
-          if (user.role !== 'admin') {
+          if (!roleAtLeast(user.role, 'admin')) {
             socket.send(
               JSON.stringify({
                 type: 'error',
@@ -335,17 +361,16 @@ export default function (fastify: any, engine: CoreEngine): void {
   let activeClientSocket: any = null;
 
   // Register /ws/desktop/daemon route for the local host streamer daemon
-  fastify.get('/ws/desktop/daemon', { websocket: true }, (connection: any, _req: any) => {
-    const socket = connection.socket;
+  fastify.get('/ws/desktop/daemon', { websocket: true }, (socket: any, _req: any) => {
     
-    // Authenticate the daemon: check if it's localhost or verified token
+    // The daemon must always present the token generated when it was installed. A loopback source
+    // address proves nothing: a reverse proxy or tunnel on the same host makes every remote visitor
+    // look local, and there is no built-in default secret to fall back on.
     const token = _req.query?.token;
-    const expectedToken = engine.settingsRepo.get('desktop.rdp.daemonToken') || 'daemon_default_secret';
-    
+    const expectedToken = engine.settingsRepo.get('desktop.rdp.daemonToken');
     const remoteIp = _req.ip;
-    const isLocal = remoteIp === '127.0.0.1' || remoteIp === '::1' || remoteIp === 'localhost';
-    
-    if (token !== expectedToken && !isLocal) {
+
+    if (!expectedToken || typeof token !== 'string' || !secureCompare(token, expectedToken)) {
       console.warn(`[DesktopBridge] Unauthorized daemon connection attempt from ${remoteIp}`);
       socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized daemon credentials' }));
       socket.close();
@@ -394,21 +419,20 @@ export default function (fastify: any, engine: CoreEngine): void {
   });
 
   // Register /ws/desktop route for WebRTC & WebSocket remote desktop browser clients
-  fastify.get('/ws/desktop', { websocket: true }, (connection: any, _req: any) => {
-    const socket = connection.socket;
+  fastify.get('/ws/desktop', { websocket: true }, (socket: any, _req: any) => {
 
-    const token = _req.query?.token;
-    if (!token) {
-      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Authentication token required' }));
+    const user = engine.auth.redeemWsTicket(_req.query?.ticket);
+    if (!user) {
+      socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Valid connection ticket required' }));
       socket.close();
       return;
     }
-    const user = engine.auth.verifyToken(token);
-    if (!user || user.role !== 'admin') {
+    if (!roleAtLeast(user.role, 'admin')) {
       socket.send(JSON.stringify({ type: 'error', message: 'Unauthorized: Admin privilege required' }));
       socket.close();
       return;
     }
+    trackSocket(user.id, socket);
 
     if (activeClientSocket) {
       console.warn('[DesktopBridge] Disconnecting previous client session');
@@ -426,7 +450,7 @@ export default function (fastify: any, engine: CoreEngine): void {
     } else {
       socket.send(JSON.stringify({ type: 'status', status: 'daemon_offline' }));
       // Try to trigger daemon start on the host via systemctl if it is registered
-      if (process.platform === 'linux') {
+      if (process.platform === 'linux' && hostAccessEnabled()) {
         exec('nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c "if command -v systemctl >/dev/null 2>&1; then systemctl start homelab-desktop-streamer; fi"', (err: any) => {
           if (err) console.error('[DesktopBridge] Failed to auto-trigger streamer start:', err.message);
         });

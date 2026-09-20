@@ -53,6 +53,19 @@ interface OTPEntry {
 const otpStore = new Map<string, OTPEntry>();
 
 /**
+ * Constant-time string comparison. Both values are hashed first so the comparison takes the same
+ * time whatever their lengths.
+ */
+export function secureCompare(a: string, b: string): boolean {
+  return crypto.timingSafeEqual(deriveKey(a), deriveKey(b));
+}
+
+/** Returns a cryptographically random token suitable for use as a shared secret. */
+export function generateSecretToken(bytes = 24): string {
+  return crypto.randomBytes(bytes).toString('hex');
+}
+
+/**
  * Encrypt a sensitive password using AES-256-GCM
  */
 export function encryptSecret(plaintext: string): string {
@@ -118,6 +131,12 @@ export function generateServerOTP(email: string): string {
     .createHash('sha256')
     .update(`${rawOtp}:${normalizedEmail}:homelab-otp-salt`)
     .digest('hex');
+
+  // Drop expired entries so codes that were requested but never used do not accumulate
+  const now = Date.now();
+  for (const [key, entry] of otpStore) {
+    if (entry.expiresAt <= now) otpStore.delete(key);
+  }
 
   otpStore.set(normalizedEmail, {
     hash,
