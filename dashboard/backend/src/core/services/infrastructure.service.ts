@@ -4,7 +4,7 @@ import path from 'path';
 import net from 'net';
 import dns from 'dns';
 import { performance } from 'perf_hooks';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import os from 'os';
 
 import yaml from 'yaml';
@@ -505,10 +505,11 @@ export class InfrastructureService {
     // Query restart policies for active containers
     const restartPolicies: Record<string, string> = {};
     try {
-      const activeIds = containers.map(c => c.Id).filter(Boolean);
+      // Only well-formed hex container IDs are passed on to the docker CLI.
+      const activeIds = containers.map(c => c.Id).filter((id): id is string => typeof id === 'string' && /^[a-f0-9]{12,64}$/i.test(id));
       if (activeIds.length > 0) {
-        const inspectOut = execSync(`docker inspect --format "{{.Id}} {{.HostConfig.RestartPolicy.Name}}" ${activeIds.join(' ')}`, {
-          env: { DOCKER_HOST: 'tcp://docker-proxy:2375' },
+        const inspectOut = execFileSync('docker', ['inspect', '--format', '{{.Id}} {{.HostConfig.RestartPolicy.Name}}', ...activeIds], {
+          env: { PATH: process.env.PATH, DOCKER_HOST: 'tcp://docker-proxy:2375' },
           timeout: 10000,
           encoding: 'utf8',
           stdio: ['pipe', 'pipe', 'ignore']

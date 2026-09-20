@@ -9,7 +9,18 @@ import websocket from './src/api/websocket';
 import { Logger } from './src/utils/logger';
 import { getDatabasePath } from './src/utils/paths';
 
-const fastify = Fastify({ logger: { level: 'error' } });
+// X-Forwarded-For is client-controlled unless a proxy we trust overwrites it, so it is ignored
+// unless TRUST_PROXY names those proxies: "true", a hop count (e.g. "1"), or a comma-separated
+// list of IPs/CIDRs (e.g. "172.18.0.0/16"). Per-IP rate limits depend on this being right.
+function parseTrustProxy(value: string | undefined): boolean | number | string[] {
+  const raw = (value || '').trim();
+  if (!raw || raw === 'false') return false;
+  if (raw === 'true') return true;
+  if (/^\d+$/.test(raw)) return Number(raw);
+  return raw.split(',').map((entry) => entry.trim()).filter(Boolean);
+}
+
+const fastify = Fastify({ logger: { level: 'error' }, trustProxy: parseTrustProxy(process.env.TRUST_PROXY) });
 
 // Register fastify websocket plugin
 fastify.register(websocketPlugin);

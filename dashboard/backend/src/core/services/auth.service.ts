@@ -7,6 +7,7 @@ import { Logger } from '../../utils/logger';
 export class AuthService {
   private usersRepo: UsersRepository;
   private jwtSecret: string;
+  private dummySalt = crypto.randomBytes(16).toString('hex');
 
   constructor(db: DatabaseAdapter) {
     this.usersRepo = new UsersRepository(db);
@@ -33,14 +34,24 @@ export class AuthService {
     const parts = storedHash.split(':');
     if (parts.length !== 2) return false;
     const [salt, hash] = parts;
-    const computedHash = crypto.scryptSync(rawPassword, salt, 64).toString('hex');
-    return computedHash === hash;
+    return this.hashMatches(rawPassword, salt, hash);
+  }
+
+  // Constant-time comparison of a password against a stored scrypt hash. Length is checked first
+  // because timingSafeEqual throws on unequal buffers.
+  private hashMatches(rawPassword: string, salt: string, expectedHex: string): boolean {
+    const computed = crypto.scryptSync(rawPassword, salt, 64);
+    const expected = Buffer.from(expectedHex, 'hex');
+    return computed.length === expected.length && crypto.timingSafeEqual(computed, expected);
   }
 
   // 2. Validate user login credentials
   login(username: string, rawPassword: string): string | null {
     const user = this.usersRepo.findByUsername(username);
     if (!user || !user.password) {
+      // Spend the same scrypt cost as a real check so response time does not reveal whether the
+      // username exists.
+      crypto.scryptSync(rawPassword, this.dummySalt, 64);
       Logger.warn('AuthService', `User login failed: Username [${username}] not found`);
       return null;
     }
@@ -52,8 +63,7 @@ export class AuthService {
     }
 
     const [salt, hash] = parts;
-    const computedHash = crypto.scryptSync(rawPassword, salt, 64).toString('hex');
-    if (computedHash !== hash) {
+    if (!this.hashMatches(rawPassword, salt, hash)) {
       Logger.warn('AuthService', `User login failed: Invalid credentials for user [${username}]`);
       return null;
     }
@@ -75,7 +85,9 @@ export class AuthService {
         .update(`${header}.${body}`)
         .digest('base64url');
 
-      if (signature !== expectedSignature) {
+      const givenBuf = Buffer.from(signature);
+      const expectedBuf = Buffer.from(expectedSignature);
+      if (givenBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(givenBuf, expectedBuf)) {
         return null;
       }
 

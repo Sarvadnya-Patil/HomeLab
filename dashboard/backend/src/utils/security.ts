@@ -4,8 +4,34 @@ import * as net from 'net';
 import * as tls from 'tls';
 import { Logger } from './logger';
 
-const MASTER_KEY_STRING = process.env.ENCRYPTION_KEY || 'homelab-2fa-smtp-master-secret-key-32b-seed';
-const MASTER_KEY = crypto.createHash('sha256').update(MASTER_KEY_STRING).digest(); // 32 bytes
+// Key that older releases fell back to when ENCRYPTION_KEY was unset. Because it is public it
+// protects nothing, so it is never used to encrypt in production. It remains only to decrypt values
+// stored by those releases (they are re-encrypted with the configured key the next time they are
+// saved) and as a convenience for local development and tests.
+const LEGACY_KEY_STRING = 'homelab-2fa-smtp-master-secret-key-32b-seed';
+
+function deriveKey(secret: string): Buffer {
+  return crypto.createHash('sha256').update(secret).digest(); // 32 bytes
+}
+
+function resolveMasterKey(): Buffer {
+  const configured = process.env.ENCRYPTION_KEY;
+  if (configured && configured !== LEGACY_KEY_STRING) {
+    return deriveKey(configured);
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: ENCRYPTION_KEY environment variable must be set to a unique secret in production mode');
+  }
+  Logger.warn('Security', 'ENCRYPTION_KEY is not set; using the built-in development key. Do not use this configuration in production.');
+  return deriveKey(LEGACY_KEY_STRING);
+}
+
+const MASTER_KEY = resolveMasterKey();
+const LEGACY_KEY = deriveKey(LEGACY_KEY_STRING);
+
+// SMTP relays on a trusted LAN sometimes present self-signed certificates or offer no STARTTLS at
+// all. This explicit opt-in restores the old permissive behaviour; by default both are refused.
+const SMTP_ALLOW_INSECURE = process.env.SMTP_ALLOW_INSECURE === 'true';
 
 export interface SMTPConfig {
   provider: string;
@@ -51,19 +77,29 @@ export function decryptSecret(payload: string): string {
   if (!payload || !payload.startsWith('enc:gcm:')) {
     return payload; // Return as-is if unencrypted legacy format
   }
-  try {
-    const parts = payload.split(':');
-    if (parts.length !== 5) return payload;
+  const parts = payload.split(':');
+  if (parts.length !== 5) return payload;
+
+  const decryptWith = (key: Buffer): string => {
     const iv = Buffer.from(parts[2], 'hex');
     const authTag = Buffer.from(parts[3], 'hex');
-    const encryptedText = parts[4];
-
-    const decipher = crypto.createDecipheriv('aes-256-gcm', MASTER_KEY, iv);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
     decipher.setAuthTag(authTag);
-    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+    let decrypted = decipher.update(parts[4], 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
+  };
+
+  try {
+    return decryptWith(MASTER_KEY);
   } catch (err: any) {
+    if (!MASTER_KEY.equals(LEGACY_KEY)) {
+      try {
+        return decryptWith(LEGACY_KEY);
+      } catch {
+        // Fall through to the failure report below.
+      }
+    }
     Logger.error('Security', `Decryption failure: ${err.message}`);
     return '';
   }
@@ -131,6 +167,19 @@ export function verifyServerOTP(email: string, userEnteredOtp: string): { valid:
 }
 
 /**
+ * TLS options that authenticate the SMTP server: the certificate chain and hostname are checked
+ * unless SMTP_ALLOW_INSECURE is set. SNI is only sent for DNS names, since an IP address is not a
+ * valid server name.
+ */
+function tlsVerificationOptions(host: string): tls.ConnectionOptions {
+  return {
+    host,
+    servername: net.isIP(host) ? undefined : host,
+    rejectUnauthorized: !SMTP_ALLOW_INSECURE
+  };
+}
+
+/**
  * Send an email via SMTP (STARTTLS / Direct TLS socket)
  * Properly implements RFC 3207 STARTTLS: waits for TLS secureConnect before
  * sending fresh EHLO, then AUTH PLAIN — fixing Gmail auth rejection.
@@ -175,13 +224,20 @@ export async function sendSMTPEmail(config: SMTPConfig, toEmail: string, subject
 
         // Step 1: EHLO response — decide STARTTLS or direct auth
         } else if (step === 1 && response.startsWith('250')) {
-          if (!isDirectTLS && response.includes('STARTTLS')) {
+          if (!isDirectTLS && /STARTTLS/i.test(response)) {
             sendLine(`STARTTLS`);
             step = 2;
-          } else {
+          } else if (isDirectTLS || SMTP_ALLOW_INSECURE) {
+            if (!isDirectTLS) {
+              Logger.warn('SMTP', 'Server did not offer STARTTLS; sending credentials in cleartext because SMTP_ALLOW_INSECURE is enabled.');
+            }
             const authStr = Buffer.from(`\0${config.smtpUser}\0${config.smtpPass}`).toString('base64');
             sendLine(`AUTH PLAIN ${authStr}`);
             step = 4;
+          } else {
+            // Never fall back to unencrypted AUTH: a network attacker could strip the STARTTLS
+            // capability from the reply to force exactly that downgrade.
+            cleanup(false, 'Server did not offer STARTTLS; refusing to send credentials over an unencrypted connection.');
           }
 
         // Step 2: STARTTLS acknowledged — upgrade socket to TLS
@@ -192,8 +248,7 @@ export async function sendSMTPEmail(config: SMTPConfig, toEmail: string, subject
 
           const tlsSocket = tls.connect({
             socket: socket as net.Socket,
-            host: config.smtpHost,
-            rejectUnauthorized: false
+            ...tlsVerificationOptions(config.smtpHost)
           });
 
           socket = tlsSocket;
@@ -262,7 +317,7 @@ export async function sendSMTPEmail(config: SMTPConfig, toEmail: string, subject
       };
 
       if (isDirectTLS) {
-        socket = tls.connect({ host: config.smtpHost, port, rejectUnauthorized: false }, () => {
+        socket = tls.connect({ port, ...tlsVerificationOptions(config.smtpHost) }, () => {
           Logger.info('SMTP', 'Direct TLS connected.');
         });
       } else {

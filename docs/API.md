@@ -93,7 +93,8 @@ Initializes the primary root administrator account. Only executable when no user
 
 ### `POST /api/v1/auth/login`
 Validates user credentials and triggers 2FA challenge dispatch if enabled.
-- **Access**: Public (Subject to IP rate limiting: 5 failed attempts / 10 min)
+- **Access**: Public (Subject to IP rate limiting: 5 failed attempts / 10 min; successful logins are not counted). Once the limit is reached the endpoint returns `429` with a `Retry-After` header until the window expires. Behind a reverse proxy or tunnel, set `TRUST_PROXY` so the limit is applied per real client address rather than per proxy.
+- **Errors**: `401` with `Incorrect username or password` for any failed credential check, whether the username exists or not.
 - **Request Body**:
   ```json
   {
