@@ -20,13 +20,18 @@ COPY backend/src ./backend/src
 # Compile TypeScript to JavaScript
 RUN cd backend && npm run build
 
+# Drop development dependencies so only what the compiled server needs is copied to the runtime image
+RUN cd backend && npm prune --omit=dev
+
 # Stage 2: Runtime stage
 FROM node:20-alpine AS runtime
 
 WORKDIR /app
 
-# Install native compilation dependencies, Docker CLI client, and util-linux (nsenter)
-RUN apk add --no-cache python3 make g++ docker-cli docker-cli-compose util-linux
+# Runtime needs only the Docker CLI client and util-linux (nsenter, used when host access is enabled).
+# Build tools are deliberately absent: better-sqlite3 is compiled in the build stage and copied over,
+# so a compiler here would only add attack surface and image size.
+RUN apk add --no-cache docker-cli docker-cli-compose util-linux
 
 
 

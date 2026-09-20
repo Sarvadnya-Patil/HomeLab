@@ -36,7 +36,7 @@ A modular, self-hosted infrastructure control plane and management console devel
 HomeLab OS incorporates a browser-based remote desktop streamer:
 - **Low-Latency Video Pipeline:** Real-time H.264 video streaming over WebRTC (`aiortc`) with presentation timestamp synchronization and adaptive JPEG fallbacks.
 - **Hardware Kernel Input (`/dev/uinput`):** Direct hardware-level mouse positioning and keyboard scancode injection via the Linux kernel `uinput` module, bypassing display server permissions.
-- **Multi-Tier Frame Capture:** Automated capture hierarchy supporting GNOME Shell D-Bus Screencast, Wayland native `grim`, MIT-SHM shared memory (`mss`), and Linux linear framebuffers (`/dev/fb0`).
+- **Multi-Tier Frame Capture:** Automated capture hierarchy: direct DRM/KMS scanout (`libdrmtap`), Wayland `grim` (wlroots compositors), MIT-SHM shared memory (`mss`), and Linux linear framebuffers (`/dev/fb0`).
 
 ### 3.2 Dynamic Container Topologies & Visual Designer
 - **Automatic Graph Construction:** Resolves network pathways from external Internet DNS, through Cloudflare Tunnels, across reverse proxies, into application containers and volumes.
@@ -51,8 +51,9 @@ HomeLab OS incorporates a browser-based remote desktop streamer:
 - **Two-Factor Authentication (2FA):** Mandatory 3-step authentication challenge flow (Password $\rightarrow$ Email Confirmation $\rightarrow$ 6-Digit OTP).
 - **RFC 3207 STARTTLS Support:** Native TLS socket upgrades for Gmail App Passwords, Outlook, and custom SMTP relays.
 - **Multi-Layer Rate Limiting:** Anti-bruteforce protection (5 failed attempts / 10 min per IP) and OTP resend cooldown timers.
-- **Role-Based Access Control (RBAC):** Strict operational boundaries for `admin`, `editor`, and `viewer` roles.
-- **Sliding JWT Sessions:** Auto-renewing access tokens for uninterrupted administrative sessions.
+- **Role-Based Access Control (RBAC):** Strict operational boundaries for `admin`, `editor`, and `viewer` roles, enforced from a single policy table. Routes that are not listed require `admin`.
+- **Revocable Sliding Sessions:** Auto-renewing access tokens that end on sign-out or password change and stop renewing after an absolute 12-hour limit. Browsers open WebSockets with single-use tickets, so the session token never appears in a URL.
+- **Hardened Web Surface:** Content-Security-Policy without inline scripts, Subresource Integrity on CDN assets, output escaping in the SPA, no CORS, and `no-store` on API responses.
 
 ---
 
@@ -68,11 +69,23 @@ cd HomeLab/dashboard
 # 2. Create the external homelab bridge network
 docker network create homelab-network
 
-# 3. Launch control plane and socket proxy
+# 3. Create the backend configuration, then set JWT_SECRET and ENCRYPTION_KEY in it
+#    (both are required in production; generate each with: openssl rand -hex 32)
+cp backend/.env.example backend/.env
+
+# 4. Launch control plane and socket proxy
 docker compose up -d --build
 ```
 
 Open your browser at `http://localhost:8081` to access the console.
+
+The stack runs **unprivileged** by default. Two features need host access and are opt-in: managing the Remote Desktop daemon from the dashboard, and auto-discovering Cloudflare Tunnel configs stored on the host. To enable them, layer the override file (read its header first: it makes the dashboard container privileged, which is effectively root on the host):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.host-access.yml up -d --build
+```
+
+Running behind a reverse proxy or Cloudflare Tunnel? Set `TRUST_PROXY` in `backend/.env` so login rate limiting sees real client addresses.
 
 ---
 
@@ -112,18 +125,24 @@ HomeLab OS communicates with the Docker Engine through Tecnativa's Docker Socket
 
 ## 7. Cloudflare Tunnel Integration
 
-HomeLab OS integrates seamlessly with existing Cloudflare Tunnel deployments. Mount the read-only configuration file(s) into the dashboard container:
+HomeLab OS integrates with existing Cloudflare Tunnel deployments by reading the tunnel's `config.yml`. There are two ways to give it access, with different exposure:
+
+**Narrow (recommended):** mount only the config file and tell HomeLab OS where it is. The container never sees your tunnel credentials.
 
 ```yaml
-volumes:
-  - ~/.cloudflared/config.yml:/etc/cloudflared/config.yml:ro
-  - /etc/cloudflared:/host/etc/cloudflared:ro
-  - /root/.cloudflared:/host/root/.cloudflared:ro
+services:
+  dashboard:
+    volumes:
+      - /etc/cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+    environment:
+      - CLOUDFLARE_CONFIG_PATH=/etc/cloudflared/config.yml
 ```
+
+**Automatic discovery:** `docker-compose.host-access.yml` mounts `/etc/cloudflared`, `/root/.cloudflared` and `/home` read-only so the dashboard can locate whichever config the running tunnel uses. Those directories can also contain tunnel credential JSON files and certificates, and the container can read them, so use this only where you accept that.
 
 If `cloudflared` runs as a Docker container, HomeLab OS inspects that container directly (its launch arguments and bind mounts) to determine which `config.yml` it actually uses, rather than guessing among the well-known host locations above -- this matters on hosts with more than one candidate file (e.g. a stale file left in a user's home directory alongside the real one under `/etc/cloudflared`). When that detection isn't possible (`cloudflared` running natively via systemd, or its container not reachable), HomeLab OS falls back to scanning `/etc/cloudflared`, `/root/.cloudflared`, the dashboard user's own home directory, and every other user under `/home`, in that order. Set `CLOUDFLARE_CONFIG_PATH` to override with an explicit path.
 
-Tunnel private keys and certificate files remain isolated on the host operating system and are never exposed to the control plane.
+With the narrow setup, tunnel private keys and certificate files stay on the host and are not visible to the container. With automatic discovery they are readable by it; see above.
 
 ---
 

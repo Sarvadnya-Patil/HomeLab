@@ -48,13 +48,26 @@ Authorization: Bearer <jwt_token>
 ```
 If a valid token has less than 30 minutes before expiration, the server automatically issues a renewed token via the `X-Renewed-Token` response header.
 
-### 1.5 Role-Based Access Control (RBAC)
-HomeLab OS enforces a three-tier role access model across all API routes:
-- `admin`: Full administrative access (Container management, Settings, Terminal, Remote Desktop, Backups).
-- `editor`: Operational access (Start, stop, and restart containers, edit workspace layouts).
-- `viewer`: Read-only access (Inspect metrics, health, container status, and topology diagrams). Mutating requests are rejected with HTTP 403 Forbidden.
+Sessions are revocable and bounded:
+- Every token is tied to the user's current token version. Signing out (`POST /api/v1/auth/logout`) or changing the password increments that version, which invalidates every token issued earlier, on every device.
+- Each request re-reads the user from the database, so a deleted user or a changed role takes effect immediately rather than when the token expires.
+- Renewal keeps an active session alive but stops once the session reaches its absolute lifetime (`SESSION_MAX_HOURS`, default 12), after which a fresh sign-in is required.
 
-> Note: Initial setup creates the primary Master Administrator (`admin`). RBAC permission enforcement is active across all endpoints.
+### 1.5 Role-Based Access Control (RBAC)
+HomeLab OS enforces a three-tier role ladder, `viewer` < `editor` < `admin`, from a single policy table (`src/core/permissions.ts`). Each route is matched by longest path prefix and has a minimum role for reads (`GET`/`HEAD`) and for writes (every other method).
+
+| Route prefix | Read | Write |
+|---|---|---|
+| `/terminal`, `/backups`, `/settings`, `/audit` | admin | admin |
+| `/docker`, `/designer`, `/jobs` | editor | editor |
+| `/servers` | viewer | admin |
+| `/auth/me`, `/auth/password`, `/auth/logout`, `/auth/ws-ticket` | viewer | viewer |
+| `/metrics`, `/workspaces`, `/notifications`, `/categories`, `/services`, `/plugins`, `/search`, `/health`, `/system`, `/apps`, `/docs` | viewer | editor |
+| anything not listed | admin | admin |
+
+The last row is deliberate: a newly added endpoint is admin-only until someone adds it to the table. Requests below the required role receive HTTP 403.
+
+> Note: Initial setup creates the primary Master Administrator (`admin`). Roles other than these three are not recognised and are denied everywhere.
 
 ---
 
@@ -164,6 +177,17 @@ Updates user account password.
     "newPassword": "NewSecurePassword456!"
   }
   ```
+- **Response**: `{ "success": true, "message": "...", "token": "<jwt_token>" }`. The password change ends every other session, so the response carries a replacement token for the caller.
+
+### `POST /api/v1/auth/logout`
+Revokes every session token belonging to the calling user (sign out everywhere).
+- **Access**: `viewer`, `editor`, `admin`
+- **Response**: `{ "success": true }`
+
+### `POST /api/v1/auth/ws-ticket`
+Issues a single-use ticket, valid for 30 seconds, used to open a WebSocket (see section 10).
+- **Access**: `viewer`, `editor`, `admin`
+- **Response**: `{ "ticket": "<opaque string>" }`
 
 ---
 
@@ -351,7 +375,11 @@ Forces an immediate re-scan of the `services/` directory.
 
 ## 10. WebSocket Gateway Specifications
 
-### 10.1 System Event Stream (`ws://<host>:8081/ws?token=<jwt>`)
+Browsers cannot set an `Authorization` header on a WebSocket, and putting the session token in the URL would record it in proxy and access logs. Instead, call `POST /api/v1/auth/ws-ticket` with the normal Bearer token, then connect with the returned ticket as `?ticket=<ticket>`. A ticket works once and expires after 30 seconds, so a logged URL never contains a credential that outlives the connection. Passing `?token=` is no longer accepted. The terminal and desktop sockets additionally require the `admin` role.
+
+The host streamer daemon connects to `/ws/desktop/daemon` with the token generated when the daemon was installed. A loopback source address is not treated as proof of identity, and there is no built-in default token.
+
+### 10.1 System Event Stream (`ws://<host>:8081/ws?ticket=<ticket>`)
 Used by the dashboard UI to subscribe to live updates without HTTP polling:
 - **Subscribe Message**:
   ```json
@@ -372,7 +400,7 @@ Used by the dashboard UI to subscribe to live updates without HTTP polling:
   { "type": "subscribe_logs", "serviceId": "portainer" }
   ```
 
-### 10.2 Interactive Terminal Stream (`ws://<host>:8081/ws/terminal?token=<jwt>`)
+### 10.2 Interactive Terminal Stream (`ws://<host>:8081/ws/terminal?ticket=<ticket>`)
 Multiplexes real-time terminal I/O over WebSocket directly to a remote SSH session or host shell:
 - **Auth Handshake**:
   ```json
@@ -393,7 +421,7 @@ Multiplexes real-time terminal I/O over WebSocket directly to a remote SSH sessi
   { "type": "data", "data": "ls -la\n" }
   ```
 
-### 10.3 Remote Desktop Signaling Stream (`ws://<host>:8081/ws/desktop?token=<jwt>`)
+### 10.3 Remote Desktop Signaling Stream (`ws://<host>:8081/ws/desktop?ticket=<ticket>`)
 Facilitates WebRTC SDP offer/answer exchanges and transmits normalized input events to the host streamer daemon:
 - **SDP Offer Exchange**:
   ```json

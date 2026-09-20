@@ -175,6 +175,15 @@ Browser JavaScript `event.code` identifiers are mapped to Linux kernel `KEY_*` c
 
 ## 5. Host Daemon Deployment & Systemd Configuration
 
+### 5.0 Letting the Dashboard Manage the Daemon
+Installing and controlling the daemon from the dashboard means running commands inside the host's namespaces, which needs a privileged container that shares the host PID namespace. The default stack does not grant that. To use the Remote Desktop settings tab (install, restart, logs), start the dashboard with the opt-in override:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.host-access.yml up -d --build
+```
+Without it the Remote Desktop settings tab reports that host access is disabled, and you can still install the daemon by hand on the host as described below. See the header of `docker-compose.host-access.yml` for exactly what it grants and why that is effectively root on the host.
+
+The daemon authenticates to the dashboard with a random token generated at install time and passed as `--daemon-token`. There is no default token: a daemon started by hand must be given the token stored in the dashboard's `desktop.rdp.daemonToken` setting, or the dashboard refuses it.
+
 ### 5.1 Prerequisites on Host Machine
 ```bash
 sudo apt-get update

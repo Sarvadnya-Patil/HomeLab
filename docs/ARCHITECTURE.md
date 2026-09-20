@@ -71,7 +71,8 @@ HomeLab/
 │   └── ROADMAP.md            # Project development milestones
 └── dashboard/
     ├── Dockerfile            # Multi-stage production container build
-    ├── docker-compose.yml    # Control plane and socket proxy compose stack
+    ├── docker-compose.yml    # Control plane and socket proxy compose stack (unprivileged)
+    ├── docker-compose.host-access.yml  # Opt-in override granting host access for Remote Desktop management
     ├── frontend/             # Single-Page Application assets (HTML, CSS, JS ESM)
     │   ├── components/       # Core view web components
     │   ├── widgets/          # Modular dashboard widgets
@@ -109,7 +110,7 @@ A centralized NodeJS `EventEmitter` routes runtime updates:
 
 ### 3.4 Remote Desktop & Streaming Engine
 HomeLab OS features a browser-based Remote Desktop stream powered by WebRTC and hardware kernel input synthesis:
-- **Display Grabber:** Multi-tier capture fallback supporting GNOME D-Bus Screencast, Wayland `grim`, MIT-SHM (`mss`), Linux kernel linear framebuffers (`/dev/fb0`), and PyAutoGUI.
+- **Display Grabber:** Multi-tier capture fallback: direct DRM/KMS scanout (`libdrmtap`), Wayland `grim` (wlroots compositors), MIT-SHM (`mss`), Linux kernel linear framebuffers (`/dev/fb0`), and PyAutoGUI.
 - **WebRTC Pipeline:** Low-latency H.264 video track stream with synchronized presentation timestamps.
 - **Hardware Kernel Input (`/dev/uinput`):** Direct injection of absolute mouse tablet events (`ABS_X`, `ABS_Y`) and full keyboard scancodes via the Linux kernel `uinput` module.
 - For complete implementation details, see [REMOTE_DESKTOP.md](file:///D:/My_Projects/HomeLab/docs/REMOTE_DESKTOP.md).
@@ -175,5 +176,10 @@ The database uses SQLite with Write-Ahead Logging (WAL) enabled for high concurr
 - **RFC 3207 STARTTLS 2FA:** Two-factor authentication verification via mandatory 3-step challenge flow (Password $\rightarrow$ Email Confirmation $\rightarrow$ 6-Digit OTP) with TLS socket upgrades.
 - **Database Parameterization:** SQL repositories utilize query parameters exclusively to eliminate SQL injection threat vectors.
 - **Secrets Separation:** Cryptographic keys (`JWT_SECRET` and `ENCRYPTION_KEY`) must be supplied via environment variables. The server will refuse to boot in production mode if either is missing. Values encrypted by earlier releases with the former built-in default key remain readable and are re-encrypted with `ENCRYPTION_KEY` the next time they are saved.
+- **Single Access Policy:** Role checks live in one table (`src/core/permissions.ts`) with roles `viewer` < `editor` < `admin`. A route that is not listed requires admin, so new endpoints start locked down.
+- **Revocable Sessions:** Tokens carry the user's token version; sign-out and password changes bump it, ending every session. Users are re-read from the database on every request and sessions have an absolute lifetime.
+- **WebSocket Tickets:** Browsers open sockets with a single-use, 30-second ticket, so a session token never appears in a URL or access log. The host daemon must present its install-time token.
+- **Response Hardening:** Every response carries a Content-Security-Policy (no inline scripts, scripts only from this origin and the pinned CDN, whose files also carry Subresource Integrity hashes), plus `X-Content-Type-Options`, `Referrer-Policy`, frame-denial, and `no-store` on API responses. The API is same-origin only and emits no CORS headers.
+- **Least-Privilege Container:** The dashboard container runs unprivileged by default. Host access for Remote Desktop management is an explicit opt-in (`docker-compose.host-access.yml`), and the runtime image contains no compiler or development dependencies.
 - **Subprocess Safety:** Docker CLI calls made by the backend pass user-influenced values as an argument array to `execFile`, never through a shell string, and container identifiers are validated before use.
 - **SMTP Transport:** Certificates are validated on both Direct TLS and STARTTLS connections, and the client refuses to send credentials if STARTTLS is not offered. `SMTP_ALLOW_INSECURE=true` is an explicit opt-out for trusted LAN relays.

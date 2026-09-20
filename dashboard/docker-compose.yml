@@ -22,8 +22,10 @@ services:
       dockerfile: Dockerfile
     container_name: homelab-dashboard
     restart: unless-stopped
-    privileged: true
-    pid: host
+    # This container runs WITHOUT host privileges by default. Two features need more, and both are
+    # opt-in through docker-compose.host-access.yml (see the README):
+    #   - managing the Remote Desktop service on the host (privileged + host PID namespace)
+    #   - discovering Cloudflare Tunnel configs stored on the host
     depends_on:
       - docker-proxy
     ports:
@@ -32,16 +34,6 @@ services:
       - ./data:/data
       - ../services:/services:ro
       - /proc:/host/proc:ro
-      - /run/user:/run/user:ro
-      - /home:/home:ro
-      # Mount ONLY the Cloudflared config.yml file from user home directory (Safe: does NOT expose SSH keys or JSON credentials)
-      - ~/.cloudflared/config.yml:/etc/cloudflared/config.yml:ro
-      # Also expose the true host /etc/cloudflared and /root/.cloudflared directories (distinct
-      # container paths so they don't shadow the bind above) so the dashboard can read whichever
-      # config file the actual running cloudflared container/service is using, even when it
-      # differs from the one in the dashboard user's own home directory.
-      - /etc/cloudflared:/host/etc/cloudflared:ro
-      - /root/.cloudflared:/host/root/.cloudflared:ro
     env_file:
       - ./backend/.env
     environment:
@@ -50,6 +42,7 @@ services:
       - DOCKER_HOST=tcp://docker-proxy:2375
       - DATA_DIR=/data
       - DATABASE_PATH=/data/homelab.db
+      - HOST_ACCESS=false
     networks:
       - homelab-network
     labels:

@@ -37,7 +37,7 @@ The backend recursively scans the directory mapped to `/services`. It parses eac
   - `../services:/services:ro` — Maps host service manifests as read-only.
   - `./data:/data` — Persistent database, logs, and staging storage.
   - `/proc:/host/proc:ro` — Read-only host process table for telemetry inspection.
-  - `~/.cloudflared/config.yml:/etc/cloudflared/config.yml:ro` — Ingress configuration file.
+- **Privileges:** The container runs unprivileged by default. `docker-compose.host-access.yml` is an opt-in override that adds `privileged: true`, `pid: host`, and read-only mounts of the directories where Cloudflare Tunnel configs live. It is needed only to manage the Remote Desktop daemon from the dashboard and to auto-discover tunnel configs (see section 5).
 
 ---
 
@@ -59,7 +59,7 @@ The control plane exposes dedicated WebSocket endpoints:
 To run the dashboard locally for development without Docker:
 
 ### 4.1 Prerequisites
-- Node.js (v18.0.0 or higher)
+- Node.js (v20.0.0 or higher)
 - npm (v9.0.0 or higher)
 - Python 3.9+ (optional, for Remote Desktop streamer testing)
 
@@ -81,6 +81,10 @@ NODE_ENV=development
 JWT_SECRET=your_super_secret_development_key_32_bytes_long
 # Required when NODE_ENV=production; optional for local development
 ENCRYPTION_KEY=your_development_encryption_key_32_bytes_long
+# Optional. Hours before a session must sign in again even if it is in constant use (default 12)
+# SESSION_MAX_HOURS=12
+# Optional. Sites allowed to embed the dashboard in a frame (default: none)
+# FRAME_ANCESTORS='self' https://home.example.com
 DATABASE_PATH=./data/homelab_dev.db
 DATA_DIR=./data
 DOCKER_PROXY_URL=http://localhost:2375
@@ -121,12 +125,24 @@ To deploy the dashboard in production using Docker Compose:
    ```bash
    cd dashboard
    ```
-3. Build and launch the container stack:
+3. Create the backend configuration and set its two required secrets (the container refuses to start in production without them):
+   ```bash
+   cp backend/.env.example backend/.env
+   # Set JWT_SECRET and ENCRYPTION_KEY, e.g. with: openssl rand -hex 32
+   # Behind a reverse proxy or Cloudflare Tunnel, also set TRUST_PROXY (see .env.example)
+   ```
+4. Build and launch the container stack:
    ```bash
    docker compose up -d --build
    ```
-4. Check running logs to verify clean boot:
+   To also manage the Remote Desktop daemon from the dashboard or auto-discover Cloudflare Tunnel configs, layer the host-access override on top (it grants a privileged container; read its header first):
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.host-access.yml up -d --build
+   ```
+5. Check running logs to verify clean boot:
    ```bash
    docker compose logs -f dashboard
    ```
-5. Access the administration interface at `http://<host-ip>:8081`.
+6. Access the administration interface at `http://<host-ip>:8081`.
+
+WebSocket connections authenticate with a single-use ticket (`POST /api/v1/auth/ws-ticket`), not the session token; see `docs/API.md`.
