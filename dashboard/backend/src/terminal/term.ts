@@ -26,7 +26,8 @@ export class TerminalEngine {
 
     if (cmd === 'uptime') {
       const stats = this.metricsCollector.getMetrics();
-      return ` ${new Date().toLocaleTimeString('en-US', { hour12: false })} up ${stats.uptime}, load average: 1.25, 1.10, 0.95`;
+      const [one, five, fifteen] = (stats.loadAvg ?? [0, 0, 0]).map((n) => n.toFixed(2));
+      return ` ${new Date().toLocaleTimeString('en-US', { hour12: false })} up ${stats.uptime}, load average: ${one}, ${five}, ${fifteen}`;
     }
 
     if (cmd === 'df -h /dev/sda1' || cmd === 'df -h' || cmd === 'df') {
