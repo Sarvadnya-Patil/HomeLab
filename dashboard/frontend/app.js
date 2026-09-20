@@ -7,6 +7,7 @@ import { Header } from './components/header.js';
 import { WidgetGrid } from './components/widget-grid.js';
 import { CommandPalette } from './components/command-palette.js';
 import { NotificationCenter } from './components/notification-center.js';
+import { escapeHtml } from './utils/html.js';
 
 // modular application views
 import { AppContainers } from './components/app-containers.js';
@@ -447,8 +448,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Sign Out button
   const signOutBtn = document.getElementById('btn-sign-out');
   if (signOutBtn) {
-    signOutBtn.addEventListener('click', () => {
+    signOutBtn.addEventListener('click', async () => {
       pendingCredentials = null;
+      // Revoke the session on the server first; if the token is already invalid there is nothing to revoke.
+      try { await api.post('/api/v1/auth/logout', {}); } catch { /* already signed out */ }
       localStorage.removeItem('homelab_token');
       store.set('currentUser', null);
       if (appShell) appShell.style.display = 'none';
@@ -479,6 +482,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isOpen = store.get('notificationCenterOpen');
     store.set('notificationCenterOpen', !isOpen);
   };
+  const clockBlock = document.getElementById('header-time-block');
+  if (clockBlock) clockBlock.addEventListener('click', () => window.storeTriggerNotificationCenter());
 
   // 7. Bind mobile sidebar toggle controllers
   const toggleBtn = document.getElementById('sidebar-toggle-btn');
@@ -544,10 +549,10 @@ window.showCustomAlert = function(title, message, type = 'error') {
         </span>
       </div>
       <div style="font-size: 0.85rem; font-weight: bold; color: var(--text-primary); margin-top: 0.25rem;">
-        ${title}
+        ${escapeHtml(title)}
       </div>
       <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; font-family: var(--font-sans);">
-        ${message}
+        ${escapeHtml(message)}
       </div>
       <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
         <button id="custom-alert-ok-btn" style="
@@ -660,7 +665,7 @@ window.showToast = function(message, type = 'error') {
       <span style="font-family: var(--font-mono); font-size: 0.65rem; color: ${accentColor}; font-weight: bold; text-transform: uppercase;">
         ${type === 'error' ? 'SYSTEM ERROR' : 'SYSTEM SUCCESS'}
       </span>
-      <span style="font-size: 0.75rem; color: var(--text-primary); line-height: 1.4;">${message}</span>
+      <span style="font-size: 0.75rem; color: var(--text-primary); line-height: 1.4;">${escapeHtml(message)}</span>
     </div>
     <button class="toast-close-btn" style="
       background: none;

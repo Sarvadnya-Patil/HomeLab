@@ -3,16 +3,7 @@ import { store } from '../core/state.js';
 import { api } from '../core/api.js';
 import { getIcon, getLogoHtml } from '../utils/icons.js';
 import { Dialog } from '../utils/dialog.js';
-
-function escapeHtml(text) {
-  if (typeof text !== 'string') return text;
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;');
-}
+import { escapeHtml } from '../utils/html.js';
 
 export default {
   id: 'services',
@@ -109,12 +100,12 @@ export default {
 
       // Header row with details
       catSection.innerHTML = `
-        <div class="category-drag-handle" draggable="true" style="width: 4px; background-color: ${cat.accent || '#8b8b8b'}; border-radius: 2px; cursor: move; flex-shrink: 0; align-self: stretch;" title="Drag colored line to reorder category"></div>
+        <div class="category-drag-handle" draggable="true" style="width: 4px; background-color: ${escapeHtml(cat.accent || '#8b8b8b')}; border-radius: 2px; cursor: move; flex-shrink: 0; align-self: stretch;" title="Drag colored line to reorder category"></div>
         <div class="category-section-content" style="flex: 1; display: flex; flex-direction: column;">
           <div class="category-section-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 0.25rem 0; margin-bottom: 0.5rem;">
             <div style="display: flex; align-items: center; gap: 0.5rem;">
               <span class="cat-toggle-arrow" style="font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); transform: ${isCollapsed ? 'rotate(-90deg)' : 'rotate(0)'}; transition: transform 0.15s ease;">▼</span>
-              <span class="category-title" style="font-size: 0.8rem; font-weight: bold; text-transform: uppercase; color: var(--text-primary);">${cat.name}</span>
+              <span class="category-title" style="font-size: 0.8rem; font-weight: bold; text-transform: uppercase; color: var(--text-primary);">${escapeHtml(cat.name)}</span>
               <span style="font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono);">(${catServices.length})</span>
             </div>
             <div class="category-header-actions" style="display: flex; gap: 0.25rem;">
@@ -219,20 +210,20 @@ export default {
       if (capabilities.includes('open') && isOnline) {
         const shouldHideOpen = isRemoteAccess && !isPublic;
         if (!shouldHideOpen) {
-          actionButtons += `<button class="btn-card-act btn-open" onclick="window.open('${href}')">Open</button>`;
+          actionButtons += `<button class="btn-card-act btn-open" data-open-url="${escapeHtml(href)}">Open</button>`;
         }
       }
       if (capabilities.includes('restart') && isOnline) {
-        actionButtons += `<button class="btn-card-act" data-action="restart" data-service-id="${service.id}">Restart</button>`;
+        actionButtons += `<button class="btn-card-act" data-action="restart" data-service-id="${escapeHtml(service.id)}">Restart</button>`;
       }
       if ((capabilities.includes('stop') && isOnline) || (capabilities.includes('start') && !isOnline)) {
-        actionButtons += `<button class="btn-card-act" data-action="toggle" data-service-id="${service.id}">${isOnline ? 'Stop' : 'Start'}</button>`;
+        actionButtons += `<button class="btn-card-act" data-action="toggle" data-service-id="${escapeHtml(service.id)}">${isOnline ? 'Stop' : 'Start'}</button>`;
       }
       if (capabilities.includes('logs') && isOnline) {
-        actionButtons += `<button class="btn-card-act" data-action="logs" data-service-id="${service.id}">Logs</button>`;
+        actionButtons += `<button class="btn-card-act" data-action="logs" data-service-id="${escapeHtml(service.id)}">Logs</button>`;
       }
     } else {
-      actionButtons += `<button class="btn-card-act" data-action="compose-up" data-service-id="${service.id}" style="color: var(--text-accent, #60a5fa); border-color: var(--text-accent, #60a5fa);">Recreate</button>`;
+      actionButtons += `<button class="btn-card-act" data-action="compose-up" data-service-id="${escapeHtml(service.id)}" style="color: var(--text-accent, #60a5fa); border-color: var(--text-accent, #60a5fa);">Recreate</button>`;
     }
 
     const card = document.createElement("div");
@@ -330,6 +321,14 @@ export default {
       });
     });
 
+    // The target URL travels in a data attribute rather than inline script, and only web schemes open.
+    card.querySelectorAll('.btn-open[data-open-url]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const url = btn.getAttribute('data-open-url');
+        if (/^https?:\/\//i.test(url)) window.open(url, '_blank', 'noopener');
+      });
+    });
+
     // Bind card actions click
     card.querySelectorAll('.btn-card-act[data-action]').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -394,7 +393,7 @@ export default {
       const serviceId = e.dataTransfer.getData('text/plain');
       if (!serviceId) return;
 
-      const draggingCard = document.querySelector(`.service-card[data-service-id="${serviceId}"]`);
+      const draggingCard = document.querySelector(`.service-card[data-service-id="${CSS.escape(serviceId)}"]`);
       if (!draggingCard) return;
 
       const sourceGrid = draggingCard.parentElement;

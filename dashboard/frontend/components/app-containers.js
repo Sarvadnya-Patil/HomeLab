@@ -2,6 +2,7 @@
 import { api } from '../core/api.js';
 import { Dialog } from '../utils/dialog.js';
 import { getIcon, getLogoHtml } from '../utils/icons.js';
+import { escapeHtml } from '../utils/html.js';
 
 export const AppContainers = {
   container: null,
@@ -46,13 +47,7 @@ export const AppContainers = {
   },
 
   escapeHtml(text) {
-    if (typeof text !== 'string') return text;
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#x27;');
+    return escapeHtml(text);
   },
 
   async render() {
@@ -187,7 +182,7 @@ export const AppContainers = {
       }
       this.filterAndRenderContent();
     } catch (err) {
-      contentEl.innerHTML = `<div style="color: var(--term-amber); font-family: var(--font-mono); font-size: 0.75rem;">Failed to fetch Docker daemon API: ${err.message}</div>`;
+      contentEl.innerHTML = `<div style="color: var(--term-amber); font-family: var(--font-mono); font-size: 0.75rem;">Failed to fetch Docker daemon API: ${this.escapeHtml(err.message)}</div>`;
     }
   },
 
@@ -297,7 +292,7 @@ export const AppContainers = {
       ` : `
         <td style="padding: 0.5rem;">
           <label class="switch">
-            <input type="checkbox" class="autostart-toggle" data-container-id="${c.Id}" ${c.Autostart ? 'checked' : ''}>
+            <input type="checkbox" class="autostart-toggle" data-container-id="${this.escapeHtml(c.Id)}" ${c.Autostart ? 'checked' : ''}>
             <span class="slider"></span>
           </label>
         </td>
@@ -333,7 +328,7 @@ export const AppContainers = {
       }
 
       html += `
-        <tr style="border-bottom: 1px dashed rgba(255,255,255,0.02); height: 40px;" data-container-id="${c.Id}">
+        <tr style="border-bottom: 1px dashed rgba(255,255,255,0.02); height: 40px;" data-container-id="${this.escapeHtml(c.Id)}">
           <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary);">
             <div style="display: flex; align-items: center; gap: 0.5rem;">
               <span style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;">
@@ -351,12 +346,12 @@ export const AppContainers = {
               <button class="btn btn-panel btn-container-recreate" data-container-id="" data-service-id="${escName}" style="color: var(--text-accent, #60a5fa); border-color: var(--text-accent, #60a5fa);">Recreate</button>
               <button class="btn btn-panel danger-btn btn-container-remove" data-container-id="" data-service-id="${escName}">Remove</button>
             ` : `
-              <button class="btn btn-panel btn-container-toggle" data-container-id="${c.Id}" data-service-id="${escName}">${isRunning ? 'Stop' : 'Start'}</button>
-              ${isRunning ? `<button class="btn btn-panel btn-container-restart" data-container-id="${c.Id}" data-service-id="${escName}">Restart</button>` : ''}
-              ${isRunning ? `<button class="btn btn-panel btn-container-logs" data-container-id="${c.Id}">Logs</button>` : ''}
-              <button class="btn btn-panel btn-container-inspect" data-container-id="${c.Id}">Inspect</button>
-              <button class="btn btn-panel btn-container-recreate" data-container-id="${c.Id}" data-service-id="${escName}" style="color: var(--text-accent, #60a5fa);">Recreate</button>
-              <button class="btn btn-panel danger-btn btn-container-remove" data-container-id="${c.Id}" data-service-id="${escName}">Remove</button>
+              <button class="btn btn-panel btn-container-toggle" data-container-id="${this.escapeHtml(c.Id)}" data-service-id="${escName}">${isRunning ? 'Stop' : 'Start'}</button>
+              ${isRunning ? `<button class="btn btn-panel btn-container-restart" data-container-id="${this.escapeHtml(c.Id)}" data-service-id="${escName}">Restart</button>` : ''}
+              ${isRunning ? `<button class="btn btn-panel btn-container-logs" data-container-id="${this.escapeHtml(c.Id)}">Logs</button>` : ''}
+              <button class="btn btn-panel btn-container-inspect" data-container-id="${this.escapeHtml(c.Id)}">Inspect</button>
+              <button class="btn btn-panel btn-container-recreate" data-container-id="${this.escapeHtml(c.Id)}" data-service-id="${escName}" style="color: var(--text-accent, #60a5fa);">Recreate</button>
+              <button class="btn btn-panel danger-btn btn-container-remove" data-container-id="${this.escapeHtml(c.Id)}" data-service-id="${escName}">Remove</button>
             `}
           </td>
         </tr>
@@ -498,10 +493,10 @@ export const AppContainers = {
 
       html += `
         <tr style="border-bottom: 1px dashed rgba(255,255,255,0.02); height: 40px;">
-          <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary); font-family: var(--font-mono);">${tag}</td>
+          <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary); font-family: var(--font-mono);">${this.escapeHtml(tag)}</td>
           <td style="padding: 0.5rem; font-family: var(--font-mono);">${sizeMb} MB</td>
           <td style="padding: 0.5rem; color: var(--text-secondary);">${created}</td>
-          <td style="padding: 0.5rem; text-align: right; color: var(--text-muted); font-family: var(--font-mono);">${shortId}</td>
+          <td style="padding: 0.5rem; text-align: right; color: var(--text-muted); font-family: var(--font-mono);">${this.escapeHtml(shortId)}</td>
         </tr>
       `;
     });
@@ -552,9 +547,9 @@ export const AppContainers = {
     list.forEach(v => {
       html += `
         <tr style="border-bottom: 1px dashed rgba(255,255,255,0.02); height: 40px;">
-          <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary); font-family: var(--font-mono);">${v.Name}</td>
-          <td style="padding: 0.5rem; font-family: var(--font-mono);">${v.Driver}</td>
-          <td style="padding: 0.5rem; color: var(--text-secondary); font-family: var(--font-mono);">${v.Scope}</td>
+          <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary); font-family: var(--font-mono);">${this.escapeHtml(v.Name)}</td>
+          <td style="padding: 0.5rem; font-family: var(--font-mono);">${this.escapeHtml(v.Driver)}</td>
+          <td style="padding: 0.5rem; color: var(--text-secondary); font-family: var(--font-mono);">${this.escapeHtml(v.Scope)}</td>
         </tr>
       `;
     });
@@ -586,10 +581,10 @@ export const AppContainers = {
       const shortId = n.Id.substring(0, 12);
       html += `
         <tr style="border-bottom: 1px dashed rgba(255,255,255,0.02); height: 40px;">
-          <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary); font-family: var(--font-mono);">${n.Name}</td>
-          <td style="padding: 0.5rem; font-family: var(--font-mono);">${n.Driver}</td>
-          <td style="padding: 0.5rem; color: var(--text-secondary); font-family: var(--font-mono);">${n.Scope}</td>
-          <td style="padding: 0.5rem; text-align: right; color: var(--text-muted); font-family: var(--font-mono);">${shortId}</td>
+          <td style="padding: 0.5rem; font-weight: bold; color: var(--text-primary); font-family: var(--font-mono);">${this.escapeHtml(n.Name)}</td>
+          <td style="padding: 0.5rem; font-family: var(--font-mono);">${this.escapeHtml(n.Driver)}</td>
+          <td style="padding: 0.5rem; color: var(--text-secondary); font-family: var(--font-mono);">${this.escapeHtml(n.Scope)}</td>
+          <td style="padding: 0.5rem; text-align: right; color: var(--text-muted); font-family: var(--font-mono);">${this.escapeHtml(shortId)}</td>
         </tr>
       `;
     });

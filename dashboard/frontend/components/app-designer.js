@@ -1,5 +1,6 @@
 // Data-Driven Visual Infrastructure Topology Designer (Bezier Paths & Live Sync)
 import { api } from '../core/api.js';
+import { escapeHtml } from '../utils/html.js';
 
 export const AppDesigner = {
   container: null,
@@ -402,8 +403,8 @@ export const AppDesigner = {
 
       nodeEl.innerHTML = `
         ${statusDot}
-        <div class="node-title" style="font-weight: 900; font-size: 0.72rem; color: ${isSelected ? '#000000' : '#ffffff'}; max-width: 125px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono);">${node.name}</div>
-        <div class="node-type-label" style="font-size: 0.55rem; color: ${isSelected ? '#33333e' : '#a1a1aa'}; text-transform: uppercase; margin-top: 2px; font-weight: 800; font-family: var(--font-mono);">${node.type}</div>
+        <div class="node-title" style="font-weight: 900; font-size: 0.72rem; color: ${isSelected ? '#000000' : '#ffffff'}; max-width: 125px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono);">${escapeHtml(node.name)}</div>
+        <div class="node-type-label" style="font-size: 0.55rem; color: ${isSelected ? '#33333e' : '#a1a1aa'}; text-transform: uppercase; margin-top: 2px; font-weight: 800; font-family: var(--font-mono);">${escapeHtml(node.type)}</div>
       `;
 
       nodeEl.setAttribute('data-id', node.id);
@@ -596,9 +597,9 @@ export const AppDesigner = {
       if (this.isDragging) return;
       tooltip.style.display = 'block';
       tooltip.innerHTML = `
-        <div style="font-weight: 900; color: #ffffff; font-size: 0.75rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em;">${node.name}</div>
-        <div style="font-size: 0.62rem; color: #a1a1aa; text-transform: uppercase; margin-top: 3px; font-weight: 800; font-family: var(--font-mono);">TYPE: ${node.type}</div>
-        <div style="font-size: 0.62rem; color: ${node.status === 'online' ? '#22c55e' : '#ef4444'}; margin-top: 3px; font-weight: 900; font-family: var(--font-mono); text-transform: uppercase;">STATUS: ${node.status.toUpperCase()}</div>
+        <div style="font-weight: 900; color: #ffffff; font-size: 0.75rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em;">${escapeHtml(node.name)}</div>
+        <div style="font-size: 0.62rem; color: #a1a1aa; text-transform: uppercase; margin-top: 3px; font-weight: 800; font-family: var(--font-mono);">TYPE: ${escapeHtml(node.type)}</div>
+        <div style="font-size: 0.62rem; color: ${node.status === 'online' ? '#22c55e' : '#ef4444'}; margin-top: 3px; font-weight: 900; font-family: var(--font-mono); text-transform: uppercase;">STATUS: ${escapeHtml(String(node.status || '').toUpperCase())}</div>
       `;
     });
 

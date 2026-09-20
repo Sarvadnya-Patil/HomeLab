@@ -12,6 +12,7 @@ The HomeLab OS frontend is crafted in modern, lightweight Vanilla JavaScript (ES
 - **Zero Build Step Frontend**: Browser-native ES Modules (`import`/`export`) load directly without webpack or vite bundles, enabling instant UI updates.
 - **Strict CSS Custom Properties**: All styles, spacing tokens, and color gamuts are managed through standardized CSS variables in `style.css`.
 - **Reactive WebSocket Integration**: A singleton `WebSocketClient` maintains persistent event channels for live metrics, logs, jobs, and desktop streaming.
+- **Escape Before `innerHTML`**: Container names, service labels, job targets, settings values, and API error text are untrusted. Any such value interpolated into a template string that reaches `innerHTML` must pass through `escapeHtml()` from `utils/html.js`, or be assigned with `textContent` instead. Values are never spliced into inline event handlers (`onclick`, `onerror`); pass them through `data-*` attributes and read them back in a listener. Use `CSS.escape()` when building a selector from data.
 
 ```mermaid
 graph TD

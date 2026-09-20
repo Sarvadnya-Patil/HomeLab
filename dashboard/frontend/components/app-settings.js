@@ -1,5 +1,6 @@
 import { api } from '../core/api.js';
 import { store } from '../core/state.js';
+import { escapeHtml } from '../utils/html.js';
 
 export const AppSettings = {
   container: null,
@@ -89,7 +90,7 @@ export const AppSettings = {
       formEl.innerHTML = `
         <div class="detail-item">
           <label class="detail-label" style="margin-bottom: 0.35rem; font-weight: 900; text-transform: uppercase;">App Name Title</label>
-          <input type="text" id="set-app-name" value="${appName}" style="background-color: #000000; border: 2px solid #ffffff; border-radius: 0; padding: 0.6rem; color: #ffffff; font-family: var(--font-mono); font-size: 0.75rem; width: 100%;">
+          <input type="text" id="set-app-name" value="${escapeHtml(appName)}" style="background-color: #000000; border: 2px solid #ffffff; border-radius: 0; padding: 0.6rem; color: #ffffff; font-family: var(--font-mono); font-size: 0.75rem; width: 100%;">
         </div>
         <button class="btn btn-panel btn-open" id="btn-save-settings" style="margin-top: 1rem; width: 140px; background: #ffffff; color: #000000; border: 2px solid #ffffff; font-weight: 900; text-transform: uppercase; box-shadow: 3px 3px 0 #888888;">Save Settings</button>
       `;
@@ -148,22 +149,22 @@ export const AppSettings = {
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
             <div class="detail-item">
               <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SMTP Provider</label>
-              <input type="text" id="smtp-provider" value="${status.provider || 'Custom SMTP'}" placeholder="e.g. Gmail, Outlook" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+              <input type="text" id="smtp-provider" value="${escapeHtml(status.provider || 'Custom SMTP')}" placeholder="e.g. Gmail, Outlook" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
             </div>
 
             <div class="detail-item">
               <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SMTP Host</label>
-              <input type="text" id="smtp-host" value="${status.smtpHost || ''}" placeholder="e.g. smtp.gmail.com" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+              <input type="text" id="smtp-host" value="${escapeHtml(status.smtpHost || '')}" placeholder="e.g. smtp.gmail.com" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
             </div>
 
             <div class="detail-item">
               <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SMTP Port</label>
-              <input type="number" id="smtp-port" value="${status.smtpPort || 587}" placeholder="587" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+              <input type="number" id="smtp-port" value="${escapeHtml(status.smtpPort || 587)}" placeholder="587" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
             </div>
 
             <div class="detail-item">
               <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SMTP User / Email (2FA Recipient)</label>
-              <input type="email" id="smtp-user" value="${status.smtpUser || ''}" placeholder="user@homelab.org" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+              <input type="email" id="smtp-user" value="${escapeHtml(status.smtpUser || '')}" placeholder="user@homelab.org" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
             </div>
           </div>
 
@@ -172,12 +173,12 @@ export const AppSettings = {
               <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">
                 SMTP Password ${status.hasPassword ? '<span style="color: #22c55e;">(Encrypted in DB)</span>' : ''}
               </label>
-              <input type="password" id="smtp-pass" value="${status.hasPassword ? '••••••••' : ''}" placeholder="Enter SMTP App Password" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+              <input type="password" id="smtp-pass" value="${escapeHtml(status.hasPassword ? '••••••••' : '')}" placeholder="Enter SMTP App Password" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
             </div>
 
             <div class="detail-item">
               <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">Sender Name</label>
-              <input type="text" id="sender-name" value="${status.senderName || 'HomeLab OS'}" placeholder="HomeLab Security" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+              <input type="text" id="sender-name" value="${escapeHtml(status.senderName || 'HomeLab OS')}" placeholder="HomeLab Security" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
             </div>
           </div>
 
@@ -185,7 +186,7 @@ export const AppSettings = {
             <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">
               Optional Custom 2FA Recipient Email <span style="color: #a1a1aa; font-weight: 400;">(Optional)</span>
             </label>
-            <input type="email" id="target-email" value="${status.targetEmail || ''}" placeholder="Leave blank to send to self (SMTP User)" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+            <input type="email" id="target-email" value="${escapeHtml(status.targetEmail || '')}" placeholder="Leave blank to send to self (SMTP User)" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
             <div style="font-size: 0.65rem; color: #a1a1aa; margin-top: 0.35rem; line-height: 1.4; background: #000000; border: 1px dashed #33333e; padding: 0.5rem;">
               <div>• <b>If left blank</b>: The 2FA OTP code is automatically sent to self (<span style="color: #ffffff;">SMTP User / Email</span>).</div>
               <div>• <b>If filled out</b>: The 2FA OTP code will be delivered to this custom recipient address instead.</div>
@@ -228,13 +229,13 @@ export const AppSettings = {
           <label class="detail-label" style="margin-bottom: 0.35rem; font-weight: 900; text-transform: uppercase;">Select Plugin Target</label>
           <div class="custom-dropdown-container">
             <button class="custom-dropdown-trigger" id="plugin-dropdown-trigger" style="background: #000000; border: 2px solid #ffffff; color: #ffffff; padding: 0.6rem; width: 100%; font-family: var(--font-mono); font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-              <span class="selected-text">${activePlugin.name}</span>
+              <span class="selected-text">${escapeHtml(activePlugin.name)}</span>
               <span class="dropdown-arrow">▼</span>
             </button>
             <div class="custom-dropdown-menu" id="plugin-dropdown-menu" style="background: #000000; border: 2px solid #ffffff; width: 100%;">
               ${this.plugins.map((p) => `
-                <div class="custom-dropdown-item ${p.id === this.selectedPluginId ? 'selected' : ''}" data-value="${p.id}">
-                  <span>${p.name}</span>
+                <div class="custom-dropdown-item ${p.id === this.selectedPluginId ? 'selected' : ''}" data-value="${escapeHtml(p.id)}">
+                  <span>${escapeHtml(p.name)}</span>
                 </div>
               `).join('')}
             </div>
@@ -278,17 +279,17 @@ export const AppSettings = {
             <div style="display: grid; grid-template-columns: 1.5fr 1fr 0.8fr; gap: 0.85rem;">
               <div class="detail-item">
                 <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SSH Host (IP / Domain)</label>
-                <input type="text" id="ssh-host" value="${status.sshHost || ''}" placeholder="e.g. local (direct PowerShell), 172.17.0.1" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+                <input type="text" id="ssh-host" value="${escapeHtml(status.sshHost || '')}" placeholder="e.g. local (direct PowerShell), 172.17.0.1" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
               </div>
 
               <div class="detail-item">
                 <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SSH Username</label>
-                <input type="text" id="ssh-user" value="${status.sshUser || ''}" placeholder="e.g. root" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+                <input type="text" id="ssh-user" value="${escapeHtml(status.sshUser || '')}" placeholder="e.g. root" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
               </div>
 
               <div class="detail-item">
                 <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; font-size: 0.68rem; text-transform: uppercase;">SSH Port</label>
-                <input type="number" id="ssh-port" value="${status.sshPort || 22}" placeholder="22" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
+                <input type="number" id="ssh-port" value="${escapeHtml(status.sshPort || 22)}" placeholder="22" style="background: #000000; border: 1px solid #ffffff; color: #ffffff; padding: 0.5rem; font-family: var(--font-mono); font-size: 0.72rem; width: 100%;">
               </div>
             </div>
 
@@ -360,7 +361,7 @@ export const AppSettings = {
 
         formEl.querySelector('#btn-save-ssh').addEventListener('click', () => this.saveSSHConfig());
       } catch (err) {
-        formEl.innerHTML = `<div style="font-size: 0.75rem; color: #ef4444;">Failed to load SSH configuration: ${err.message}</div>`;
+        formEl.innerHTML = `<div style="font-size: 0.75rem; color: #ef4444;">Failed to load SSH configuration: ${escapeHtml(err.message)}</div>`;
       }
     } else if (this.activeTab === 'desktop') {
       try {
@@ -375,6 +376,7 @@ export const AppSettings = {
               <div>
                 <span style="font-weight: 900; text-transform: uppercase; font-size: 0.85rem; color: #ffffff;">Direct GPU Kernel Remote Desktop</span>
                 <p style="margin: 0.25rem 0 0 0; font-size: 0.68rem; color: #a1a1aa;">Hardware-accelerated Linux kernel DRM/KMS scanout streamer with native /dev/uinput input driver.</p>
+                ${config.hostAccess === false ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.68rem; color: #eab308;">Host access is disabled for this container, so the daemon cannot be installed or managed from here. Start the stack with docker-compose.host-access.yml to enable it.</p>` : ''}
               </div>
               ${statusBadge}
             </div>
@@ -402,7 +404,7 @@ export const AppSettings = {
         // Fetch logs on render
         this.fetchDaemonLogs();
       } catch (err) {
-        formEl.innerHTML = `<div style="font-size: 0.75rem; color: #ef4444;">Failed to load Remote Desktop settings: ${err.message}</div>`;
+        formEl.innerHTML = `<div style="font-size: 0.75rem; color: #ef4444;">Failed to load Remote Desktop settings: ${escapeHtml(err.message)}</div>`;
       }
     } else if (this.activeTab === 'backup') {
       formEl.innerHTML = `
@@ -488,6 +490,9 @@ export const AppSettings = {
         currentPassword: currPass,
         newPassword: newPass
       });
+
+      // The server ends every other session on a password change and returns a replacement token
+      if (res.token) localStorage.setItem('homelab_token', res.token);
 
       statusEl.style.display = 'block';
       statusEl.style.background = '#000000';
@@ -627,11 +632,11 @@ export const AppSettings = {
         const val = this.pluginValues[field.key] !== undefined ? this.pluginValues[field.key] : (field.default || '');
         html += `
           <div class="detail-item">
-            <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; text-transform: uppercase; font-size: 0.68rem;">${field.label}</label>
+            <label class="detail-label" style="margin-bottom: 0.25rem; font-weight: 800; text-transform: uppercase; font-size: 0.68rem;">${escapeHtml(field.label)}</label>
             ${field.type === 'toggle' ? `
-              <input type="checkbox" id="field-${field.key}" ${val ? 'checked' : ''} style="margin-top: 0.25rem;">
+              <input type="checkbox" id="field-${escapeHtml(field.key)}" ${val ? 'checked' : ''} style="margin-top: 0.25rem;">
             ` : `
-              <input type="${field.type === 'password' ? 'password' : 'text'}" id="field-${field.key}" value="${val}" style="background-color: #000000; border: 1px solid #ffffff; padding: 0.5rem; color: #ffffff; font-family: var(--font-mono); font-size: 0.75rem; width: 100%;">
+              <input type="${field.type === 'password' ? 'password' : 'text'}" id="field-${escapeHtml(field.key)}" value="${escapeHtml(val)}" style="background-color: #000000; border: 1px solid #ffffff; padding: 0.5rem; color: #ffffff; font-family: var(--font-mono); font-size: 0.75rem; width: 100%;">
             `}
           </div>
         `;
@@ -641,14 +646,14 @@ export const AppSettings = {
       saveBtn.style.display = 'block';
       saveBtn.onclick = () => this.savePluginSettingsValues();
     } catch (err) {
-      fieldsContainer.innerHTML = `<span style="color: #ef4444; font-size: 0.75rem;">Failed to render: ${err.message}</span>`;
+      fieldsContainer.innerHTML = `<span style="color: #ef4444; font-size: 0.75rem;">Failed to render: ${escapeHtml(err.message)}</span>`;
     }
   },
 
   async savePluginSettingsValues() {
     const payload = {};
     this.pluginSchema.forEach(field => {
-      const el = this.container.querySelector(`#field-${field.key}`);
+      const el = this.container.querySelector(`#${CSS.escape(`field-${field.key}`)}`);
       if (el) {
         if (field.type === 'toggle') {
           payload[field.key] = el.checked;

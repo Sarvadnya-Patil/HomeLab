@@ -1,4 +1,5 @@
 // Centralized SVG icon registry for HomeLab OS
+import { escapeHtml } from './html.js';
 
 export const icons = {
   // Workspaces / Nav
@@ -50,6 +51,25 @@ export function getIcon(name) {
 
 if (typeof window !== 'undefined') {
   window.logoUrlCache = window.logoUrlCache || new Map();
+
+  // Logo images are wired up here rather than with inline onload/onerror attributes, so the page
+  // can run under a Content-Security-Policy that forbids inline scripts. Image load and error events
+  // do not bubble, hence the capture-phase listeners on the document.
+  document.addEventListener('load', (event) => {
+    const img = event.target;
+    if (img instanceof HTMLImageElement && img.dataset.logoName !== undefined) {
+      window.handleLogoLoad(img);
+    }
+  }, true);
+
+  document.addEventListener('error', (event) => {
+    const img = event.target;
+    if (!(img instanceof HTMLImageElement) || img.dataset.logoName === undefined || img.dataset.logoFailed) return;
+    img.dataset.logoFailed = 'true';
+    const svg = getIcon(img.dataset.logoName);
+    window.logoUrlCache.set(img.dataset.cacheKey, svg);
+    img.outerHTML = svg;
+  }, true);
 
   window.handleLogoLoad = function(img) {
     if (img.dataset.logoChecked) return;
@@ -145,6 +165,10 @@ const KNOWN_CDN_LOGOS = new Set([
   'searxng', 'tandoor', 'trilium', 'vikunja', 'wallabag', 'webtop', 'znc'
 ]);
 
+/**
+ * Builds the logo markup for a service or container. `name` and `cacheKey` may be untrusted;
+ * `escName` must already be HTML-escaped by the caller because it is used as the alt text.
+ */
 export function getLogoHtml(name, cacheKey, escName, size = 16) {
   const ref = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
   
@@ -177,10 +201,9 @@ export function getLogoHtml(name, cacheKey, escName, size = 16) {
       <img src="${logoUrl}" 
            alt="${escName}" 
            crossorigin="anonymous"
-           data-cache-key="${cacheKey}"
-           style="width: ${size}px; height: ${size}px; object-fit: contain;" 
-           onload="window.handleLogoLoad(this)"
-           onerror="this.onerror=null; const svg=decodeURIComponent('${encodeURIComponent(getIcon(name)).replace(/'/g, '%27')}'); if(window.logoUrlCache){window.logoUrlCache.set('${cacheKey}', svg);} this.outerHTML=svg;"/>
+           data-cache-key="${escapeHtml(cacheKey)}"
+           data-logo-name="${escapeHtml(name)}"
+           style="width: ${size}px; height: ${size}px; object-fit: contain;" />
     `;
   }
 

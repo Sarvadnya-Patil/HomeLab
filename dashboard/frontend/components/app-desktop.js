@@ -210,8 +210,8 @@
  
      try {
        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-       const token = localStorage.getItem('homelab_token') || '';
-       const wsUrl = `${wsProtocol}//${window.location.host}/ws/desktop?token=${encodeURIComponent(token)}`;
+       const ticket = await api.wsTicket();
+       const wsUrl = `${wsProtocol}//${window.location.host}/ws/desktop?ticket=${encodeURIComponent(ticket)}`;
  
        this.ws = new WebSocket(wsUrl);
  

@@ -1,6 +1,7 @@
 // Sidebar Workspace Selector Component - Dynamic Navigation Registry
 import { store } from '../core/state.js';
 import { getIcon } from '../utils/icons.js';
+import { escapeHtml } from '../utils/html.js';
 
 export const Sidebar = {
   container: null,
@@ -49,9 +50,9 @@ export const Sidebar = {
       const isActive = app.id === activeAppId;
       const iconMarkup = getIcon(app.icon || 'grid');
       html += `
-        <a href="#/app/${app.id}" class="nav-item app-nav-item ${isActive ? 'active' : ''}" data-app-id="${app.id}">
+        <a href="#/app/${escapeHtml(app.id)}" class="nav-item app-nav-item ${isActive ? 'active' : ''}" data-app-id="${escapeHtml(app.id)}">
           ${iconMarkup}
-          <span class="nav-item-label">${app.name}</span>
+          <span class="nav-item-label">${escapeHtml(app.name)}</span>
         </a>
       `;
     });

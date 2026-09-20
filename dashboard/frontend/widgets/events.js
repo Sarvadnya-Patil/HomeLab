@@ -1,4 +1,5 @@
 // System Event logs widget module
+import { escapeHtml } from '../utils/html.js';
 
 export default {
   id: 'events',
@@ -48,9 +49,9 @@ export default {
       const timeStr = evt.createdAt ? new Date(evt.createdAt).toLocaleTimeString('en-US', { hour12: false }) : (evt.time || '');
 
       line.innerHTML = `
-        <span class="event-time" style="color: var(--text-muted); margin-right: 0.5rem;">[${timeStr}]</span>
-        <span class="event-origin" style="color: var(--border-focus); font-weight: bold; margin-right: 0.5rem; display: inline-block; width: 80px;">${evt.origin}</span>
-        <span class="event-message" style="color: var(--text-secondary);">${evt.message}</span>
+        <span class="event-time" style="color: var(--text-muted); margin-right: 0.5rem;">[${escapeHtml(timeStr)}]</span>
+        <span class="event-origin" style="color: var(--border-focus); font-weight: bold; margin-right: 0.5rem; display: inline-block; width: 80px;">${escapeHtml(evt.origin)}</span>
+        <span class="event-message" style="color: var(--text-secondary);">${escapeHtml(evt.message)}</span>
       `;
       feed.appendChild(line);
     });

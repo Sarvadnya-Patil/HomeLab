@@ -3,6 +3,7 @@ import { store } from '../core/state.js';
 import { api } from '../core/api.js';
 import { getWidget } from '../widgets/registry.js';
 import { WsClient } from '../core/ws-client.js';
+import { escapeHtml } from '../utils/html.js';
 
 export const WidgetGrid = {
   container: null,
@@ -86,7 +87,7 @@ export const WidgetGrid = {
     return `
       <div class="circular-loader-overlay">
         <div class="circular-spinner"></div>
-        <span class="circular-loader-text">${text}</span>
+        <span class="circular-loader-text">${escapeHtml(text)}</span>
       </div>
     `;
   },
@@ -169,7 +170,7 @@ export const WidgetGrid = {
       WsClient.send({ type: 'subscribe', events: Array.from(events) });
 
     } catch (err) {
-      this.container.innerHTML = `<div style="color: var(--term-amber); padding: 2rem;">Failed to load widgets: ${err.message}</div>`;
+      this.container.innerHTML = `<div style="color: var(--term-amber); padding: 2rem;">Failed to load widgets: ${escapeHtml(err.message)}</div>`;
     }
   }
 };

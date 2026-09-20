@@ -2022,3 +2022,9 @@ input[type=number] {
   box-shadow: none !important;
 }
 
+
+/* Sign-out hover state (kept in CSS: the page runs under a CSP that forbids inline event handlers) */
+#btn-sign-out:hover {
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+}
