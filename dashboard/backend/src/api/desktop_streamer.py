@@ -599,6 +599,10 @@ class SafeDisplayGrabber:
         # grim retry state, keyed by uid: earliest time to try again, and the current wait
         self._grim_retry_at = {}
         self._grim_delay = {}
+        # libdrmtap failure reporting and context re-open state
+        self._drm_fail_reason = None
+        self._drm_fail_logged_at = 0.0
+        self._drmtap_reopen_at = 0.0
         self._init_drmtap()
 
     # After grim produces nothing for a user, wait this long before spawning it again, doubling on
@@ -620,6 +624,23 @@ class SafeDisplayGrabber:
         if previous is None:
             sys.stderr.write(f"[SafeDisplayGrabber] grim capture produced no image for uid {uid}; retrying with backoff (starting at {delay:.0f}s).\n")
             sys.stderr.flush()
+
+    # A failing capture is reported when its reason changes and then at most this often, so a
+    # sustained failure explains itself in the log without flooding it once per video frame.
+    DRM_FAIL_LOG_INTERVAL_SECONDS = 60.0
+    # When the capture context could not be opened (for example the daemon started before the
+    # display was ready), try again this often instead of staying on the slow fallbacks until the
+    # service is restarted.
+    DRMTAP_REOPEN_INTERVAL_SECONDS = 10.0
+
+    def _note_drm_failure(self, reason):
+        now = time.time()
+        if reason != self._drm_fail_reason or now - self._drm_fail_logged_at >= self.DRM_FAIL_LOG_INTERVAL_SECONDS:
+            self._drm_fail_reason = reason
+            self._drm_fail_logged_at = now
+            sys.stderr.write(f"[SafeDisplayGrabber] libdrmtap capture unavailable: {reason}\n")
+            sys.stderr.flush()
+        self.error_detail = f"libdrmtap: {reason}"
 
     def _init_mss(self):
         setup_display_env()
@@ -653,7 +674,13 @@ class SafeDisplayGrabber:
                     self._drmtap_lib.drmtap_close.argtypes = [ctypes.c_void_p]
 
                     self._drmtap_ctx = self._drmtap_lib.drmtap_open(None)
-                    sys.stderr.write(f"[SafeDisplayGrabber] libdrmtap native context initialized from {lib_path}\n")
+                    if self._drmtap_ctx:
+                        sys.stderr.write(f"[SafeDisplayGrabber] libdrmtap native context initialized from {lib_path}\n")
+                    else:
+                        sys.stderr.write(
+                            f"[SafeDisplayGrabber] libdrmtap loaded from {lib_path} but drmtap_open returned NULL "
+                            f"(no capture context). Will retry every {self.DRMTAP_REOPEN_INTERVAL_SECONDS:.0f}s.\n"
+                        )
                     sys.stderr.flush()
                     break
                 except Exception as err:
@@ -661,6 +688,26 @@ class SafeDisplayGrabber:
                     sys.stderr.flush()
 
     def _try_drm_scanout(self):
+        if not self._drmtap_lib:
+            self._note_drm_failure("libdrmtap.so was not found (looked in /opt/homelab, /usr/local/lib, /usr/lib, /usr/lib/x86_64-linux-gnu, /usr/lib64)")
+            return None, None
+
+        if not self._drmtap_ctx:
+            now = time.time()
+            if now >= self._drmtap_reopen_at:
+                self._drmtap_reopen_at = now + self.DRMTAP_REOPEN_INTERVAL_SECONDS
+                try:
+                    self._drmtap_ctx = self._drmtap_lib.drmtap_open(None)
+                except Exception as e:
+                    self._drmtap_ctx = None
+                    self._note_drm_failure(f"drmtap_open raised {e}")
+                if self._drmtap_ctx:
+                    sys.stderr.write("[SafeDisplayGrabber] libdrmtap capture context opened on retry.\n")
+                    sys.stderr.flush()
+            if not self._drmtap_ctx:
+                self._note_drm_failure("drmtap_open returned NULL, so there is no capture context (check that the daemon runs as root and that /dev/dri exists)")
+                return None, None
+
         # 1. Native libdrmtap hardware capture
         if self._drmtap_lib and self._drmtap_ctx:
             try:
@@ -695,6 +742,10 @@ class SafeDisplayGrabber:
                             raw_mode = "BGRX" if frame.format in BGRX_FORMATS else "RGBX"
                             img = Image.frombytes("RGB", (frame.width, frame.height), raw_bytes, "raw", raw_mode, frame.stride)
                             self._drmtap_lib.drmtap_frame_release(self._drmtap_ctx, ctypes.byref(frame))
+                            if self._drm_fail_reason is not None:
+                                sys.stderr.write("[SafeDisplayGrabber] libdrmtap capture recovered.\n")
+                                sys.stderr.flush()
+                                self._drm_fail_reason = None
                             return img, "LIBDRMTAP"
                         elif self._logged_unknown_format != frame.format:
                             # Rate-limited to once per distinct format value seen,
@@ -707,10 +758,18 @@ class SafeDisplayGrabber:
                                 f"Falling through to the next capture tier.\n"
                             )
                             sys.stderr.flush()
+                else:
+                    if ret != 0:
+                        self._note_drm_failure(f"drmtap_grab_mapped returned error code {ret}")
+                    else:
+                        self._note_drm_failure(
+                            f"drmtap_grab_mapped returned an unusable buffer "
+                            f"(data {'set' if frame.data else 'null'}, {frame.width}x{frame.height}, stride {frame.stride})"
+                        )
                 if frame.data:
                     self._drmtap_lib.drmtap_frame_release(self._drmtap_ctx, ctypes.byref(frame))
             except Exception as e:
-                self.error_detail = f"libdrmtap: {e}"
+                self._note_drm_failure(f"exception during capture: {e}")
 
         return None, None
 
