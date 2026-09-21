@@ -1,7 +1,12 @@
 // Settings preferences, SMTP encryption, 2FA OTP verification, & security audit API routes
+import { exec } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 import { CoreEngine } from '../../core/engine';
+import { hostAccessEnabled, HOST_ACCESS_DISABLED_MESSAGE } from '../../utils/host-access';
 import {
   encryptSecret,
+  generateSecretToken,
   decryptSecret,
   generateServerOTP,
   verifyServerOTP,
@@ -244,6 +249,315 @@ export default function (fastify: any, engine: CoreEngine): void {
     engine.auditRepo.log(actor, 'update_ssh_config', 'security', 'ssh');
 
     return { success: true, message: 'SSH Configuration saved successfully.' };
+  });
+
+  // 11. GET /api/v1/settings/desktop
+  fastify.get('/api/v1/settings/desktop', async () => {
+    const enabled = engine.settingsRepo.get('desktop.rdp.enabled') === 'true';
+    const username = engine.settingsRepo.get('desktop.rdp.username') || '';
+    const hasPassword = !!engine.settingsRepo.get('desktop.rdp.password');
+    const hostUser = engine.settingsRepo.get('desktop.rdp.hostUser') || '';
+
+    // Check if the host systemd service is active by checking status via host process/service info
+    let serviceActive = false;
+    if ((engine as any).simulatedServiceActive) {
+      serviceActive = true;
+    } else if (process.platform === 'linux' && hostAccessEnabled()) {
+      try {
+        const checkCmd = 'nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c "systemctl is-active homelab-desktop-streamer"';
+        const stdout = await new Promise<string>((resolve) => {
+          exec(checkCmd, (err, stdout) => resolve(stdout.trim()));
+        });
+        serviceActive = stdout === 'active';
+      } catch {
+        // ignore check errors
+      }
+    }
+
+    return {
+      enabled,
+      username,
+      password: hasPassword ? '••••••••' : '',
+      hostUser,
+      serviceActive,
+      hostAccess: hostAccessEnabled()
+    };
+  });
+
+  // 11.5. GET /api/v1/settings/desktop/logs
+  fastify.get('/api/v1/settings/desktop/logs', async (request: any, reply: any) => {
+    if (process.platform !== 'linux') {
+      return { logs: 'Logs only available on Linux host environments.' };
+    }
+    if (!hostAccessEnabled()) {
+      return { logs: HOST_ACCESS_DISABLED_MESSAGE };
+    }
+    try {
+      const logsCmd = 'nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c "journalctl -u homelab-desktop-streamer -n 50 --no-pager"';
+      const logs = await new Promise<string>((resolve) => {
+        exec(logsCmd, (err, stdout, stderr) => {
+          if (err) {
+            resolve(stdout + '\n' + stderr);
+          } else {
+            resolve(stdout);
+          }
+        });
+      });
+      return { logs };
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
+    }
+  });
+
+  // 12. POST /api/v1/settings/desktop
+  fastify.post('/api/v1/settings/desktop', async (request: any, reply: any) => {
+    const { enabled, username, password, hostUser } = request.body || {};
+
+    if (enabled && (!username || !password || !hostUser)) {
+      return reply.status(400).send({ error: 'RDP Username, Password, and Linux Host User are required to enable remote desktop.' });
+    }
+
+    engine.settingsRepo.set('desktop.rdp.enabled', enabled ? 'true' : 'false', 'desktop');
+    engine.settingsRepo.set('desktop.rdp.username', username || '', 'desktop');
+    if (password && password !== '••••••••') {
+      engine.settingsRepo.set('desktop.rdp.password', encryptSecret(password), 'desktop');
+    }
+    engine.settingsRepo.set('desktop.rdp.hostUser', hostUser || '', 'desktop');
+
+    // Restart host daemon if on Linux
+    if (process.platform === 'linux' && hostAccessEnabled()) {
+      exec('nsenter -t 1 -m -u -i -n -p -r -- systemctl restart homelab-desktop-streamer.service || true', { shell: '/bin/sh' }, () => {});
+    }
+
+    const actor = request.user?.id || 'admin';
+    engine.auditRepo.log(actor, 'update_desktop_config', 'security', 'desktop');
+
+    return { success: true, message: 'Remote Desktop settings updated successfully.' };
+  });
+
+  // 13. POST /api/v1/settings/desktop/install (Install host systemd service)
+  fastify.post('/api/v1/settings/desktop/install', async (request: any, reply: any) => {
+    if (!hostAccessEnabled()) {
+      return reply.status(409).send({ error: HOST_ACCESS_DISABLED_MESSAGE });
+    }
+    console.log('[DesktopInstaller] Initiating systemd service installation on Host OS...');
+    
+    // Generate secure token for the daemon if not set
+    let daemonToken = engine.settingsRepo.get('desktop.rdp.daemonToken');
+    if (!daemonToken) {
+      daemonToken = generateSecretToken();
+      engine.settingsRepo.set('desktop.rdp.daemonToken', daemonToken, 'desktop');
+      console.log('[DesktopInstaller] Generated new secure daemonToken.');
+    }
+
+    const hostRoot = process.platform === 'linux' ? '/host/proc/1/root' : path.join(__dirname, '../../../../../scratch/host_simulation');
+    const hostOptDir = path.join(hostRoot, 'opt/homelab');
+    const hostStreamerPath = path.join(hostOptDir, 'desktop_streamer.py');
+    const hostServicePath = path.join(hostRoot, 'etc/systemd/system/homelab-desktop-streamer.service');
+
+    try {
+      // 1. Ensure directory exists
+      console.log(`[DesktopInstaller] Ensuring directory exists: ${hostOptDir}`);
+      fs.mkdirSync(hostOptDir, { recursive: true });
+
+      // 2. Read the source desktop_streamer.py content inside the container
+      let sourceStreamerPath = path.join(__dirname, 'desktop_streamer.py');
+      if (!fs.existsSync(sourceStreamerPath)) {
+        sourceStreamerPath = path.join(__dirname, '../desktop_streamer.py');
+        if (!fs.existsSync(sourceStreamerPath)) {
+          const containerPath = '/app/backend/src/api/desktop_streamer.py';
+          if (fs.existsSync(containerPath)) {
+            sourceStreamerPath = containerPath;
+          }
+        }
+      }
+
+      console.log(`[DesktopInstaller] Reading source script: ${sourceStreamerPath}`);
+      if (!fs.existsSync(sourceStreamerPath)) {
+        console.error('[DesktopInstaller] Source file not found!');
+        return reply.status(404).send({ error: `Source desktop_streamer.py not found at path: ${sourceStreamerPath}` });
+      }
+      const streamerContent = fs.readFileSync(sourceStreamerPath, 'utf8');
+
+      // 3. Write it to host filesystem path
+      console.log(`[DesktopInstaller] Writing python script to host: ${hostStreamerPath}`);
+      fs.writeFileSync(hostStreamerPath, streamerContent, { mode: 0o755 });
+
+      // 3.5 Copy vendored libdrmtap source to host /tmp/libdrmtap for offline compilation
+      let sourceDrmtapDir = path.join(__dirname, '../../native/libdrmtap');
+      if (!fs.existsSync(sourceDrmtapDir)) {
+        sourceDrmtapDir = path.join(__dirname, '../../../src/native/libdrmtap');
+        if (!fs.existsSync(sourceDrmtapDir)) {
+          const containerNativeDist = '/app/backend/dist/src/native/libdrmtap';
+          if (fs.existsSync(containerNativeDist)) {
+            sourceDrmtapDir = containerNativeDist;
+          } else {
+            const containerNativeSrc = '/app/backend/src/native/libdrmtap';
+            if (fs.existsSync(containerNativeSrc)) {
+              sourceDrmtapDir = containerNativeSrc;
+            }
+          }
+        }
+      }
+
+      if (fs.existsSync(sourceDrmtapDir)) {
+        const hostDrmtapSrcDir = path.join(hostRoot, 'tmp/libdrmtap');
+        console.log(`[DesktopInstaller] Copying vendored libdrmtap source from ${sourceDrmtapDir} to host ${hostDrmtapSrcDir}`);
+        fs.mkdirSync(hostDrmtapSrcDir, { recursive: true });
+        fs.cpSync(sourceDrmtapDir, hostDrmtapSrcDir, { recursive: true, force: true });
+      } else {
+        console.warn(`[DesktopInstaller] Vendored libdrmtap source directory not found (checked: ${sourceDrmtapDir})`);
+      }
+
+      // 4. Construct and write the pure Root systemd service file on the host
+      const serviceContent = `[Unit]
+Description=HomeLab Remote Desktop Streamer Daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/homelab
+ExecStart=/usr/bin/python3 /opt/homelab/desktop_streamer.py --daemon-mode --daemon-token ${daemonToken}
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
+`;
+      console.log(`[DesktopInstaller] Writing systemd service file to host: ${hostServicePath}`);
+      fs.writeFileSync(hostServicePath, serviceContent);
+
+      // 5. Reload systemd, enable and restart service (only on Linux)
+      if (process.platform === 'linux') {
+        console.log('[DesktopInstaller] Executing host environment libraries install & systemd service startup...');
+        
+        const hostInstallScriptPath = path.join(hostRoot, 'tmp/homelab-install-daemon.sh');
+        const scriptBody = `#!/bin/sh
+echo "[Diagnostics] Host user: $(whoami)"
+echo "[Diagnostics] Host PATH: $PATH"
+
+# 1. Resolve systemctl path
+SYSTEMCTL=""
+for p in /bin/systemctl /usr/bin/systemctl /usr/sbin/systemctl /sbin/systemctl; do
+  if [ -x "$p" ]; then
+    SYSTEMCTL="$p"
+    break
+  fi
+done
+
+# 2. Resolve pip3 path
+PIP3=""
+for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
+  if [ -x "$p" ]; then
+    PIP3="$p"
+    break
+  fi
+done
+
+echo "[Diagnostics] Located systemctl: $SYSTEMCTL"
+echo "[Diagnostics] Located pip3: $PIP3"
+
+if [ -z "$SYSTEMCTL" ]; then
+  echo "SIMULATION_MODE_ACTIVE (systemctl not found)"
+  exit 0
+fi
+
+# 3. Install packages via host package manager as root
+if command -v apt-get >/dev/null 2>&1; then
+  echo "[HostInstaller] Ubuntu/Debian host detected. Installing dependencies..."
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get install -y --no-install-recommends ffmpeg libglib2.0-bin pkg-config libdrm-dev meson ninja-build gcc grim || true
+  apt-get install -y --no-install-recommends python3-pip python3-evdev python3-pil python3-websockets || true
+  # Opportunistic: VAAPI hardware H.264 encode drivers, covering both Intel
+  # generations (iHD for Broadwell+, i965 for older chips like Haswell) and
+  # AMD via Mesa. Harmless no-ops on hardware that doesn't use them --
+  # desktop_streamer.py probes for a working encoder at runtime regardless
+  # and falls back to software encoding if none of this applies.
+  apt-get install -y --no-install-recommends intel-media-va-driver i965-va-driver mesa-va-drivers || true
+elif command -v dnf >/dev/null 2>&1; then
+  echo "[HostInstaller] Fedora/RHEL host detected. Installing dependencies..."
+  dnf install -y ffmpeg python3-pip python3-websockets python3-evdev pkgconfig libdrm-devel meson ninja-build gcc grim || true
+  dnf install -y intel-media-driver libva-intel-driver mesa-va-drivers || true
+fi
+
+# 3.5 Compile vendored libdrmtap (by fxd0h) for direct hardware DRM scanout
+if [ ! -f /opt/homelab/libdrmtap.so ]; then
+  echo "[HostInstaller] Compiling vendored libdrmtap (by fxd0h) from local source..."
+  mkdir -p /opt/homelab
+  if [ -d /tmp/libdrmtap ]; then
+    cd /tmp/libdrmtap
+    meson setup build 2>/dev/null || true
+    ninja -C build 2>/dev/null || true
+    find build -name "*.so*" -exec cp {} /opt/homelab/libdrmtap.so ';' 2>/dev/null || true
+    if [ ! -f /opt/homelab/libdrmtap.so ]; then
+      echo "[HostInstaller] Direct gcc compilation for libdrmtap.so..."
+      gcc -shared -fPIC -O3 -Iinclude -I/usr/include/libdrm src/*.c -ldrm -o /opt/homelab/libdrmtap.so 2>/dev/null || true
+    fi
+    if [ -f /opt/homelab/libdrmtap.so ]; then
+      echo "[HostInstaller] libdrmtap.so (fxd0h) compiled successfully to /opt/homelab/libdrmtap.so"
+    fi
+  else
+    echo "[HostInstaller] Warning: /tmp/libdrmtap not found for compilation."
+  fi
+fi
+
+# Re-evaluate pip3 path in case it was just installed
+for p in /usr/bin/pip3 /usr/local/bin/pip3 /bin/pip3 /usr/sbin/pip3; do
+  if [ -x "$p" ]; then
+    PIP3="$p"
+    break
+  fi
+done
+
+if [ -n "$PIP3" ]; then
+  echo "[HostInstaller] Ensuring python dependencies are satisfied via pip..."
+  "$PIP3" install --break-system-packages --ignore-installed --no-cache-dir websockets aiortc pyautogui av evdev Pillow mss || true
+fi
+
+echo "[HostInstaller] Triggering daemon reload and service start..."
+"$SYSTEMCTL" daemon-reload || true
+"$SYSTEMCTL" enable homelab-desktop-streamer.service || true
+"$SYSTEMCTL" restart homelab-desktop-streamer.service || true
+echo "[HostInstaller] systemd service setup complete."
+`;
+
+        fs.writeFileSync(hostInstallScriptPath, scriptBody, { mode: 0o755 });
+        const installCmd = `nsenter -t 1 -m -u -i -n -p -r -- /bin/sh /tmp/homelab-install-daemon.sh`;
+
+        await new Promise<void>((resolve, reject) => {
+          exec(installCmd, { shell: '/bin/sh' }, (error: any, stdout: any, stderr: any) => {
+            console.log('[DesktopInstaller] Host command stdout:', stdout);
+            if (stderr) {
+              console.warn('[DesktopInstaller] Host command stderr:', stderr);
+            }
+
+            if (error) {
+              console.error('[Host Streamer Service Install Error]:', error);
+              reject(error);
+            } else {
+              if (stdout && stdout.includes('SIMULATION_MODE_ACTIVE')) {
+                console.log('[DesktopInstaller] Host system did not meet requirements. Simulation mode active.');
+                (engine as any).simulatedServiceActive = true;
+              } else {
+                console.log('[DesktopInstaller] Host installation succeeded.');
+                (engine as any).simulatedServiceActive = false;
+              }
+              resolve();
+            }
+          });
+        });
+      }
+
+      const actor = request.user?.id || 'admin';
+      engine.auditRepo.log(actor, 'install_desktop_daemon_service', 'security', 'desktop');
+      console.log('[DesktopInstaller] Installation completed successfully.');
+
+      return { success: true, message: 'Remote Desktop streamer systemd service installed and started on Host OS successfully.' };
+    } catch (err: any) {
+      console.error('[Host Install Exception]:', err);
+      return reply.status(500).send({ error: `Failed to install host streamer service: ${err.message}` });
+    }
   });
 }
 

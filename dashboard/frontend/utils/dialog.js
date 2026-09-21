@@ -1,4 +1,5 @@
 // Custom, premium Dialog subsystem component (modals, confirms, prompts)
+import { escapeHtml } from './html.js';
 export const Dialog = {
   // Returns Promise resolving to string (input value) or null if cancelled
   prompt({ title, message, placeholder = '', defaultValue = '' }) {
@@ -7,10 +8,10 @@ export const Dialog = {
       overlay.className = 'custom-dialog-overlay';
       overlay.innerHTML = `
         <div class="custom-dialog-box animate-modal">
-          <div class="custom-dialog-header">${title}</div>
-          <div class="custom-dialog-body">${message}</div>
+          <div class="custom-dialog-header">${escapeHtml(title)}</div>
+          <div class="custom-dialog-body">${escapeHtml(message)}</div>
           <div class="custom-dialog-input-wrapper">
-            <input type="text" class="custom-dialog-input" placeholder="${placeholder}" value="${defaultValue}" />
+            <input type="text" class="custom-dialog-input" placeholder="${escapeHtml(placeholder)}" value="${escapeHtml(defaultValue)}" />
           </div>
           <div class="custom-dialog-actions">
             <button class="btn-dialog-cancel">Cancel</button>
@@ -59,8 +60,8 @@ export const Dialog = {
       overlay.className = 'custom-dialog-overlay';
       overlay.innerHTML = `
         <div class="custom-dialog-box animate-modal">
-          <div class="custom-dialog-header">${title}</div>
-          <div class="custom-dialog-body">${message}</div>
+          <div class="custom-dialog-header">${escapeHtml(title)}</div>
+          <div class="custom-dialog-body">${escapeHtml(message)}</div>
           <div class="custom-dialog-actions">
             <button class="btn-dialog-cancel">Cancel</button>
             <button class="btn-dialog-ok">Confirm</button>
@@ -160,7 +161,7 @@ export const Dialog = {
       overlay.className = 'custom-dialog-overlay';
       overlay.innerHTML = `
         <div class="custom-dialog-box animate-modal" style="max-width: 320px; padding: 1.25rem;">
-          <div class="custom-dialog-header" style="margin-bottom: 0.75rem; text-align: left;">${title}</div>
+          <div class="custom-dialog-header" style="margin-bottom: 0.75rem; text-align: left;">${escapeHtml(title)}</div>
           
           <div class="color-picker-sb-container" style="position: relative; width: 100%; height: 160px; border-radius: 8px; overflow: hidden; cursor: crosshair; margin-bottom: 1rem; background-color: rgb(255, 0, 0); user-select: none;">
             <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to right, #fff, rgba(255,255,255,0));"></div>
@@ -173,10 +174,10 @@ export const Dialog = {
           </div>
 
           <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.25rem;">
-            <div class="color-picker-preview" style="width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0; background: ${defaultValue};"></div>
+            <div class="color-picker-preview" style="width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0; background: ${escapeHtml(defaultValue)};"></div>
             <div style="display: flex; align-items: center; background: #171b26; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 0.4rem 0.6rem; width: 100%;">
               <span style="color: var(--text-muted); font-size: 0.8rem; margin-right: 0.2rem; font-family: var(--font-mono);">#</span>
-              <input type="text" class="color-picker-hex-input" style="background: transparent; border: none; color: #fff; font-family: var(--font-mono); font-size: 0.8rem; width: 100%; outline: none; text-transform: uppercase;" value="${defaultValue.replace('#', '')}" maxlength="6">
+              <input type="text" class="color-picker-hex-input" style="background: transparent; border: none; color: #fff; font-family: var(--font-mono); font-size: 0.8rem; width: 100%; outline: none; text-transform: uppercase;" value="${escapeHtml(defaultValue.replace('#', ''))}" maxlength="6">
               <button class="btn-copy-color" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 0.2rem; display: flex; align-items: center;" title="Copy to clipboard">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 13px; height: 13px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
               </button>
@@ -347,9 +348,9 @@ export const Dialog = {
           <div class="custom-dialog-body" style="margin-bottom: 0.5rem; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Quick Add Defaults</div>
           <div class="dialog-templates-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-bottom: 1.25rem;">
             ${templates.map(t => `
-              <button class="btn-template-item" data-id="${t.id}" data-name="${t.name}" data-accent="${t.accent}" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--bg-panel); border: 1px solid var(--border-slate); border-radius: 6px; color: var(--text-primary); cursor: pointer; text-align: left; transition: all 0.15s ease;">
-                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: ${t.accent};"></span>
-                <span style="font-size: 0.75rem; font-weight: 500;">${t.name}</span>
+              <button class="btn-template-item" data-id="${escapeHtml(t.id)}" data-name="${escapeHtml(t.name)}" data-accent="${escapeHtml(t.accent)}" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--bg-panel); border: 1px solid var(--border-slate); border-radius: 6px; color: var(--text-primary); cursor: pointer; text-align: left; transition: all 0.15s ease;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: ${escapeHtml(t.accent)};"></span>
+                <span style="font-size: 0.75rem; font-weight: 500;">${escapeHtml(t.name)}</span>
               </button>
             `).join('')}
           </div>
@@ -372,7 +373,7 @@ export const Dialog = {
         <div class="custom-dialog-body" style="margin-top: 1rem; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Accent Color</div>
         <div class="dialog-color-swatches" style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 1rem;">
           ${swatchColors.map((color, index) => `
-            <button class="btn-swatch-item ${index === 0 ? 'active' : ''}" data-color="${color}" style="width: 24px; height: 24px; border-radius: 50%; background-color: ${color}; border: 2px solid transparent; cursor: pointer; outline: none; transition: transform 0.15s ease, box-shadow 0.15s ease; box-shadow: ${index === 0 ? '0 0 0 2px var(--text-primary)' : 'none'}; transform: ${index === 0 ? 'scale(1.1)' : 'none'};"></button>
+            <button class="btn-swatch-item ${index === 0 ? 'active' : ''}" data-color="${escapeHtml(color)}" style="width: 24px; height: 24px; border-radius: 50%; background-color: ${escapeHtml(color)}; border: 2px solid transparent; cursor: pointer; outline: none; transition: transform 0.15s ease, box-shadow 0.15s ease; box-shadow: ${index === 0 ? '0 0 0 2px var(--text-primary)' : 'none'}; transform: ${index === 0 ? 'scale(1.1)' : 'none'};"></button>
           `).join('')}
           <button class="custom-swatch-picker-container" style="width: 24px; height: 24px; border-radius: 50%; overflow: hidden; cursor: pointer; background: conic-gradient(red, yellow, green, cyan, blue, magenta, red); transition: transform 0.15s ease, box-shadow 0.15s ease; border: 1px solid var(--border-slate); outline: none; padding: 0;"></button>
         </div>
@@ -498,19 +499,19 @@ export const Dialog = {
 
       overlay.innerHTML = `
         <div class="custom-dialog-box animate-modal" style="max-width: 400px; width: 90%;">
-          <div class="custom-dialog-header">${title}</div>
-          <div class="custom-dialog-body" style="margin-bottom: 1.25rem;">${message}</div>
+          <div class="custom-dialog-header">${escapeHtml(title)}</div>
+          <div class="custom-dialog-body" style="margin-bottom: 1.25rem;">${escapeHtml(message)}</div>
           <div style="margin: 1rem 0; display: flex; flex-direction: column; gap: 0.5rem; position: relative;">
             <label style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); user-select: none;">Select Destination Category</label>
             <div class="custom-dropdown-container">
               <button class="custom-dropdown-trigger">
-                <span class="selected-text">${defaultCategory.name}</span>
+                <span class="selected-text">${escapeHtml(defaultCategory.name)}</span>
                 <span class="dropdown-arrow">▼</span>
               </button>
               <div class="custom-dropdown-menu">
                 ${categories.map((c, index) => `
-                  <div class="custom-dropdown-item ${index === 0 ? 'selected' : ''}" data-value="${c.id}">
-                    <span>${c.name}</span>
+                  <div class="custom-dropdown-item ${index === 0 ? 'selected' : ''}" data-value="${escapeHtml(c.id)}">
+                    <span>${escapeHtml(c.name)}</span>
                     ${index === 0 ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><polyline points="20 6 9 17 4 12"></polyline></svg>` : ''}
                   </div>
                 `).join('')}

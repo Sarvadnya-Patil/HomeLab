@@ -1,0 +1,36 @@
+# Opt-in host access for the HomeLab OS dashboard container.
+#
+# Layer this file over the default stack ONLY if you use the features below:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.host-access.yml up -d --build
+#
+# To make plain `docker compose up -d` pick it up automatically, put this line in dashboard/.env:
+#
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.host-access.yml
+#
+# What this grants, and why it is not the default:
+#
+#   privileged + pid: host   Lets the dashboard run commands inside the host's namespaces (nsenter
+#                            into PID 1) to install and control the Remote Desktop systemd service.
+#                            A privileged container sharing the host PID namespace is effectively
+#                            root on the host, so anyone who can reach an admin session can act as
+#                            root. Only enable it on a network you trust, and keep the admin
+#                            account protected (strong password, 2FA).
+#
+#   /home, /etc/cloudflared, /root/.cloudflared
+#                            Read-only views used to find the config.yml of a Cloudflare Tunnel.
+#                            NOTE: these directories can also hold tunnel credentials and
+#                            certificates, and the container can read them. If you only need
+#                            tunnel discovery, skip this file and mount just the config instead
+#                            (see "Cloudflare Tunnel Integration" in the README).
+services:
+  dashboard:
+    privileged: true
+    pid: host
+    volumes:
+      - /home:/home:ro
+      - ~/.cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - /etc/cloudflared:/host/etc/cloudflared:ro
+      - /root/.cloudflared:/host/root/.cloudflared:ro
+    environment:
+      - HOST_ACCESS=true

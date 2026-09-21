@@ -1,5 +1,6 @@
 // Terminal Application - WebSocket xterm.js interactive SSH console (Dynamic In-Memory Auth)
 import { api } from '../core/api.js';
+import { escapeHtml } from '../utils/html.js';
 
 export const AppTerminal = {
   container: null,
@@ -74,7 +75,7 @@ export const AppTerminal = {
               <polyline points="4 12 9 8 4 4"></polyline>
               <line x1="9" y1="12" x2="14" y2="12"></line>
             </svg>
-            <span>CONSOLE SESSION: ${username}@${this.config.sshHost}</span>
+            <span>CONSOLE SESSION: ${escapeHtml(username)}@${escapeHtml(this.config.sshHost)}</span>
           </div>
           <div style="display: flex; align-items: center; gap: 0.35rem; font-weight: bold; text-transform: uppercase;">
             <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #eab308; transition: all 0.2s;" id="ssh-status-dot"></span>
@@ -164,15 +165,23 @@ export const AppTerminal = {
       this.authBuffer = '';
     };
 
-    const connect = (enteredSecret) => {
+    const connect = async (enteredSecret) => {
       this.lastCols = null;
       this.lastRows = null;
       if (statusDot) statusDot.style.background = '#eab308';
       if (statusText) statusText.textContent = 'Connecting...';
 
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const token = localStorage.getItem('homelab_token') || '';
-      const wsUrl = `${wsProtocol}//${window.location.host}/ws/terminal?token=${encodeURIComponent(token)}`;
+      let ticket;
+      try {
+        ticket = await api.wsTicket();
+      } catch (err) {
+        this.term.write(`\r\n\x1b[31m*** Could not start a session: ${err.message || 'Unknown failure'} ***\x1b[0m\r\n`);
+        if (statusDot) statusDot.style.background = '#ef4444';
+        if (statusText) statusText.textContent = 'Disconnected';
+        return;
+      }
+      const wsUrl = `${wsProtocol}//${window.location.host}/ws/terminal?ticket=${encodeURIComponent(ticket)}`;
 
       this.ws = new WebSocket(wsUrl);
 

@@ -1,5 +1,5 @@
 import { CoreEngine } from '../../core/engine';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { Logger } from '../../utils/logger';
 import path from 'path';
 import fs from 'fs';
@@ -194,7 +194,7 @@ export default function (fastify: any, engine: CoreEngine): void {
         try {
           updateProgress(30, `Running: docker compose -f ${composeFile} up -d`);
           const dockerHost = process.env.DOCKER_HOST || process.env.DOCKER_PROXY_URL?.replace('http://', 'tcp://') || 'tcp://docker-proxy:2375';
-          const output = execSync(`docker compose -f ${composeFile} up -d --build`, {
+          const output = execFileSync('docker', ['compose', '-f', composeFile, 'up', '-d', '--build'], {
             cwd: serviceDir,
             timeout: 120000,
             encoding: 'utf8',

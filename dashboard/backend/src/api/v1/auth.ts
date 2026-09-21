@@ -29,6 +29,50 @@ export default function (fastify: any, engine: CoreEngine): void {
     return { blocked: false, remaining: max - entry.count, retryAfterSec: 0 };
   }
 
+  // Failed-login tracking. Unlike the 2FA limiters above, only failures count, and a successful
+  // login clears the entry, so a legitimate user is never throttled by their own good logins.
+  const loginFailureStore = new Map<string, { count: number; windowStart: number }>();
+  const MAX_LOGIN_FAILURES = 5;
+  const MAX_TRACKED_IPS = 5000;
+
+  function loginBlockedSeconds(ip: string): number {
+    const entry = loginFailureStore.get(ip);
+    if (!entry) return 0;
+    const elapsed = Date.now() - entry.windowStart;
+    if (elapsed > RATE_WINDOW_MS) {
+      loginFailureStore.delete(ip);
+      return 0;
+    }
+    return entry.count >= MAX_LOGIN_FAILURES ? Math.ceil((RATE_WINDOW_MS - elapsed) / 1000) : 0;
+  }
+
+  function recordLoginFailure(ip: string): void {
+    const now = Date.now();
+    if (loginFailureStore.size >= MAX_TRACKED_IPS) {
+      // Bound memory: drop expired windows first, then the oldest entry if still full.
+      for (const [key, value] of loginFailureStore) {
+        if (now - value.windowStart > RATE_WINDOW_MS) loginFailureStore.delete(key);
+      }
+      if (loginFailureStore.size >= MAX_TRACKED_IPS) {
+        const oldest = loginFailureStore.keys().next().value;
+        if (oldest !== undefined) loginFailureStore.delete(oldest);
+      }
+    }
+    const entry = loginFailureStore.get(ip);
+    if (!entry || now - entry.windowStart > RATE_WINDOW_MS) {
+      loginFailureStore.set(ip, { count: 1, windowStart: now });
+    } else {
+      entry.count += 1;
+    }
+  }
+
+  // Fastify derives request.ip from the socket, honouring X-Forwarded-For only for proxies
+  // listed in the TRUST_PROXY setting (see server.ts). Reading the header directly here would
+  // let any client choose its own rate-limit bucket.
+  function getClientIp(req: any): string {
+    return req.ip || '127.0.0.1';
+  }
+
   // 1. POST: /api/v1/auth/login (Verify credentials — enforces 2FA OTP challenge if enabled)
   fastify.post('/api/v1/auth/login', {
     schema: {
@@ -43,17 +87,22 @@ export default function (fastify: any, engine: CoreEngine): void {
     }
   }, async (request: any, reply: any) => {
     const { username, password } = request.body || {};
+    const clientIp = getClientIp(request);
 
-    // Query repository to provide user-friendly specific error details
-    const user = engine.usersRepo.findByUsername(username);
-    if (!user) {
-      return reply.status(401).send({ error: 'Incorrect username or password' });
+    const blockedFor = loginBlockedSeconds(clientIp);
+    if (blockedFor > 0) {
+      reply.header('Retry-After', String(blockedFor));
+      return reply.status(429).send({ error: `Too many failed login attempts. Try again in ${blockedFor}s.` });
     }
 
+    // One message for both an unknown username and a wrong password, so the endpoint cannot be
+    // used to discover which accounts exist.
     const token = engine.auth.login(username, password);
     if (!token) {
-      return reply.status(401).send({ error: 'Incorrect password' });
+      recordLoginFailure(clientIp);
+      return reply.status(401).send({ error: 'Incorrect username or password' });
     }
+    loginFailureStore.delete(clientIp);
 
     // --- 2FA ENFORCEMENT ---
     const twoFAEnabled = engine.settingsRepo.get('2fa.enabled') === 'true';
@@ -64,12 +113,6 @@ export default function (fastify: any, engine: CoreEngine): void {
 
     return { token };
   });
-
-  function getClientIp(req: any): string {
-    const header = req.headers['x-forwarded-for'] || req.ip || '127.0.0.1';
-    if (Array.isArray(header)) return header[0].trim();
-    return String(header).split(',')[0].trim();
-  }
 
   // 2a. POST: /api/v1/auth/2fa-email-confirm (Step 1: confirm email matches registered 2FA address, then dispatch OTP)
   fastify.post('/api/v1/auth/2fa-email-confirm', async (request: any, reply: any) => {
@@ -243,5 +286,63 @@ export default function (fastify: any, engine: CoreEngine): void {
     } catch (err: any) {
       return reply.status(500).send({ error: `Setup initialization failed: ${err.message}` });
     }
+  });
+
+  // 5. PUT: /api/v1/auth/password (Update user account password)
+  fastify.put('/api/v1/auth/password', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['currentPassword', 'newPassword'],
+        properties: {
+          currentPassword: { type: 'string' },
+          newPassword: { type: 'string', minLength: 6 }
+        }
+      }
+    }
+  }, async (request: any, reply: any) => {
+    const authHeader = request.headers.authorization || '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return reply.status(401).send({ error: 'Authorization token required' });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const tokenUser = engine.auth.verifyToken(token);
+    if (!tokenUser) {
+      return reply.status(401).send({ error: 'Invalid or expired token' });
+    }
+
+    const { currentPassword, newPassword } = request.body || {};
+    const dbUser = engine.usersRepo.findById(tokenUser.id);
+    if (!dbUser) {
+      return reply.status(404).send({ error: 'User not found' });
+    }
+
+    // Verify current password
+    if (!dbUser.password || !engine.auth.comparePassword(currentPassword, dbUser.password)) {
+      return reply.status(400).send({ error: 'Current password is incorrect' });
+    }
+
+    // Hash and update to new password, then revoke every session issued under the old one
+    const hashedNew = engine.auth.hashPassword(newPassword);
+    engine.usersRepo.update(dbUser.id, { password: hashedNew });
+    engine.auth.revokeSessions(dbUser.id);
+
+    try { engine.auditRepo.log(dbUser.id, 'password_updated', 'security', dbUser.id); } catch { /* non-fatal */ }
+
+    // Hand back a fresh token so the browser making the change stays signed in
+    const refreshed = engine.usersRepo.findById(dbUser.id)!;
+    return { success: true, message: 'Password updated successfully', token: engine.auth.issueToken(refreshed) };
+  });
+
+  // 6. POST: /api/v1/auth/logout (Revoke every session token for the calling user)
+  fastify.post('/api/v1/auth/logout', async (request: any) => {
+    engine.auth.revokeSessions(request.user.id);
+    try { engine.auditRepo.log(request.user.id, 'logout', 'security', request.user.id); } catch { /* non-fatal */ }
+    return { success: true };
+  });
+
+  // 7. POST: /api/v1/auth/ws-ticket (Single-use, 30 second ticket for opening a WebSocket)
+  fastify.post('/api/v1/auth/ws-ticket', async (request: any) => {
+    return { ticket: engine.auth.issueWsTicket(request.user.id) };
   });
 }

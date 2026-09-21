@@ -1,5 +1,6 @@
 // Notifications Center slide-out panel
 import { store } from '../core/state.js';
+import { escapeHtml } from '../utils/html.js';
 import { api } from '../core/api.js';
 
 export const NotificationCenter = {
@@ -18,13 +19,7 @@ export const NotificationCenter = {
   },
 
   escapeHtml(text) {
-    if (typeof text !== 'string') return text;
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#x27;');
+    return escapeHtml(text);
   },
 
   createDom() {

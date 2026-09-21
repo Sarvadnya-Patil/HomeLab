@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT NOT NULL,
   role        TEXT NOT NULL DEFAULT 'admin',   -- admin | editor | viewer
   avatar      TEXT DEFAULT '',
+  token_version INTEGER NOT NULL DEFAULT 0,   -- bumped to revoke every outstanding session token
   created_at  TEXT DEFAULT (datetime('now')),
   updated_at  TEXT DEFAULT (datetime('now'))
 );

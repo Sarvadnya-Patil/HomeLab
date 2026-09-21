@@ -2,16 +2,7 @@
 import { WsClient } from '../core/ws-client.js';
 import { api } from '../core/api.js';
 import { store } from '../core/state.js';
-
-function escapeHtml(text) {
-  if (typeof text !== 'string') return text;
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;');
-}
+import { escapeHtml } from '../utils/html.js';
 
 // Premium ANSI escape-code parsing and color conversion utility
 function ansiToHtml(text) {

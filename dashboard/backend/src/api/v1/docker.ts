@@ -1,8 +1,13 @@
 // Docker endpoints versioned REST Subsystem API routes
 import { CoreEngine } from '../../core/engine';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import path from 'path';
 import os from 'os';
+
+// Docker container IDs are hex and container names are limited to this alphabet. Anything else
+// (whitespace, shell metacharacters, a leading dash that would parse as a CLI flag) is rejected
+// before the value reaches a subprocess.
+const CONTAINER_REF_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/;
 
 export default function (fastify: any, engine: CoreEngine): void {
   // 1. GET: /api/v1/docker/containers
@@ -84,9 +89,14 @@ export default function (fastify: any, engine: CoreEngine): void {
     const actor = request.user?.id || 'admin';
     const policy = enabled ? 'unless-stopped' : 'no';
 
+    if (typeof id !== 'string' || !CONTAINER_REF_PATTERN.test(id)) {
+      throw { statusCode: 400, message: 'Invalid container identifier' };
+    }
+
     try {
-      execSync(`docker update --restart=${policy} ${id}`, {
-        env: { DOCKER_HOST: 'tcp://docker-proxy:2375' },
+      // Argument array, no shell: the id can never be interpreted as additional commands.
+      execFileSync('docker', ['update', `--restart=${policy}`, id], {
+        env: { PATH: process.env.PATH, DOCKER_HOST: 'tcp://docker-proxy:2375' },
         timeout: 10000,
         encoding: 'utf8'
       });

@@ -1,200 +1,155 @@
 # HomeLab OS
 
-A scalable, modular, self-hosted infrastructure control plane developed for heterogeneous server deployment.
-
-## Repository Structure
-
-* [dashboard/](dashboard/) - HomeLab OS administration interface (Frontend/Backend).
-* [services/](services/) - Discovered plugin manifest directories and docker-compose configurations.
-* [configs/](configs/) - Shared application configuration files, certificates, and proxy variables.
-* [templates/](templates/) - Docker Compose template definitions.
-* [scripts/](scripts/) - Deployment, backup, update, and monitoring utilities.
-* [backups/](backups/) - Local backup staging directory (Git-ignored).
-* [logs/](logs/) - Infrastructure and container logs (Git-ignored).
-* [docs/](docs/) - Detailed project specifications.
-
-## Documentation Index
-
-* [ROADMAP.md](docs/ROADMAP.md) - Project development phases and status.
-* [SERVICES.md](docs/SERVICES.md) - Port allocations and capability mappings.
-* [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Subsystem interface designs and lifecycle sequence flows.
-* [PLUGIN_SDK.md](docs/PLUGIN_SDK.md) - Core SDK manifest schemes and widget models.
-
-## Plugin Discovery Engine
-
-Services are discovered dynamically by scanning `services/*/service.yaml` manifests. The HomeLab OS control plane registers discovered manifests, caches telemetry metadata in the SQLite database, and streams real-time updates to the UI.
-
-## Prerequisites
-
-Before deploying HomeLab OS, ensure the following components are available on the host machine.
-
-### Docker Socket Proxy
-
-HomeLab OS communicates with the Docker Engine through a Docker Socket Proxy. This proxy is required for container discovery, status monitoring, and infrastructure management.
-
-### Cloudflare Tunnel (Optional, Recommended)
-
-HomeLab OS can automatically discover and associate public domains with Docker services by integrating with an existing Cloudflare Tunnel deployment.
-
-Supported deployments:
-- Native `cloudflared` installation on the host.
-- Dedicated `cloudflared` Docker container (recommended).
-
-### Cloudflare Tunnel Requirements
-
-Before enabling Cloudflare Tunnel integration:
-- A Cloudflare Tunnel must already be created and authenticated.
-- The active tunnel configuration must be available at one of the following locations:
-  ```
-  ~/.cloudflared/config.yml
-  ```
-  or
-  ```
-  ~/.cloudflared/config.yaml
-  ```
-- The tunnel configuration should define ingress rules using the **published Docker host ports** of your services.
-
-Example:
-```yaml
-ingress:
-  - hostname: portainer.example.com
-    service: https://localhost:9443
-  - hostname: n8n.example.com
-    service: http://localhost:5678
-  - service: http_status:404
-```
+A modular, self-hosted infrastructure control plane and management console developed for heterogeneous server deployment.
 
 ---
 
-## Automatic Cloudflare Service Discovery
+## 1. Repository Structure
 
-HomeLab OS does **not** require users to manually configure public URLs for Docker containers.
-
-Instead, it automatically:
-1. Reads the local Cloudflare Tunnel configuration.
-2. Parses all configured ingress rules.
-3. Extracts the published Docker host ports referenced by each rule.
-4. Queries the Docker Engine for every container's published host ports.
-5. Automatically associates Docker services with their public Cloudflare hostnames.
-
-This allows Cloudflare to remain the **single source of truth** for public routing while eliminating duplicate configuration inside HomeLab OS.
-
-Example discovery flow:
-```
-Docker Container
-        │
-        │ Published Host Port
-        ▼
-localhost:9443
-        │
-        ▼
-cloudflared config.yml
-        │
-        ▼
-portainer.example.com
-        │
-        ▼
-HomeLab OS
-        │
-        ▼
-Open Service
-```
+* [dashboard/](file:///D:/My_Projects/HomeLab/dashboard/) — HomeLab OS central administration interface (TypeScript Fastify Backend and Vanilla JS SPA Frontend).
+* [services/](file:///D:/My_Projects/HomeLab/services/) — Discovered plugin manifest directories and Docker Compose stack definitions.
+* [configs/](file:///D:/My_Projects/HomeLab/configs/) — Shared application configurations, certificates, and proxy variables.
+* [templates/](file:///D:/My_Projects/HomeLab/templates/) — Docker Compose template blueprints.
+* [scripts/](file:///D:/My_Projects/HomeLab/scripts/) — Deployment, backup, update, and telemetry utilities.
+* [backups/](file:///D:/My_Projects/HomeLab/backups/) — Local backup staging directory (Git-ignored).
+* [logs/](file:///D:/My_Projects/HomeLab/logs/) — Infrastructure and daemon logs (Git-ignored).
+* [docs/](file:///D:/My_Projects/HomeLab/docs/) — Technical specifications and architectural guides.
 
 ---
 
-## Quick Start (Docker Deployment)
+## 2. Documentation Index
+
+* [ARCHITECTURE.md](file:///D:/My_Projects/HomeLab/docs/ARCHITECTURE.md) — Master system architecture, dependency injection registry, and lifecycle flows.
+* [API.md](file:///D:/My_Projects/HomeLab/docs/API.md) — Exhaustive REST API endpoints and WebSocket gateway specifications.
+* [REMOTE_DESKTOP.md](file:///D:/My_Projects/HomeLab/docs/REMOTE_DESKTOP.md) — Low-latency WebRTC video streaming and Linux `/dev/uinput` hardware kernel input engine.
+* [TOPOLOGY.md](file:///D:/My_Projects/HomeLab/docs/TOPOLOGY.md) — Container topology auto-discovery and visual infrastructure designer.
+* [COMPONENTS.md](file:///D:/My_Projects/HomeLab/docs/COMPONENTS.md) — Frontend web components, Single-Page Application (SPA) structure, and Dynamic Widget SDK.
+* [PLUGIN_SDK.md](file:///D:/My_Projects/HomeLab/docs/PLUGIN_SDK.md) — Third-party plugin manifest schema (`service.yaml`) and lifecycle hooks.
+* [SERVICES.md](file:///D:/My_Projects/HomeLab/docs/SERVICES.md) — Service catalog, logo resolution engine, and port mappings.
+* [ROADMAP.md](file:///D:/My_Projects/HomeLab/docs/ROADMAP.md) — Development milestones and feature integration roadmap.
+
+---
+
+## 3. Core Capabilities
+
+### 3.1 Remote Desktop & Streaming Engine
+HomeLab OS incorporates a browser-based remote desktop streamer:
+- **Low-Latency Video Pipeline:** Real-time H.264 video streaming over WebRTC (`aiortc`) with presentation timestamp synchronization and adaptive JPEG fallbacks.
+- **Hardware Kernel Input (`/dev/uinput`):** Direct hardware-level mouse positioning and keyboard scancode injection via the Linux kernel `uinput` module, bypassing display server permissions.
+- **Works on Wayland and X11:** capture and input happen at the kernel level, so the stream is not tied to one display server. It needs a Linux host and a powered display output (see [docs/REMOTE_DESKTOP.md](docs/REMOTE_DESKTOP.md#11-supported-environments)).
+- **Multi-Tier Frame Capture:** Automated capture hierarchy: direct DRM/KMS scanout (`libdrmtap`), Wayland `grim` (wlroots compositors), MIT-SHM shared memory (`mss`), and Linux linear framebuffers (`/dev/fb0`).
+
+### 3.2 Dynamic Container Topologies & Visual Designer
+- **Automatic Graph Construction:** Resolves network pathways from external Internet DNS, through Cloudflare Tunnels, across reverse proxies, into application containers and volumes.
+- **Interactive Visual Canvas:** Drag-and-drop node positioning with persistent coordinate storage.
+- **Visual Compose Compiler:** Compiles interactive canvas diagrams directly into production-ready Docker Compose configurations.
+
+### 3.3 Dynamic Service & Cloudflare Tunnel Discovery
+- **Manifest Scanning:** Discovers custom services by scanning `services/*/service.yaml`.
+- **Automatic Ingress Binding:** Parses active Cloudflare Tunnel configurations (`~/.cloudflared/config.yml`) and matches published container ports to public hostnames without manual URL configuration.
+
+### 3.4 Enterprise-Grade Security Engine
+- **Two-Factor Authentication (2FA):** Mandatory 3-step authentication challenge flow (Password $\rightarrow$ Email Confirmation $\rightarrow$ 6-Digit OTP).
+- **RFC 3207 STARTTLS Support:** Native TLS socket upgrades for Gmail App Passwords, Outlook, and custom SMTP relays.
+- **Multi-Layer Rate Limiting:** Anti-bruteforce protection (5 failed attempts / 10 min per IP) and OTP resend cooldown timers.
+- **Role-Based Access Control (RBAC):** Strict operational boundaries for `admin`, `editor`, and `viewer` roles, enforced from a single policy table. Routes that are not listed require `admin`.
+- **Revocable Sliding Sessions:** Auto-renewing access tokens that end on sign-out or password change and stop renewing after an absolute 12-hour limit. Browsers open WebSockets with single-use tickets, so the session token never appears in a URL.
+- **Hardened Web Surface:** Content-Security-Policy without inline scripts, Subresource Integrity on CDN assets, output escaping in the SPA, no CORS, and `no-store` on API responses.
+
+---
+
+## 4. Quick Start (Docker Deployment)
 
 Deploy HomeLab OS in under 60 seconds using Docker Compose:
 
 ```bash
+# 1. Clone repository
 git clone https://github.com/Sarvadnya-Patil/HomeLab.git
-cd HomeLab
+cd HomeLab/dashboard
+
+# 2. Create the external homelab bridge network
+docker network create homelab-network
+
+# 3. Create the backend configuration, then set JWT_SECRET and ENCRYPTION_KEY in it
+#    (both are required in production; generate each with: openssl rand -hex 32)
+cp backend/.env.example backend/.env
+
+# 4. Launch control plane and socket proxy
 docker compose up -d --build
 ```
 
-Open your browser at `http://localhost:8081` to access the console!
+Open your browser at `http://localhost:8081` to access the console.
 
----
+The stack runs **unprivileged** by default. Two features need host access and are opt-in: managing the Remote Desktop daemon from the dashboard, and auto-discovering Cloudflare Tunnel configs stored on the host. To enable them, layer the override file (read its header first: it makes the dashboard container privileged, which is effectively root on the host):
 
-## Security & Authentication
-
-HomeLab OS features an enterprise-grade security layer built from the ground up:
-
-- **Two-Factor Authentication (2FA)**: Mandatory 3-step authentication challenge flow (Password → Email Confirmation → 6-Digit OTP).
-- **RFC 3207 STARTTLS Engine**: Native TLS upgrade support for Gmail App Passwords, Outlook, and custom SMTP servers.
-- **Multi-Layer Rate Limiting**: Anti-bruteforce protection limiting wrong attempts to 5 per 10 minutes per IP address, plus a 60-second OTP resend cooldown.
-- **Role-Based Access Control (RBAC)**: Strict permission boundaries for `admin`, `editor`, and `viewer` roles.
-- **Sliding JWT Sessions**: Automatic session renewal with configurable expiration.
-
----
-
-## Security & Isolation
-
-HomeLab OS only requires read access to the Cloudflare Tunnel configuration.
-
-Recommended volume mapping:
-```yaml
-volumes:
-  - ~/.cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+```bash
+docker compose -f docker-compose.yml -f docker-compose.host-access.yml up -d --build
 ```
-Only the tunnel configuration file is mounted.
 
-Tunnel credentials, certificates, and private authentication files remain isolated on the host and are never exposed to HomeLab OS.
+Running behind a reverse proxy or Cloudflare Tunnel? Set `TRUST_PROXY` in `backend/.env` so login rate limiting sees real client addresses.
 
 ---
 
-## Recommended Cloudflare Deployment
+## 5. Local Development Setup
 
-Although HomeLab OS fully supports both native and Docker-based Cloudflare Tunnel deployments, running `cloudflared` as a dedicated Docker container is recommended for production environments.
+To run the control plane locally without Docker containers:
 
-Example:
+```bash
+# Navigate to backend source
+cd dashboard/backend
+
+# Install dependencies
+npm install
+
+# Start development server with live TypeScript reload
+npm run dev
+```
+
+Run test suite and verify code quality:
+```bash
+# Run unit and integration tests
+npm run test
+
+# Run ESLint analysis
+npm run lint
+```
+
+---
+
+## 6. Docker Socket Proxy Architecture
+
+HomeLab OS communicates with the Docker Engine through Tecnativa's Docker Socket Proxy rather than binding the raw `/var/run/docker.sock` to the web container:
+- **Enforced Security Profile:** Only `CONTAINERS`, `IMAGES`, `POST` (for container start/stop/restart), `NETWORKS`, `VOLUMES`, and `INFO` APIs are enabled.
+- **Blocked Operations:** Container execution (`EXEC`), secret inspection, and host filesystem mounting are blocked at the proxy boundary.
+
+---
+
+## 7. Cloudflare Tunnel Integration
+
+HomeLab OS integrates with existing Cloudflare Tunnel deployments by reading the tunnel's `config.yml`. There are two ways to give it access, with different exposure:
+
+**Narrow (recommended):** mount only the config file and tell HomeLab OS where it is. The container never sees your tunnel credentials.
+
 ```yaml
 services:
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: cloudflared
-    restart: unless-stopped
+  dashboard:
     volumes:
-      - ~/.cloudflared:/etc/cloudflared:ro
-    command: tunnel run
+      - /etc/cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+    environment:
+      - CLOUDFLARE_CONFIG_PATH=/etc/cloudflared/config.yml
 ```
 
-### Why Docker is Recommended
+**Automatic discovery:** `docker-compose.host-access.yml` mounts `/etc/cloudflared`, `/root/.cloudflared` and `/home` read-only so the dashboard can locate whichever config the running tunnel uses. Those directories can also contain tunnel credential JSON files and certificates, and the container can read them, so use this only where you accept that.
 
-Running Cloudflare Tunnel inside Docker provides several operational advantages:
-- Automatic startup after system reboots.
-- Automatic recovery if the tunnel process exits unexpectedly.
-- Consistent deployment across Linux distributions.
-- Simplified upgrades by pulling the latest container image.
-- Isolation from the host operating system.
-- Easy monitoring through Docker, Portainer, and HomeLab OS.
-- Standard Docker lifecycle management (`start`, `stop`, `restart`, `logs`).
+If `cloudflared` runs as a Docker container, HomeLab OS inspects that container directly (its launch arguments and bind mounts) to determine which `config.yml` it actually uses, rather than guessing among the well-known host locations above -- this matters on hosts with more than one candidate file (e.g. a stale file left in a user's home directory alongside the real one under `/etc/cloudflared`). When that detection isn't possible (`cloudflared` running natively via systemd, or its container not reachable), HomeLab OS falls back to scanning `/etc/cloudflared`, `/root/.cloudflared`, the dashboard user's own home directory, and every other user under `/home`, in that order. Set `CLOUDFLARE_CONFIG_PATH` to override with an explicit path.
+
+With the narrow setup, tunnel private keys and certificate files stay on the host and are not visible to the container. With automatic discovery they are readable by it; see above.
 
 ---
 
-## Unified Global Search & Modifiers
+## 8. Open Source Acknowledgements
 
-HomeLab OS provides a fast, unified search bar in the header (accessible instantly using `Ctrl+K` or `Cmd+K`) that adapts to the active view:
-
-*   **Dashboard & Containers**: Filters active services and container grids.
-*   **Topology**: Highlights connection paths dynamically in **blue** (including flowing data animation) for matching nodes (ignoring root infrastructure nodes like Internet or Tunnel). Supports zoom-to-cursor scroll navigation.
-*   **Health**: Dynamically filters active subsystem health cards (e.g., database, docker, tunnel) by name or status.
-*   **Jobs**: Filters active operation threads and execution history logs. Supports advanced power-user filter prefix commands in both the Active and History lists:
-    *   `/title <query>` - specifically filters jobs by their action/title (e.g., `/title system_backup`).
-    *   `/target <query>` - specifically filters jobs by their target container (e.g., `/target n8n`).
-
----
-
-## Database Backup System
-
-Database configuration backups can be triggered manually in Settings under the **Backup** tab. Backups staging archives are transactionally saved to the `backups/` directory located at the root of the HomeLab OS workspace.
-
----
-
-## Design Philosophy
-
-HomeLab OS **does not create, configure, or manage Cloudflare Tunnels**.
-
-Instead, it integrates with your existing Cloudflare deployment by discovering the active tunnel configuration and automatically resolving Docker services to their public domains.
-
-This approach keeps Cloudflare responsible for ingress configuration while HomeLab OS focuses on infrastructure discovery, monitoring, and management.
+HomeLab OS incorporates and builds upon high-quality open-source technologies:
+- [libdrmtap](https://github.com/fxd0h/libdrmtap) by fxd0h — Direct DRM/KMS hardware screen grabber engine (MIT License).
+- [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) by Tecnativa — Secure Docker socket proxy security profile (Apache 2.0).
+- [selfh.st/icons](https://selfh.st/icons) by selfh.st — Homelab and self-hosted service iconography (MIT License).

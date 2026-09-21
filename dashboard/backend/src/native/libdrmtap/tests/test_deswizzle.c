@@ -1,0 +1,354 @@
+/*
+ * libdrmtap — DRM/KMS screen capture library for Linux
+ * https://github.com/fxd0h/libdrmtap
+ *
+ * Copyright (c) 2026 Mariano Abad <weimaraner@gmail.com>
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
+ * @file test_deswizzle.c
+ * @brief Unit test — deswizzle tiled formats and pixel format conversion
+ *
+ * No hardware needed — uses synthetic tiled data to verify deswizzle
+ * algorithms produce correct linear output.
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <stdint.h>
+
+#include <drm_fourcc.h>
+#include "drmtap.h"
+
+#define TEST_ASSERT(cond) do { \
+    if (!(cond)) { \
+        fprintf(stderr, "FAIL: %s:%d: %s\n", __FILE__, __LINE__, #cond); \
+        exit(1); \
+    } \
+} while (0)
+
+/* ========================================================================= */
+/* Deswizzle tests                                                           */
+/* ========================================================================= */
+
+static void test_deswizzle_linear(void) {
+    /* Linear modifier (0) should just copy row-by-row */
+    uint32_t w = 64, h = 64;
+    uint32_t stride = w * 4;
+    uint8_t *src = calloc(1, stride * h);
+    uint8_t *dst = calloc(1, stride * h);
+    TEST_ASSERT(src && dst);
+
+    /* Fill with pattern */
+    for (uint32_t i = 0; i < stride * h; i++) {
+        src[i] = (uint8_t)(i & 0xFF);
+    }
+
+    int ret = drmtap_deswizzle(src, dst, w, h, stride, stride, 0, (size_t)stride * h);
+    TEST_ASSERT(ret == 0);
+    TEST_ASSERT(memcmp(src, dst, stride * h) == 0);
+
+    free(src);
+    free(dst);
+    printf("  PASS: deswizzle linear (copy)\n");
+}
+
+static void test_deswizzle_null_safety(void) {
+    int ret = drmtap_deswizzle(NULL, NULL, 64, 64, 256, 256, 0, 0);
+    TEST_ASSERT(ret == -22);  /* -EINVAL */
+    printf("  PASS: deswizzle NULL safety\n");
+}
+
+static void test_deswizzle_intel_x_tiled_roundtrip(void) {
+    /*
+     * Intel X-TILED: 512 bytes wide × 8 rows per tile
+     * At 32bpp: 128 pixels × 8 rows
+     *
+     * Create linear data, manually tile it, then deswizzle.
+     * Result should match original linear data.
+     */
+    uint32_t w = 128, h = 16;
+    uint32_t stride = w * 4;  /* 512 bytes = exactly 1 tile width */
+    uint32_t tile_w = 512;
+    uint32_t tile_h = 8;
+    uint32_t tiles_x = stride / tile_w;
+    uint32_t tiles_y = h / tile_h;
+
+    uint8_t *linear = calloc(1, stride * h);
+    uint8_t *tiled = calloc(1, stride * h);
+    uint8_t *result = calloc(1, stride * h);
+    TEST_ASSERT(linear && tiled && result);
+
+    /* Create linear reference pattern */
+    for (uint32_t y = 0; y < h; y++) {
+        for (uint32_t x = 0; x < w; x++) {
+            uint32_t *p = (uint32_t *)(linear + y * stride + x * 4);
+            *p = (y << 16) | (x << 8) | 0x42;  /* encode position */
+        }
+    }
+
+    /* Manually tile the data (reverse of deswizzle) */
+    for (uint32_t y = 0; y < h; y++) {
+        uint32_t tile_row = y / tile_h;
+        uint32_t tile_y = y % tile_h;
+        for (uint32_t x = 0; x < w; x++) {
+            uint32_t x_bytes = x * 4;
+            uint32_t tile_col = x_bytes / tile_w;
+            uint32_t tile_x_bytes = x_bytes % tile_w;
+            uint32_t tile_idx = tile_row * tiles_x + tile_col;
+            uint32_t tile_size = tile_w * tile_h;
+            uint32_t tiled_off = tile_idx * tile_size +
+                                 tile_y * tile_w + tile_x_bytes;
+            memcpy(tiled + tiled_off, linear + y * stride + x * 4, 4);
+        }
+    }
+
+    /* Deswizzle: I915_FORMAT_MOD_X_TILED = 0x0100000000000001 */
+    uint64_t mod_x_tiled = 0x0100000000000001ULL;
+    int ret = drmtap_deswizzle(tiled, result, w, h, stride, stride, mod_x_tiled, (size_t)stride * h);
+    TEST_ASSERT(ret == 0);
+
+    /* Verify result matches original linear */
+    for (uint32_t y = 0; y < h; y++) {
+        for (uint32_t x = 0; x < w; x++) {
+            uint32_t expected = *((uint32_t *)(linear + y * stride + x * 4));
+            uint32_t got = *((uint32_t *)(result + y * stride + x * 4));
+            if (expected != got) {
+                fprintf(stderr,
+                        "FAIL: pixel (%u,%u) expected=0x%08x got=0x%08x\n",
+                        x, y, expected, got);
+                exit(1);
+            }
+        }
+    }
+
+    (void)tiles_y;
+
+    free(linear);
+    free(tiled);
+    free(result);
+    printf("  PASS: Intel X-TILED roundtrip (128x16)\n");
+}
+
+static void test_deswizzle_nvidia_x_tiled_roundtrip(void) {
+    /*
+     * Nvidia X-TILED: 16 pixels × 128 rows per tile
+     * At 32bpp: 64 bytes × 128 rows = 8192 bytes per tile
+     */
+    uint32_t w = 32, h = 128;
+    uint32_t stride = w * 4;  /* 128 bytes */
+    uint32_t tile_w = 16;     /* pixels */
+    uint32_t tile_h = 128;
+    uint32_t tiles_x = (w + tile_w - 1) / tile_w;
+    uint32_t tile_w_bytes = tile_w * 4;
+
+    uint8_t *linear = calloc(1, stride * h);
+    /* Tiled size: tiles_x tiles × (tile_w_bytes × tile_h) bytes */
+    size_t tiled_size = (size_t)tiles_x * tile_w_bytes * tile_h;
+    uint8_t *tiled = calloc(1, tiled_size);
+    uint8_t *result = calloc(1, stride * h);
+    TEST_ASSERT(linear && tiled && result);
+
+    /* Create linear reference */
+    for (uint32_t y = 0; y < h; y++) {
+        for (uint32_t x = 0; x < w; x++) {
+            uint32_t *p = (uint32_t *)(linear + y * stride + x * 4);
+            *p = (y << 16) | (x << 8) | 0x99;
+        }
+    }
+
+    /* Manually tile (reverse of deswizzle) */
+    for (uint32_t y = 0; y < h; y++) {
+        uint32_t tile_row = y / tile_h;
+        uint32_t tile_y = y % tile_h;
+        for (uint32_t tx = 0; tx < tiles_x; tx++) {
+            uint32_t tile_idx = tile_row * tiles_x + tx;
+            uint32_t src_off = tile_idx * (tile_w_bytes * tile_h) +
+                               tile_y * tile_w_bytes;
+            uint32_t dst_x = tx * tile_w;
+            uint32_t copy_w = (dst_x + tile_w > w) ? w - dst_x : tile_w;
+            memcpy(tiled + src_off,
+                   linear + y * stride + dst_x * 4, copy_w * 4);
+        }
+    }
+
+    /* This used to feed 0x1000000000000000 and assert the roundtrip succeeded.
+     * 0x10 is not a vendor: DRM_FORMAT_MOD_VENDOR_NVIDIA is 0x03, and 0x10 is the
+     * low byte of the block-linear encoding. So the constant matched nothing the
+     * kernel produces, the library carried the same mistake, and this test
+     * certified it -- the roundtrip passed against a modifier no driver emits
+     * while every real Nvidia scanout took a different path entirely.
+     *
+     * What the library does now is fail closed for the whole vendor, because the
+     * decoder below has never run on a real frame and its tile geometry has never
+     * been checked against a Tegra scanout. Assert THAT, so the day someone wires
+     * it up they have to come here and say so. The tiling loop above is kept as
+     * the reference for that work. */
+    uint64_t mod_nvidia =
+        fourcc_mod_code(NVIDIA, 0x10);  /* 16BX2_BLOCK, a real one */
+    int ret = drmtap_deswizzle(tiled, result, w, h, stride, stride, mod_nvidia, (size_t)stride * h);
+    TEST_ASSERT(ret == -ENOTSUP);
+    TEST_ASSERT(drmtap_deswizzle(tiled, result, w, h, stride, stride,
+                                 fourcc_mod_code(NVIDIA, 1) /* TEGRA_TILED */,
+                                 (size_t)stride * h) == -ENOTSUP);
+
+    free(linear);
+    free(tiled);
+    free(result);
+    printf("  PASS: Nvidia modifiers fail closed (no validated CPU deswizzle)\n");
+}
+
+/* ========================================================================= */
+/* Format conversion tests                                                   */
+/* ========================================================================= */
+
+static void test_convert_ar30_to_xrgb8888(void) {
+    /*
+     * AR30 format: [2:alpha][10:red][10:green][10:blue]
+     * Test: pure red at max (0x3FF << 20)
+     */
+    uint32_t w = 4, h = 1;
+    uint32_t stride = w * 4;
+    uint32_t src[4];
+    uint32_t dst[4];
+
+    /* Pure red: alpha=3, R=1023, G=0, B=0 */
+    src[0] = (3u << 30) | (1023u << 20) | (0u << 10) | 0u;
+    /* Pure green: R=0, G=1023, B=0 */
+    src[1] = (3u << 30) | (0u << 20) | (1023u << 10) | 0u;
+    /* Pure blue: R=0, G=0, B=1023 */
+    src[2] = (3u << 30) | (0u << 20) | (0u << 10) | 1023u;
+    /* Mid gray: R=512, G=512, B=512 */
+    src[3] = (3u << 30) | (512u << 20) | (512u << 10) | 512u;
+
+    /* XR30 fourcc = 0x30335258 */
+    /* XRGB8888 fourcc = 0x34325258 */
+    int ret = drmtap_convert_format(src, dst, w, h, stride, stride,
+                                    0x30335258u, 0x34325258u);
+    TEST_ASSERT(ret == 0);
+
+    /* Check red channel of pixel 0: (1023 >> 2) = 255 */
+    uint8_t r0 = (uint8_t)((dst[0] >> 16) & 0xFF);
+    TEST_ASSERT(r0 == 255);
+
+    /* Check green channel of pixel 1: (1023 >> 2) = 255 */
+    uint8_t g1 = (uint8_t)((dst[1] >> 8) & 0xFF);
+    TEST_ASSERT(g1 == 255);
+
+    /* Check blue channel of pixel 2: (1023 >> 2) = 255 */
+    uint8_t b2 = (uint8_t)(dst[2] & 0xFF);
+    TEST_ASSERT(b2 == 255);
+
+    /* BGR variant XBGR2101010 (XB30, 0x30334258) = [2:A][10:B][10:G][10:R], so a
+     * pure-red pixel has R in the LOW 10 bits; the output red byte must be 255 and
+     * blue 0 (locks in the RGB/BGR swap of convert_ar30_to_xrgb8888). */
+    uint32_t bsrc[2], bdst[2];
+    bsrc[0] = (3u << 30) | (0u << 20) | (0u << 10) | 1023u;   /* R=1023 (low bits) */
+    bsrc[1] = (3u << 30) | (1023u << 20) | (0u << 10) | 0u;   /* B=1023 (high bits) */
+    TEST_ASSERT(drmtap_convert_format(bsrc, bdst, 2, 1, 8, 8,
+                                      0x30334258u, 0x34325258u) == 0);
+    TEST_ASSERT(((bdst[0] >> 16) & 0xFF) == 255);  /* pixel0 red = 255 */
+    TEST_ASSERT((bdst[0] & 0xFF) == 0);            /* pixel0 blue = 0 */
+    TEST_ASSERT((bdst[1] & 0xFF) == 255);          /* pixel1 blue = 255 */
+    TEST_ASSERT(((bdst[1] >> 16) & 0xFF) == 0);    /* pixel1 red = 0 */
+
+    printf("  PASS: AR30/AB30 → XRGB8888 conversion\n");
+}
+
+static void test_convert_abgr_to_argb(void) {
+    uint32_t w = 2, h = 1;
+    uint32_t stride = w * 4;
+    uint32_t src[2];
+    uint32_t dst[2];
+
+    /* ABGR: [A=0xFF][B=0x11][G=0x22][R=0x33] */
+    src[0] = 0xFF112233u;
+    src[1] = 0x80AABBCC;
+
+    /* ABGR8888 fourcc = 0x34324241 */
+    /* ARGB8888 fourcc = 0x34325241 */
+    int ret = drmtap_convert_format(src, dst, w, h, stride, stride,
+                                    0x34324241u, 0x34325241u);
+    TEST_ASSERT(ret == 0);
+
+    /* ARGB: [A=0xFF][R=0x33][G=0x22][B=0x11] */
+    TEST_ASSERT(dst[0] == 0xFF332211u);
+    TEST_ASSERT(dst[1] == 0x80CCBB00 + 0xAA);
+
+    printf("  PASS: ABGR8888 → ARGB8888 conversion\n");
+}
+
+static void test_convert_same_format(void) {
+    uint32_t w = 4, h = 1;
+    uint32_t stride = w * 4;
+    uint32_t src[4] = {0x11223344, 0x55667788, 0x99AABBCC, 0xDDEEFF00};
+    uint32_t dst[4] = {0};
+
+    int ret = drmtap_convert_format(src, dst, w, h, stride, stride,
+                                    0x34325258u, 0x34325258u);
+    TEST_ASSERT(ret == 0);
+    TEST_ASSERT(memcmp(src, dst, sizeof(src)) == 0);
+
+    printf("  PASS: same format copy\n");
+}
+
+static void test_convert_unsupported(void) {
+    uint32_t src[4] = {0};
+    uint32_t dst[4] = {0};
+    int ret = drmtap_convert_format(src, dst, 4, 1, 16, 16,
+                                    0x12345678u, 0x87654321u);
+    TEST_ASSERT(ret == -95);  /* -ENOTSUP */
+    printf("  PASS: unsupported format returns -ENOTSUP\n");
+}
+
+/* ========================================================================= */
+/* Main                                                                      */
+/* ========================================================================= */
+
+/* Height not a multiple of the tile height WITH more than one tile column: the
+ * tiled footprint (ceil(h/tile_h) full tile rows) exceeds the stride*height
+ * source, so the bottom-right pixels index past it. drmtap_deswizzle must
+ * zero-fill those instead of reading out of bounds. The source is allocated at
+ * EXACTLY src_size so ASan (the CI debug build) aborts on any over-read. */
+static void test_deswizzle_bounds_non_tile_multiple(void) {
+    uint32_t w = 256, h = 13;          /* 2 X-tile columns, partial last row */
+    uint32_t stride = w * 4;           /* 1024 = two 512-byte tile columns */
+    size_t src_size = (size_t)stride * h;
+    uint8_t *src = malloc(src_size);   /* exact size: ASan red-zones catch OOB */
+    uint8_t *dst = malloc((size_t)stride * h);
+    TEST_ASSERT(src && dst);
+    memset(src, 0xCD, src_size);       /* non-zero, so a zero-filled px stands out */
+    memset(dst, 0xAB, (size_t)stride * h);
+
+    uint64_t mod_x_tiled = 0x0100000000000001ULL;
+    int ret = drmtap_deswizzle(src, dst, w, h, stride, stride, mod_x_tiled, src_size);
+    TEST_ASSERT(ret == 0);             /* completed without an OOB read */
+
+    /* Bottom-right pixel maps into the unbacked second tile row/column, so it
+     * must be zero-filled — neither the 0xAB sentinel (unwritten) nor 0xCDCDCDCD
+     * (would mean it was read from the source). */
+    uint32_t last = *(uint32_t *)(dst + (size_t)(h - 1) * stride + (w - 1) * 4);
+    TEST_ASSERT(last == 0);
+
+    free(src);
+    free(dst);
+    printf("  PASS: deswizzle bounds (non-tile-multiple height, zero-filled, no OOB)\n");
+}
+
+int main(void) {
+    printf("Running deswizzle/conversion tests...\n");
+    test_deswizzle_null_safety();
+    test_deswizzle_linear();
+    test_deswizzle_intel_x_tiled_roundtrip();
+    test_deswizzle_nvidia_x_tiled_roundtrip();
+    test_deswizzle_bounds_non_tile_multiple();
+    test_convert_ar30_to_xrgb8888();
+    test_convert_abgr_to_argb();
+    test_convert_same_format();
+    test_convert_unsupported();
+    printf("All deswizzle/conversion tests passed!\n");
+    return 0;
+}

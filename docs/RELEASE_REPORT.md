@@ -1,4 +1,4 @@
-# HomeLab OS — Final Release Verification Report
+# HomeLab OS — Release Verification Report (v3.0.0)
 
 This document reports the final verification checks performed on the HomeLab OS repository prior to public publication on GitHub.
 
@@ -6,7 +6,7 @@ This document reports the final verification checks performed on the HomeLab OS 
 
 ## 1. Release Readiness Status
 
-* Public Release Version: **v1.5.0**
+* Public Release Version: **v3.0.0** (2026-09-21). Release notes: [RELEASE_NOTES_3.0.0.md](RELEASE_NOTES_3.0.0.md); changes: [CHANGELOG.md](../CHANGELOG.md)
 * Overall Implementation Status: **Ready for Public Release**
 
 All core subsystems, RFC 3207 STARTTLS 2FA security engine, rate limiting, and audit hooks have been implemented, tested, and validated.
@@ -44,9 +44,10 @@ All core subsystems, RFC 3207 STARTTLS 2FA security engine, rate limiting, and a
 
 ## 3. Compilation & Validation Metrics
 
-* **TypeScript Compilation:** **Passed** (zero build errors).
+* **TypeScript Compilation:** **Passed** (`tsc --noEmit`, zero errors).
 * **ESLint Verification:** **Passed** (zero warnings and zero errors).
-* **Prettier Formatting:** **Passed** (all source files conform to standard styles).
-* **Automated Unit Tests:** **Passed** (21 of 21 assertions completed successfully).
+* **Prettier Formatting:** Not enforced. The repository has no Prettier configuration and `prettier --check` reports 33 files (ignoring line endings), so it is not used as a gate.
+* **Automated Unit Tests:** **Passed** (49 of 49 tests; `npm test`).
+* **Dependency Audit:** **Passed** (`npm audit --omit=dev` reports 0 vulnerabilities).
 
 All verification runs were executed locally in isolated in-memory test databases.

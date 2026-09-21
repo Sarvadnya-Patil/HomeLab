@@ -13,14 +13,25 @@ All contributors are expected to adhere to the project's [Code of Conduct](CODE_
 ## 2. Getting Started
 
 ### Local Setup
+Requires Node.js 20 or newer.
 1. Clone the repository.
-2. Initialize the backend control plane:
+2. Start the backend control plane, which also serves the frontend:
    ```bash
    cd dashboard/backend
    npm install
    npm run dev
    ```
-3. Open `dashboard/frontend/index.html` in a web browser.
+3. Open `http://localhost:8081` in a web browser and create the administrator account on first run. In development `JWT_SECRET` and `ENCRYPTION_KEY` fall back to development values (the server does not read `.env` itself; export variables in your shell or use the Docker Compose setup, see `dashboard/backend/.env.example` for the list).
+
+The frontend is plain ES modules with no build step: edit files under `dashboard/frontend/` and reload the page.
+
+### Checks to run before a pull request
+```bash
+cd dashboard/backend
+npx tsc --noEmit
+npm run lint
+npm test
+```
 
 ---
 

@@ -20,25 +20,36 @@ COPY backend/src ./backend/src
 # Compile TypeScript to JavaScript
 RUN cd backend && npm run build
 
+# Drop development dependencies so only what the compiled server needs is copied to the runtime image
+RUN cd backend && npm prune --omit=dev
+
 # Stage 2: Runtime stage
 FROM node:20-alpine AS runtime
 
 WORKDIR /app
 
-# Install native compilation dependencies and Docker CLI client
-RUN apk add --no-cache python3 make g++ docker-cli docker-cli-compose
+# Runtime needs only the Docker CLI client and util-linux (nsenter, used when host access is enabled).
+# Build tools are deliberately absent: better-sqlite3 is compiled in the build stage and copied over,
+# so a compiler here would only add attack surface and image size.
+RUN apk add --no-cache docker-cli docker-cli-compose util-linux
 
 
 
-# Install only production dependencies
+# Copy package files and node_modules from the build stage directly to skip rebuilding native binaries
 COPY backend/package*.json ./backend/
-RUN cd backend && npm ci --omit=dev
+COPY --from=build /app/backend/node_modules ./backend/node_modules
 
 # Copy compiled JavaScript output
 COPY --from=build /app/backend/dist ./backend/dist
 
 # Copy database schema DDL file to the expected path in dist
 COPY --from=build /app/backend/src/database/schema.sql ./backend/dist/src/database/schema.sql
+
+# Copy desktop streamer script to compiled api directory in dist
+COPY --from=build /app/backend/src/api/desktop_streamer.py ./backend/dist/src/api/desktop_streamer.py
+
+# Copy vendored native source libraries to dist
+COPY --from=build /app/backend/src/native ./backend/dist/src/native
 
 # Copy frontend static files
 COPY frontend/ ./backend/frontend/

@@ -67,7 +67,7 @@ export default {
     }
 
     if (model) {
-      model.textContent = `${data.cpuModel} (${data.cpuCores} Cores)`;
+      model.textContent = `${data.cpuModel} (${data.cpuCores} Cores / ${data.cpuThreads ?? data.cpuCores} Threads)`;
     }
   },
 

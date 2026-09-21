@@ -3,17 +3,42 @@ import { store } from './state.js';
 import { api } from './api.js';
 
 let wsConn = null;
+let connecting = false;
 let pollInterval = null;
 let reconnectDelay = 1000;
 const logSubscribers = new Set();
 
 export const WsClient = {
-  connect() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const token = localStorage.getItem('homelab_token') || '';
-    const wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
+  async connect() {
+    // Signed out (or the server ended the session): stop reconnecting and polling. The next
+    // sign-in calls connect() again. Also never open a second socket while one is starting or live.
+    if (!localStorage.getItem('homelab_token')) {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      return;
+    }
+    if (connecting || (wsConn && wsConn.readyState <= 1)) return;
 
-    console.log(`WsClient connecting to stream endpoint: ${wsUrl}`);
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+    connecting = true;
+    let ticket;
+    try {
+      ticket = await api.wsTicket();
+    } catch (err) {
+      console.warn(`WsClient could not obtain a connection ticket: ${err.message}. Retrying in ${reconnectDelay}ms...`);
+      setTimeout(() => this.connect(), reconnectDelay);
+      reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+      this.startFallbackPolling();
+      return;
+    } finally {
+      connecting = false;
+    }
+    const wsUrl = `${protocol}//${window.location.host}/ws?ticket=${encodeURIComponent(ticket)}`;
+
+    console.log('WsClient connecting to stream endpoint: /ws');
     wsConn = new WebSocket(wsUrl);
 
     wsConn.onopen = () => {

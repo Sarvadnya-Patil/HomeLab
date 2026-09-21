@@ -1,6 +1,7 @@
 // Header component - real-time status bar & clocks
 import { store } from '../core/state.js';
 import { api } from '../core/api.js';
+import { escapeHtml } from '../utils/html.js';
 
 export const Header = {
   init(headerEl) {
@@ -34,7 +35,7 @@ export const Header = {
     if (hostNameEl) hostNameEl.textContent = data.hostname.toUpperCase();
     if (hostOsEl) hostOsEl.textContent = data.osName;
     if (hostKernelEl) hostKernelEl.textContent = `Kernel: ${data.kernel}`;
-    if (liveUptimeEl) liveUptimeEl.innerHTML = `<span class="white-text">${data.uptime}</span>`;
+    if (liveUptimeEl) liveUptimeEl.innerHTML = `<span class="white-text">${escapeHtml(data.uptime)}</span>`;
 
     // 2. Update health status pills
     const statusPills = document.getElementById("header-status-pills");

@@ -7,6 +7,7 @@ import { Header } from './components/header.js';
 import { WidgetGrid } from './components/widget-grid.js';
 import { CommandPalette } from './components/command-palette.js';
 import { NotificationCenter } from './components/notification-center.js';
+import { escapeHtml } from './utils/html.js';
 
 // modular application views
 import { AppContainers } from './components/app-containers.js';
@@ -15,6 +16,7 @@ import { AppTerminal } from './components/app-terminal.js';
 import { AppDesigner } from './components/app-designer.js';
 import { AppHealth } from './components/app-health.js';
 import { AppJobs } from './components/app-jobs.js';
+import { AppDesktop } from './components/app-desktop.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Booting HomeLab OS Control Plane...');
@@ -51,14 +53,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (appShell) {
       if (value === 'terminal') {
         appShell.classList.add('terminal-active-mode');
+        appShell.classList.remove('desktop-active-mode');
+      } else if (value === 'desktop') {
+        appShell.classList.add('desktop-active-mode');
+        appShell.classList.remove('terminal-active-mode');
       } else {
         appShell.classList.remove('terminal-active-mode');
+        appShell.classList.remove('desktop-active-mode');
       }
     }
 
     const cmdBar = document.querySelector('.command-bar');
     if (cmdBar) {
-      cmdBar.style.display = (value === 'terminal') ? 'none' : 'flex';
+      cmdBar.style.display = (value === 'terminal' || value === 'desktop') ? 'none' : 'flex';
     }
 
     // Clear active polling intervals on switch
@@ -93,6 +100,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       viewport.className = 'app-viewport';
       AppTerminal.init(viewport);
       window.activeAppDestroy = () => AppTerminal.destroy();
+    } else if (value === 'desktop') {
+      viewport.className = 'app-viewport';
+      AppDesktop.init(viewport);
+      window.activeAppDestroy = () => AppDesktop.destroy();
     }
   });
 
@@ -109,7 +120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setInterval(poll, 5000);
   };
 
-  const initializeConsole = async () => {
+  const initializeConsole = async ({ landOnDashboard = false } = {}) => {
     // 3. Load active apps on boot and establish socket streams
     try {
       const [apps, categories, services, workspaces, notifications] = await Promise.all([
@@ -124,13 +135,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       store.set('services', services);
       store.set('workspaces', workspaces);
       store.set('notifications', notifications);
-      
-      // Switch to initial app from local storage
-      const activeApp = store.get('activeApp') || 'dashboard';
-      store.set('activeApp', activeApp);
     } catch (err) {
       console.error('Failed to pre-load essential console data:', err);
     }
+
+    // Signing in (with or without 2FA) always lands on the dashboard. Opening the site starts there
+    // too (see core/state.js), except that refreshing the page stays on the page you were on.
+    // Setting the value explicitly is also what draws the view, and it happens even if the data above
+    // failed to load, so the page is never left blank.
+    store.set('activeApp', landOnDashboard ? 'dashboard' : (store.get('activeApp') || 'dashboard'));
 
     startHealthPolling();
 
@@ -296,7 +309,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const user = await api.get('/api/v1/auth/me');
       store.set('currentUser', user);
       if (appShell) appShell.style.display = 'flex';
-      await initializeConsole();
+      await initializeConsole({ landOnDashboard: true });
     } catch (err) {
       loginError.textContent = err.message;
       loginError.style.display = 'block';
@@ -427,7 +440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const user = await api.get('/api/v1/auth/me');
       store.set('currentUser', user);
       if (appShell) appShell.style.display = 'flex';
-      await initializeConsole();
+      await initializeConsole({ landOnDashboard: true });
     } catch (err) {
       twofaLoginError.textContent = err.message || 'Invalid OTP. Please try again.';
       twofaLoginError.style.display = 'block';
@@ -437,8 +450,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Sign Out button
   const signOutBtn = document.getElementById('btn-sign-out');
   if (signOutBtn) {
-    signOutBtn.addEventListener('click', () => {
+    signOutBtn.addEventListener('click', async () => {
       pendingCredentials = null;
+      // Revoke the session on the server first; if the token is already invalid there is nothing to revoke.
+      try { await api.post('/api/v1/auth/logout', {}); } catch { /* already signed out */ }
       localStorage.removeItem('homelab_token');
       store.set('currentUser', null);
       if (appShell) appShell.style.display = 'none';
@@ -469,6 +484,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isOpen = store.get('notificationCenterOpen');
     store.set('notificationCenterOpen', !isOpen);
   };
+  const clockBlock = document.getElementById('header-time-block');
+  if (clockBlock) clockBlock.addEventListener('click', () => window.storeTriggerNotificationCenter());
 
   // 7. Bind mobile sidebar toggle controllers
   const toggleBtn = document.getElementById('sidebar-toggle-btn');
@@ -534,10 +551,10 @@ window.showCustomAlert = function(title, message, type = 'error') {
         </span>
       </div>
       <div style="font-size: 0.85rem; font-weight: bold; color: var(--text-primary); margin-top: 0.25rem;">
-        ${title}
+        ${escapeHtml(title)}
       </div>
       <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; font-family: var(--font-sans);">
-        ${message}
+        ${escapeHtml(message)}
       </div>
       <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
         <button id="custom-alert-ok-btn" style="
@@ -650,7 +667,7 @@ window.showToast = function(message, type = 'error') {
       <span style="font-family: var(--font-mono); font-size: 0.65rem; color: ${accentColor}; font-weight: bold; text-transform: uppercase;">
         ${type === 'error' ? 'SYSTEM ERROR' : 'SYSTEM SUCCESS'}
       </span>
-      <span style="font-size: 0.75rem; color: var(--text-primary); line-height: 1.4;">${message}</span>
+      <span style="font-size: 0.75rem; color: var(--text-primary); line-height: 1.4;">${escapeHtml(message)}</span>
     </div>
     <button class="toast-close-btn" style="
       background: none;

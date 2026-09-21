@@ -1,5 +1,8 @@
 // Master REST API Route Coordinator loading modular v1 route endpoints
+import { exec } from 'child_process';
 import { CoreEngine } from '../core/engine';
+import { authorize } from '../core/permissions';
+import { hostAccessEnabled } from '../utils/host-access';
 
 // Import modular API route subsystems
 import metricsRoutes from './v1/metrics';
@@ -16,6 +19,24 @@ import authRoutes from './v1/auth';
 import backupsRoutes from './v1/backups';
 import dockerRoutes from './v1/docker';
 
+// Endpoints reachable without a session token: sign-in, first-run setup, and read-only status.
+const PUBLIC_PATHS = [
+  '/api/v1/auth/login',
+  '/api/v1/auth/setup',
+  '/api/v1/auth/setup-status',
+  '/api/v1/auth/2fa-verify',
+  '/api/v1/auth/2fa-email-confirm',
+  '/api/v1/health',
+  '/api/v1/apps',
+  '/api/v1/docs',
+  '/api/v1/system/header'
+];
+
+function isPublicPath(url: string): boolean {
+  const path = url.split('?')[0];
+  return PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+}
+
 export default function (fastify: any, engine: CoreEngine): void {
   // 1. Standard Response Envelope serialization hook
   fastify.addHook('preSerialization', async (request: any, reply: any, payload: any) => {
@@ -23,18 +44,7 @@ export default function (fastify: any, engine: CoreEngine): void {
     if (!url.startsWith('/api/v1/')) {
       return payload;
     }
-    const publicPaths = [
-      '/api/v1/auth/login',
-      '/api/v1/auth/setup',
-      '/api/v1/auth/setup-status',
-      '/api/v1/auth/2fa-verify',
-      '/api/v1/auth/2fa-email-confirm',
-      '/api/v1/health',
-      '/api/v1/apps',
-      '/api/v1/docs',
-      '/api/v1/system/header'
-    ];
-    if (publicPaths.some(p => url.startsWith(p))) {
+    if (isPublicPath(url)) {
       return payload;
     }
     if (payload && typeof payload === 'object') {
@@ -99,19 +109,10 @@ export default function (fastify: any, engine: CoreEngine): void {
     // Determine client IP address
     const clientIp = request.ip || request.headers['x-forwarded-for'] || '127.0.0.1';
 
-    // Parse authenticated user ID from authorization header if available
+    // Attribute the entry to the identity verified by the auth hook, falling back to the system user
     let userId = 'system';
-    const authHeader = request.headers['authorization'];
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        const token = authHeader.substring(7);
-        const decoded = engine.auth.verifyToken(token);
-        if (decoded && decoded.id) {
-          userId = decoded.id;
-        }
-      } catch {
-        // Suppress parsing errors for invalid/anonymous JWT tokens
-      }
+    if (request.user && request.user.id) {
+      userId = request.user.id;
     }
 
     // Parse url path components to extract resource type and entity ID
@@ -143,26 +144,14 @@ export default function (fastify: any, engine: CoreEngine): void {
     }
   });
 
-  // Enforce JWT Auth globally on administrative v1 endpoints (except auth setup/login and public endpoints)
+  // Enforce JWT Auth globally on v1 endpoints (except sign-in, setup and public status endpoints)
   fastify.addHook('preHandler', async (request: any, reply: any) => {
     const url = request.url || '';
     if (!url.startsWith('/api/v1/')) {
       return;
     }
 
-    const publicPaths = [
-      '/api/v1/auth/login',
-      '/api/v1/auth/setup',
-      '/api/v1/auth/setup-status',
-      '/api/v1/auth/2fa-verify',
-      '/api/v1/auth/2fa-email-confirm',
-      '/api/v1/health',
-      '/api/v1/apps',
-      '/api/v1/docs',
-      '/api/v1/system/header'
-    ];
-
-    if (publicPaths.some(p => url.startsWith(p))) {
+    if (isPublicPath(url)) {
       return;
     }
 
@@ -179,35 +168,23 @@ export default function (fastify: any, engine: CoreEngine): void {
 
     request.user = user;
 
-    // Sliding session auto-renewal: if token has < 30 minutes left, send a renewed token in headers
+    // Sliding session auto-renewal: if token has < 30 minutes left, send a renewed token in headers.
+    // Renewal stops once the session reaches its absolute lifetime, forcing a fresh sign-in.
     if (user.exp) {
       const timeLeft = user.exp - Math.floor(Date.now() / 1000);
       if (timeLeft > 0 && timeLeft < 1800) {
-        const renewedToken = engine.auth.signJwt({ id: user.id, username: user.username, role: user.role });
-        reply.header('Access-Control-Expose-Headers', 'X-Renewed-Token');
-        reply.header('X-Renewed-Token', renewedToken);
+        const renewedToken = engine.auth.renewToken(user);
+        if (renewedToken) {
+          reply.header('Access-Control-Expose-Headers', 'X-Renewed-Token');
+          reply.header('X-Renewed-Token', renewedToken);
+        }
       }
     }
 
-    // Enforce role-based access control (RBAC)
-    const role = user.role || 'viewer';
-    if (url.startsWith('/api/v1/terminal') || url.startsWith('/api/v1/backups') || url.startsWith('/api/v1/settings') || url.startsWith('/api/v1/audit')) {
-      if (role !== 'admin') {
-        return reply.status(403).send({ error: 'Forbidden: Admin privilege required' });
-      }
-    }
-    if (url.startsWith('/api/v1/servers') && request.method !== 'GET') {
-      if (role !== 'admin') {
-        return reply.status(403).send({ error: 'Forbidden: Admin privilege required to modify servers clustering' });
-      }
-    }
-    if (url.startsWith('/api/v1/docker') || url.startsWith('/api/v1/designer') || url.startsWith('/api/v1/jobs')) {
-      if (role !== 'admin' && role !== 'editor') {
-        return reply.status(403).send({ error: 'Forbidden: Editor or Admin privilege required' });
-      }
-    }
-    if (request.method !== 'GET' && role === 'viewer') {
-      return reply.status(403).send({ error: 'Forbidden: Viewer role cannot mutate resources' });
+    // Role-based access control: one policy table (core/permissions.ts), denied unless listed
+    const decision = authorize(user.role, request.method, url);
+    if (!decision.allowed) {
+      return reply.status(403).send({ error: `Forbidden: ${decision.required} privilege required` });
     }
   });
 
@@ -228,7 +205,24 @@ export default function (fastify: any, engine: CoreEngine): void {
 
   // 1. GET: /api/v1/apps (Dynamic Application Registry)
   fastify.get('/api/v1/apps', async () => {
-    return [
+    const desktopEnabled = engine.settingsRepo.get('desktop.rdp.enabled') === 'true';
+    let serviceActive = false;
+
+    if ((engine as any).simulatedServiceActive) {
+      serviceActive = true;
+    } else if (process.platform === 'linux' && hostAccessEnabled()) {
+      try {
+        const checkCmd = 'nsenter -t 1 -m -u -i -n -p -r -- /bin/sh -c "systemctl is-active homelab-desktop-streamer"';
+        const stdout = await new Promise<string>((resolve) => {
+          exec(checkCmd, (err, stdout) => resolve(stdout.trim()));
+        });
+        serviceActive = stdout === 'active';
+      } catch {
+        // ignore
+      }
+    }
+
+    const apps = [
       {
         id: 'dashboard',
         name: 'Dashboard',
@@ -250,7 +244,6 @@ export default function (fastify: any, engine: CoreEngine): void {
         displayOrder: 2,
         permissions: ['admin', 'editor']
       },
-
       {
         id: 'health',
         name: 'System Health',
@@ -271,16 +264,28 @@ export default function (fastify: any, engine: CoreEngine): void {
         icon: 'terminal',
         displayOrder: 6,
         permissions: ['admin']
-      },
-
-      {
-        id: 'settings',
-        name: 'Settings',
-        icon: 'settings',
-        displayOrder: 7,
-        permissions: ['admin']
       }
     ];
+
+    if (desktopEnabled || serviceActive) {
+      apps.push({
+        id: 'desktop',
+        name: 'Remote Desktop',
+        icon: 'monitor',
+        displayOrder: 6.5,
+        permissions: ['admin']
+      });
+    }
+
+    apps.push({
+      id: 'settings',
+      name: 'Settings',
+      icon: 'settings',
+      displayOrder: 7,
+      permissions: ['admin']
+    });
+
+    return apps;
   });
 
   // 2. POST: /api/v1/terminal (Direct pseudo-console execution)
@@ -300,7 +305,7 @@ export default function (fastify: any, engine: CoreEngine): void {
       openapi: '3.0.0',
       info: {
         title: 'HomeLab OS API Spec',
-        version: '5.0.0',
+        version: '3.0.0',
         description: 'Modular v1 OpenAPI specs for the HomeLab OS central control plane.'
       }
     };

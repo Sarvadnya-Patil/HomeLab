@@ -1,6 +1,12 @@
 // Centralized Job Execution Manager Component
 import { api } from '../core/api.js';
 import { Dialog } from '../utils/dialog.js';
+import { escapeHtml } from '../utils/html.js';
+
+// Tallest the job list and log panels grow. They fill the available space up to this height, then
+// scroll inside their own borders instead of stretching the page on a large screen. This has to be
+// max-height: the row is a flex item (flex: 1), and flex sizing overrides a plain height.
+const JOBS_PANEL_MAX_HEIGHT = '640px';
 
 export const AppJobs = {
   container: null,
@@ -56,7 +62,7 @@ export const AppJobs = {
           </div>
         </div>
 
-        <div style="display: flex; flex: 1; gap: 1.25rem; min-height: 400px; height: calc(100vh - 190px);">
+        <div style="display: flex; flex: 1; gap: 1.25rem; min-height: 400px; height: calc(100vh - 190px); max-height: ${JOBS_PANEL_MAX_HEIGHT};">
           <div class="jobs-list-panel" style="flex: 1; min-width: 280px; background: #0e0e11; border-radius: 0; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto;">
             <div id="jobs-cards-container" style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
               <div class="circular-loader-overlay" style="min-height: 180px;">
@@ -222,22 +228,22 @@ export const AppJobs = {
       const runtime = this.calculateRuntime(job.createdAt, job.updatedAt, job.status);
 
       html += `
-        <div class="job-card-item" data-id="${job.id}" style="padding: 0.85rem; background: ${isSelected ? '#ffffff' : '#000000'}; color: ${isSelected ? '#000000' : '#ffffff'}; border: 2px solid #ffffff; box-shadow: ${isSelected ? '4px 4px 0 #888888' : '2px 2px 0 #44444e'}; border-radius: 0; cursor: pointer; display: flex; flex-direction: column; gap: 0.4rem; font-family: var(--font-mono); transition: all 0.15s;">
+        <div class="job-card-item" data-id="${escapeHtml(job.id)}" style="padding: 0.85rem; background: ${isSelected ? '#ffffff' : '#000000'}; color: ${isSelected ? '#000000' : '#ffffff'}; border: 2px solid #ffffff; box-shadow: ${isSelected ? '4px 4px 0 #888888' : '2px 2px 0 #44444e'}; border-radius: 0; cursor: pointer; display: flex; flex-direction: column; gap: 0.4rem; font-family: var(--font-mono); transition: all 0.15s;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 0.78rem; font-weight: 900; text-transform: uppercase; color: ${isSelected ? '#000000' : '#ffffff'};">${job.type.replace(/_/g, ' ')}</span>
-            <span style="font-size: 0.6rem; color: ${statusColor}; background: #000000; border: 1px solid ${statusColor}; padding: 0.15rem 0.45rem; border-radius: 0; font-weight: 900; text-transform: uppercase;">${job.status}</span>
+            <span style="font-size: 0.78rem; font-weight: 900; text-transform: uppercase; color: ${isSelected ? '#000000' : '#ffffff'};">${escapeHtml(job.type.replace(/_/g, ' '))}</span>
+            <span style="font-size: 0.6rem; color: ${statusColor}; background: #000000; border: 1px solid ${statusColor}; padding: 0.15rem 0.45rem; border-radius: 0; font-weight: 900; text-transform: uppercase;">${escapeHtml(job.status)}</span>
           </div>
           
           <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: ${isSelected ? '#33333e' : '#a1a1aa'};">
-            <span>Target: <span style="color: ${isSelected ? '#000000' : '#ffffff'}; font-weight: 800;">${job.targetId || 'System'}</span></span>
+            <span>Target: <span style="color: ${isSelected ? '#000000' : '#ffffff'}; font-weight: 800;">${escapeHtml(job.targetId || 'System')}</span></span>
             <span>Runtime: <span style="color: ${isSelected ? '#000000' : '#ffffff'}; font-weight: 800;">${runtime}</span></span>
           </div>
           
           <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.2rem;">
             <div class="res-bar-container" style="flex: 1; height: 8px; background: ${isSelected ? '#e4e4e7' : '#0e0e11'}; border: 1px solid ${isSelected ? '#000000' : '#ffffff'}; border-radius: 0; padding: 1px;">
-              <div style="width: ${job.progress}%; background: ${job.status === 'failed' ? '#ef4444' : '#ffffff'}; height: 100%;"></div>
+              <div style="width: ${Number(job.progress) || 0}%; background: ${job.status === 'failed' ? '#ef4444' : '#ffffff'}; height: 100%;"></div>
             </div>
-            <span style="font-size: 0.65rem; color: ${isSelected ? '#000000' : '#ffffff'}; font-weight: 900;">${job.progress}%</span>
+            <span style="font-size: 0.65rem; color: ${isSelected ? '#000000' : '#ffffff'}; font-weight: 900;">${Number(job.progress) || 0}%</span>
           </div>
         </div>
       `;
@@ -282,13 +288,13 @@ export const AppJobs = {
     header.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
         <div>
-          <span style="font-size: 0.85rem; font-weight: 700; color: #fff; text-transform: capitalize;">${job.type.replace(/_/g, ' ')}</span>
+          <span style="font-size: 0.85rem; font-weight: 700; color: #fff; text-transform: capitalize;">${escapeHtml(job.type.replace(/_/g, ' '))}</span>
           <div style="font-size: 0.6rem; color: var(--text-muted); margin-top: 0.15rem;">
-            <span>ID: <span style="font-family: monospace; color: var(--text-secondary);">${job.id}</span></span>
+            <span>ID: <span style="font-family: monospace; color: var(--text-secondary);">${escapeHtml(job.id)}</span></span>
             <span style="margin: 0 0.4rem;">•</span>
             <span>Elapsed Time: <span style="color: #fff;">${runtime}</span></span>
             <span style="margin: 0 0.4rem;">•</span>
-            <span>Target Resource: <span style="color: #fff;">${job.targetId || 'System'}</span></span>
+            <span>Target Resource: <span style="color: #fff;">${escapeHtml(job.targetId || 'System')}</span></span>
           </div>
         </div>
         <div style="display: flex; gap: 0.5rem;">

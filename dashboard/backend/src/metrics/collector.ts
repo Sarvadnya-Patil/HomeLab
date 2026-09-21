@@ -4,6 +4,31 @@ import os from 'os';
 import { Logger } from '../utils/logger';
 import { SystemStats } from '../types';
 
+// os.cpus() returns one entry per logical processor, so on any CPU with
+// Hyper-Threading/SMT it reports thread count rather than physical core
+// count. /proc/cpuinfo's "core id" field (unique per physical core within a
+// "physical id" package) is the standard, dependency-free way to recover the
+// real physical count on Linux. Falls back to the logical count on any
+// read/parse failure so this never breaks the caller, just loses the
+// physical/logical distinction.
+function getPhysicalCpuCores(logicalCount: number): number {
+  try {
+    const cpuinfo = fs.readFileSync('/proc/cpuinfo', 'utf8');
+    const cores = new Set<string>();
+    let physicalId = '0';
+    for (const line of cpuinfo.split('\n')) {
+      if (line.startsWith('physical id')) {
+        physicalId = line.split(':')[1].trim();
+      } else if (line.startsWith('core id')) {
+        cores.add(`${physicalId}:${line.split(':')[1].trim()}`);
+      }
+    }
+    return cores.size > 0 ? cores.size : logicalCount;
+  } catch {
+    return logicalCount;
+  }
+}
+
 async function fetchWithTimeout(url: string, options: any = {}, timeout = 2000): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
@@ -35,7 +60,8 @@ export class MetricsCollector {
       osName: this._getOSName(),
       ipAddress: this._getIpAddress(),
       cpuModel: os.cpus() && os.cpus().length > 0 ? os.cpus()[0].model : 'Unknown CPU',
-      cpuCores: os.cpus() ? os.cpus().length : 1,
+      cpuCores: getPhysicalCpuCores(os.cpus() ? os.cpus().length : 1),
+      cpuThreads: os.cpus() ? os.cpus().length : 1,
       cpu: null,
       cpuTemp: null,
       cpuFreq: null,
