@@ -646,15 +646,28 @@
         };
       };
 
+      // Mouse moves fire hundreds of times a second on a high-polling mouse. Sending each one floods the
+      // host, whose input handling then falls behind the video and key presses. Keep only the newest
+      // position and send it once per animation frame.
+      let pendingMove = null;
+      let moveFrame = 0;
+      const flushPendingMove = () => {
+        if (moveFrame) {
+          cancelAnimationFrame(moveFrame);
+          moveFrame = 0;
+        }
+        if (pendingMove) {
+          sendInput(pendingMove);
+          pendingMove = null;
+        }
+      };
+
       const onMouseMove = (e) => {
         const el = (canvas && canvas.style.display !== 'none') ? canvas : video;
         if (el) {
           const coords = getNormalizedCoordinates(e, el);
-          sendInput({
-            type: 'mousemove',
-            x: coords.x,
-            y: coords.y
-          });
+          pendingMove = { type: 'mousemove', x: coords.x, y: coords.y };
+          if (!moveFrame) moveFrame = requestAnimationFrame(flushPendingMove);
         }
       };
 
@@ -662,6 +675,7 @@
       const activePressedButtons = new Set();
 
       const onMouseDown = (e) => {
+        flushPendingMove();
         const btnMap = { 0: 'left', 1: 'middle', 2: 'right', 3: 'back', 4: 'forward' };
         const btn = btnMap[e.button] || 'left';
         activePressedButtons.add(btn);
@@ -672,6 +686,7 @@
       };
 
       const onMouseUp = (e) => {
+        flushPendingMove();
         const btnMap = { 0: 'left', 1: 'middle', 2: 'right', 3: 'back', 4: 'forward' };
         const btn = btnMap[e.button] || 'left';
         activePressedButtons.delete(btn);
@@ -682,6 +697,8 @@
       };
 
       const releaseAllInputState = () => {
+        if (moveFrame) { cancelAnimationFrame(moveFrame); moveFrame = 0; }
+        pendingMove = null;
         if (activePressedButtons.size > 0) {
           activePressedButtons.forEach(btn => {
             sendInput({ type: 'mouseup', button: btn });
@@ -757,6 +774,8 @@
       });
 
       this.cleanupInputListeners = () => {
+        if (moveFrame) { cancelAnimationFrame(moveFrame); moveFrame = 0; }
+        pendingMove = null;
         if (canvas) {
           canvas.removeEventListener('mousemove', onMouseMove);
           canvas.removeEventListener('mousedown', onMouseDown);

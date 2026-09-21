@@ -467,7 +467,20 @@ def compute_image_brightness(img):
         return 0.0
 
 
+# The compositor's environment (Wayland socket, X display, auth file) does not change from one video
+# frame to the next, but finding it costs a pgrep process spawn plus /proc reads. This runs on the
+# capture path for every frame, so re-scan at most this often.
+DISPLAY_ENV_REFRESH_SECONDS = 10.0
+_display_env_checked_at = 0.0
+
+
 def setup_display_env():
+    global _display_env_checked_at
+    now = time.time()
+    if now - _display_env_checked_at < DISPLAY_ENV_REFRESH_SECONDS:
+        return
+    _display_env_checked_at = now
+
     # 1. Inspect live compositor / desktop process environment from /proc
     try:
         for proc_name in ["gnome-shell", "gdm-wayland-session", "gnome-session", "Xorg", "plasma-desktop", "sway", "wayfire"]:
@@ -583,7 +596,30 @@ class SafeDisplayGrabber:
         self.active_engine = "NONE"
         self.error_detail = ""
         self._logged_unknown_format = None
+        # grim retry state, keyed by uid: earliest time to try again, and the current wait
+        self._grim_retry_at = {}
+        self._grim_delay = {}
         self._init_drmtap()
+
+    # After grim produces nothing for a user, wait this long before spawning it again, doubling on
+    # each further failure up to the maximum. It is expected to fail on GNOME (Mutter offers no
+    # screenshot protocol grim can use), and each attempt costs a runuser process, a PAM session and
+    # the grim process itself, so retrying on every video frame consumes most of a small CPU.
+    GRIM_BACKOFF_START_SECONDS = 2.0
+    GRIM_BACKOFF_MAX_SECONDS = 60.0
+
+    def _grim_note_ok(self, uid):
+        self._grim_delay.pop(uid, None)
+        self._grim_retry_at.pop(uid, None)
+
+    def _grim_note_failed(self, uid):
+        previous = self._grim_delay.get(uid)
+        delay = self.GRIM_BACKOFF_START_SECONDS if previous is None else min(self.GRIM_BACKOFF_MAX_SECONDS, previous * 2)
+        self._grim_delay[uid] = delay
+        self._grim_retry_at[uid] = time.time() + delay
+        if previous is None:
+            sys.stderr.write(f"[SafeDisplayGrabber] grim capture produced no image for uid {uid}; retrying with backoff (starting at {delay:.0f}s).\n")
+            sys.stderr.flush()
 
     def _init_mss(self):
         setup_display_env()
@@ -711,6 +747,8 @@ class SafeDisplayGrabber:
                         target_file = f"/dev/shm/homelab_frame_{uid_int}.png"
                         wl_sock = os.path.join(uid_dir, "wayland-0")
                         if os.path.exists(wl_sock):
+                            if time.time() < self._grim_retry_at.get(uid_int, 0.0):
+                                continue  # grim failed for this user a moment ago; do not spawn it again yet
                             try:
                                 if os.path.exists(target_file):
                                     os.remove(target_file)
@@ -723,7 +761,12 @@ class SafeDisplayGrabber:
                             ]
                             try:
                                 proc = subprocess.run(cmd, capture_output=True, timeout=0.3)
-                                if os.path.exists(target_file) and os.path.getsize(target_file) > 500:
+                                produced = os.path.exists(target_file) and os.path.getsize(target_file) > 500
+                                if produced:
+                                    self._grim_note_ok(uid_int)
+                                else:
+                                    self._grim_note_failed(uid_int)
+                                if produced:
                                     with open(target_file, "rb") as rf:
                                         raw_bytes = rf.read()
                                     try:
@@ -742,6 +785,7 @@ class SafeDisplayGrabber:
                                         fallback_black_engine = f"WAYLAND_GRIM_{uname}"
                             except Exception as e:
                                 self.error_detail = str(e)
+                                self._grim_note_failed(uid_int)
 
         # 3. Priority 3: Shared Memory MSS for active X11 / Xwayland desktop
         if not self.sct and mss:
@@ -1015,6 +1059,11 @@ KEY_MAP = {
 }
 
 
+# Keys whose held state matters to the host: they only make sense while held, so they are forwarded
+# as separate press and release events (left/right Ctrl, Alt, Shift and Meta, and AltGr).
+MODIFIER_KEY_CODES = frozenset({29, 97, 56, 100, 42, 54, 125, 126})
+
+
 def reset_all_inputs():
     global ui_mouse, ui_keyboard
     if ui_mouse:
@@ -1118,10 +1167,21 @@ def handle_input_message(msg_str):
                     code = KEY_MAP.get(f"Key{raw_code.upper()}") or KEY_MAP.get(f"Digit{raw_code}") or KEY_MAP.get(raw_code.lower()) or KEY_MAP.get(raw_code)
             if not code and isinstance(data.get("key"), str):
                 code = KEY_MAP.get(data.get("key"))
-            if code:
-                val = 1 if action == "keydown" else 0
-                ui_keyboard.write(e.EV_KEY, code, val)
+            if code in MODIFIER_KEY_CODES:
+                ui_keyboard.write(e.EV_KEY, code, 1 if action == "keydown" else 0)
                 ui_keyboard.syn()
+            elif code and action == "keydown":
+                # Every other key is a tap: press and release together. Holding a key down until its
+                # release message arrives is fragile, because the host starts auto-repeating any key
+                # that stays down for a few hundred milliseconds. When this process is busy or the
+                # link stalls, a late release then types the character over and over ("iiiiii"). A
+                # tap cannot be left held. Holding a key still repeats, because the browser keeps
+                # sending repeat keydown events at the local repeat rate, and each becomes a tap.
+                ui_keyboard.write(e.EV_KEY, code, 1)
+                ui_keyboard.syn()
+                ui_keyboard.write(e.EV_KEY, code, 0)
+                ui_keyboard.syn()
+            # The release of a tapped key is ignored: it was already released above.
     except Exception as err:
         sys.stderr.write(f"[Input] Error: {str(err)}\n")
         sys.stderr.flush()

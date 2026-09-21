@@ -63,6 +63,7 @@ Host environments vary across display servers (Wayland, X11, headless KMS, and v
 2. **Wayland Native Screencopy (`grim`)**:
    - For wlroots-compatible Wayland compositors (Sway, Wayfire, River). GNOME/Mutter does not implement the protocol this depends on, so this tier is expected to fail on GNOME sessions and is not the primary path there.
    - Utilizes `XDG_RUNTIME_DIR` and `WAYLAND_DISPLAY` environment descriptors.
+   - Each attempt spawns `runuser` (a PAM session) and then `grim`, which is expensive on a small CPU. When grim produces no image for a user, the grabber waits 2 seconds before trying that user again, doubling the wait after each further failure up to 60 seconds, and resets it as soon as grim succeeds. The first failure per user is logged once. Without this, a failing tier 1 made the daemon spawn these processes on every video frame, which showed up as most of the CPU in system (kernel) time.
 3. **Shared Memory Scanout (`mss` / X11 / Xwayland)**:
    - Connects to the primary X11 root window via MIT-SHM shared memory extensions (`/tmp/.X11-unix/X0`).
    - Analyzes frame brightness (`ImageStat.Stat`) to ensure Xwayland scanout is not emitting pure black frames.
@@ -73,6 +74,8 @@ Host environments vary across display servers (Wayland, X11, headless KMS, and v
    - A second attempt at tier 1, in case an intermediate tier's failure was transient.
 6. **PyAutoGUI Fallback Engine**:
    - Platform-agnostic fallback for desktop environments with accessible display handles.
+
+The compositor's environment (Wayland socket, X display, auth file) is located with `pgrep` and `/proc` reads. That result is reused for 10 seconds instead of being recomputed for every frame.
 
 Every tier requires an active, powered display output at the kernel level -- none of them can produce a picture when the monitor itself has no power, since there is no scanout content anywhere in the pipeline to read.
 
@@ -151,6 +154,9 @@ Client input coordinates are transmitted as normalized floating-point numbers be
   ui_mouse.write(e.EV_REL, e.REL_WHEEL, steps)
   ui_mouse.syn()
   ```
+
+- **Key Press Semantics**: Modifier keys (left and right Ctrl, Alt, Shift, Meta, and AltGr) are forwarded as separate press and release events, so they stay held while other keys are typed. Every other key is injected as a tap, a press and release written together, and the later `keyup` message is ignored. A key held down until its release message arrives is fragile: the host auto-repeats any key that stays down for a few hundred milliseconds, so a delayed or lost release types the character repeatedly. Holding a key still repeats, because the browser keeps sending repeat `keydown` events at the local repeat rate and each becomes a tap. The trade-off is that applications that need the held state of a non-modifier key, such as games, see repeated taps instead.
+- **Mouse Move Coalescing**: The browser sends at most one `mousemove` message per animation frame, carrying the newest position, instead of one per hardware event. A high-polling mouse can fire hundreds of events a second, and the daemon handles each on its main loop, so unthrottled movement starves video delivery and key handling. Any waiting position is sent immediately before a button press or release so clicks land where the pointer is.
 
 ### 4.3 Keycode Mapping Table
 Browser JavaScript `event.code` identifiers are mapped to Linux kernel `KEY_*` constants:
