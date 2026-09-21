@@ -10,6 +10,15 @@ const DEFAULT_FRAME_ANCESTORS = "'none'";
 // newline in an environment variable from smuggling extra directives into the policy.
 const SAFE_FRAME_ANCESTORS = /^[A-Za-z0-9:/.*'\- ]+$/;
 
+// Third-party sources, scoped to the exact package paths the frontend loads. A bare
+// https://cdn.jsdelivr.net would also allow any npm package or GitHub file anyone has published,
+// which would let injected markup pull in an attacker's script. A source ending in "/" matches
+// everything beneath that path. Keep these in step with the tags in frontend/index.html and the
+// logo URL in frontend/utils/icons.js.
+const XTERM_CDN = 'https://cdn.jsdelivr.net/npm/xterm@5.3.0/';
+const XTERM_FIT_CDN = 'https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/';
+const ICON_CDN = 'https://cdn.jsdelivr.net/gh/selfhst/icons@main/';
+
 // A Host header worth trusting for building the WebSocket origin: hostname or IP, optional port.
 const SAFE_HOST = /^(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(?::\d{1,5})?$/;
 
@@ -19,20 +28,22 @@ export function resolveFrameAncestors(configured: string | undefined): string {
 }
 
 /**
- * Builds the CSP for one response. Scripts may only come from this origin and the pinned CDN
- * (whose files also carry Subresource Integrity hashes in index.html); inline scripts and eval are
- * not allowed. Inline styles remain allowed because components style elements with `style=`.
+ * Builds the CSP for one response. Scripts may only come from this origin and the two pinned xterm
+ * packages (whose files also carry Subresource Integrity hashes in index.html); inline scripts and
+ * eval are not allowed. Inline styles remain allowed because components style elements with
+ * `style=`. The xterm paths are also allowed for connect-src so browser developer tools can fetch
+ * their source maps without reporting a violation; that permits reads of those two packages only.
  */
 export function buildContentSecurityPolicy(host: string | undefined, frameAncestors: string): string {
   const socketOrigins = host && SAFE_HOST.test(host) ? `ws://${host} wss://${host}` : 'ws: wss:';
   return [
     "default-src 'self'",
-    "script-src 'self' https://cdn.jsdelivr.net",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+    `script-src 'self' ${XTERM_CDN} ${XTERM_FIT_CDN}`,
+    `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com ${XTERM_CDN}`,
     "font-src 'self' https://fonts.gstatic.com",
-    "img-src 'self' data: blob: https://cdn.jsdelivr.net",
+    `img-src 'self' data: blob: ${ICON_CDN}`,
     "media-src 'self' blob:",
-    `connect-src 'self' ${socketOrigins}`,
+    `connect-src 'self' ${socketOrigins} ${XTERM_CDN} ${XTERM_FIT_CDN}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

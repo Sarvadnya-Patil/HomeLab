@@ -39,17 +39,25 @@ test('Security response headers', async (t) => {
     const csp = buildContentSecurityPolicy('dash.local:8081', "'none'");
     const scripts = directive(csp, 'script-src');
 
-    assert.strictEqual(scripts, "'self' https://cdn.jsdelivr.net");
+    assert.strictEqual(
+      scripts,
+      "'self' https://cdn.jsdelivr.net/npm/xterm@5.3.0/ https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/"
+    );
     assert.ok(!scripts.includes('unsafe-inline') && !scripts.includes('unsafe-eval'), 'no inline script or eval');
+    assert.ok(!/https:\/\/cdn\.jsdelivr\.net(?!\/)/.test(csp), 'the CDN is never allowed as a whole host');
+    assert.ok(directive(csp, 'img-src').includes('https://cdn.jsdelivr.net/gh/selfhst/icons@main/'), 'logo path is allowed');
     assert.strictEqual(directive(csp, 'default-src'), "'self'");
     assert.strictEqual(directive(csp, 'object-src'), "'none'");
     assert.strictEqual(directive(csp, 'frame-ancestors'), "'none'");
-    assert.strictEqual(directive(csp, 'connect-src'), "'self' ws://dash.local:8081 wss://dash.local:8081");
+    assert.ok(
+      directive(csp, 'connect-src').startsWith("'self' ws://dash.local:8081 wss://dash.local:8081"),
+      'connect-src allows this origin and its WebSocket'
+    );
   });
 
   await t.test('a malformed Host header cannot inject extra CSP directives', () => {
     const csp = buildContentSecurityPolicy("evil.example; script-src *", "'none'");
-    assert.strictEqual(directive(csp, 'script-src'), "'self' https://cdn.jsdelivr.net");
+    assert.ok(!directive(csp, 'script-src').includes('*'), 'a hostile Host value cannot open script-src');
     assert.ok(!csp.includes('evil.example'), 'the hostile value is not echoed into the policy');
   });
 
