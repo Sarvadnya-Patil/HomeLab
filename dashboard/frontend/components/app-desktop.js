@@ -191,6 +191,7 @@
  
    async connect() {
      const video = this.container.querySelector('#desktop-video');
+     if (video) video.onplaying = () => this.syncDisplaySurface();
      const setupView = this.container.querySelector('#desktop-setup-view');
      const streamView = this.container.querySelector('#desktop-stream-view');
      const statusVal = this.container.querySelector('#desktop-status-val');
@@ -311,6 +312,11 @@
              if (!isWebRTCPlaying && canvas && payload.data) {
                const img = new Image();
                img.onload = () => {
+                 // The video may have started playing while this frame was decoding
+                 if (this.isVideoPlaying()) {
+                   this.syncDisplaySurface();
+                   return;
+                 }
                  canvas.width = img.width;
                  canvas.height = img.height;
                  const ctx = canvas.getContext('2d');
@@ -380,11 +386,32 @@
      }
    },
  
+   // True when the WebRTC video is actually rendering frames.
+   isVideoPlaying() {
+     const video = this.container?.querySelector('#desktop-video');
+     return !!(video && video.srcObject && !video.paused && video.readyState >= 2);
+   },
+
+   // Shows the live video and hides the JPEG fallback image once the video is playing. A fallback
+   // frame that finishes decoding around the moment the video starts used to hide the video, and
+   // nothing ever switched back, so the page kept showing the last fallback frame while the real
+   // video played invisibly (diagnostics STATE G: video element size 0). Hiding the video also made
+   // the page report "not playing", which kept the daemon sending fallback frames the page then
+   // refused to draw. Called whenever playback starts and on every stats tick, so it always recovers.
+   syncDisplaySurface() {
+     if (!this.isVideoPlaying()) return;
+     const video = this.container.querySelector('#desktop-video');
+     const canvas = this.container.querySelector('#desktop-canvas');
+     video.style.display = 'block';
+     if (canvas) canvas.style.display = 'none';
+   },
+
    startStatsPoller() {
      if (this.statsInterval) clearInterval(this.statsInterval);
  
      this.statsInterval = setInterval(async () => {
        if (!this.pc) return;
+       this.syncDisplaySurface();
  
        try {
          const stats = await this.pc.getStats();
