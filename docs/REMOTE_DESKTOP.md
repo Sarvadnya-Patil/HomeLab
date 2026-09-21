@@ -87,6 +87,7 @@ Every tier requires an active, powered display output at the kernel level -- non
 ### 3.1 Video Track Pipeline
 The video stream is encapsulated in a custom `VideoStreamTrack` derived from `aiortc`:
 - **Worker Thread**: A dedicated capture worker pulls frames on a fixed cadence matched to the encoder's actual consumption rate, rather than looping as fast as the capture engine allows -- capturing faster than any consumer can use is wasted CPU work, not extra quality.
+- **Capture Lifetime**: The worker thread exists only while a viewer is connected. It is created when a viewer's WebRTC offer arrives, stopped (`ScreenCaptureTrack.stop()`) when a newer connection replaces it, when the dashboard tells the daemon the viewer closed, or when the link to the dashboard drops, and it is not started at all at daemon startup. With no viewer the daemon does no capture, encoding or JPEG work. Earlier versions never stopped the thread, so every reconnect left another one capturing and sending frames indefinitely.
 - **Black-Frame Detection**: Per-frame brightness is sampled from a small downscaled thumbnail rather than the full-resolution image, since detecting "is this frame black" doesn't need full-resolution accuracy and the cost of `ImageStat.Stat` scales with pixel count.
 - **Cropping & Normalization**: Frame dimensions are automatically cropped to even integers (`w - (w % 2)`) to satisfy H.264 macroblock alignment rules.
 - **Timestamp Synchronization**: Generates presentation timestamps (`pts`) and time bases for synchronized real-time RTP packetization.

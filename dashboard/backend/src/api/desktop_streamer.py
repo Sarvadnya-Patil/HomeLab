@@ -950,6 +950,13 @@ class ScreenCaptureTrack(VideoStreamTrack):
         self.capture_thread = threading.Thread(target=self._capture_worker, daemon=True)
         self.capture_thread.start()
 
+    def stop(self):
+        # aiortc does not stop a track when its connection closes, and nothing else set `running`
+        # to False, so every connection used to leave a thread capturing the screen and
+        # JPEG-encoding frames for good. Several of those ran at once after a few reconnects.
+        self.running = False
+        super().stop()
+
     def _capture_worker(self):
         target_interval = 1.0 / CAPTURE_TARGET_FPS
         while self.running:
@@ -1293,6 +1300,8 @@ def recreate_peer_connection():
     global pc, video_track, client_confirmed_playing, client_confirmed_playing_at
     client_confirmed_playing = False
     client_confirmed_playing_at = 0.0
+    if video_track is not None:
+        video_track.stop()
     # aiortc gives encoders no close()/teardown hook -- the previous
     # connection's RTCRtpSender and its encoder are simply dropped and left
     # for GC. That's harmless for the stock software encoder, but a
@@ -1339,6 +1348,19 @@ def recreate_peer_connection():
                 handle_input_message(message)
 
 
+async def stop_streaming():
+    # Ends the capture thread and the peer connection. Called when the viewer leaves or the link to
+    # the dashboard drops, so nothing keeps capturing and encoding with nobody watching.
+    if video_track is not None:
+        video_track.stop()
+    if pc:
+        try:
+            await pc.close()
+        except Exception:
+            pass
+    _cleanup_vaapi_processes()
+
+
 async def daemon_signaling_loop(daemon_token):
     global pc, active_ws, main_loop, video_track
     main_loop = asyncio.get_running_loop()
@@ -1351,9 +1373,8 @@ async def daemon_signaling_loop(daemon_token):
     sys.stderr.write(f"[DesktopStreamer] Daemon active. Connecting: {uri}\n")
     sys.stderr.flush()
 
-    if not video_track:
-        recreate_peer_connection()
-
+    # No capture thread is started here. One is created when a viewer sends an offer, and stopped
+    # when they leave; capturing and encoding with nobody watching only burns CPU.
     while True:
         try:
             async with websockets.connect(uri, ping_interval=10, ping_timeout=10) as ws:
@@ -1389,8 +1410,7 @@ async def daemon_signaling_loop(daemon_token):
                                 "sdp": pc.localDescription.sdp
                             }))
                         elif payload.get("type") == "close":
-                            if pc:
-                                await pc.close()
+                            await stop_streaming()
                         elif payload.get("type") == "playback_status":
                             handle_playback_status(payload)
                         else:
@@ -1400,6 +1420,8 @@ async def daemon_signaling_loop(daemon_token):
                         sys.stderr.flush()
         except Exception as err:
             active_ws = None
+            # The dashboard link is gone, and any viewer went with it
+            await stop_streaming()
             sys.stderr.write(f"[DesktopStreamer] Connection error: {str(err)}. Retrying in 5s...\n")
             sys.stderr.flush()
             await asyncio.sleep(5)
