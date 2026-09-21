@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setInterval(poll, 5000);
   };
 
-  const initializeConsole = async () => {
+  const initializeConsole = async ({ landOnDashboard = false } = {}) => {
     // 3. Load active apps on boot and establish socket streams
     try {
       const [apps, categories, services, workspaces, notifications] = await Promise.all([
@@ -135,13 +135,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       store.set('services', services);
       store.set('workspaces', workspaces);
       store.set('notifications', notifications);
-      
-      // Switch to initial app from local storage
-      const activeApp = store.get('activeApp') || 'dashboard';
-      store.set('activeApp', activeApp);
     } catch (err) {
       console.error('Failed to pre-load essential console data:', err);
     }
+
+    // Signing in (with or without 2FA) always lands on the dashboard. Opening the site starts there
+    // too (see core/state.js), except that refreshing the page stays on the page you were on.
+    // Setting the value explicitly is also what draws the view, and it happens even if the data above
+    // failed to load, so the page is never left blank.
+    store.set('activeApp', landOnDashboard ? 'dashboard' : (store.get('activeApp') || 'dashboard'));
 
     startHealthPolling();
 
@@ -307,7 +309,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const user = await api.get('/api/v1/auth/me');
       store.set('currentUser', user);
       if (appShell) appShell.style.display = 'flex';
-      await initializeConsole();
+      await initializeConsole({ landOnDashboard: true });
     } catch (err) {
       loginError.textContent = err.message;
       loginError.style.display = 'block';
@@ -438,7 +440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const user = await api.get('/api/v1/auth/me');
       store.set('currentUser', user);
       if (appShell) appShell.style.display = 'flex';
-      await initializeConsole();
+      await initializeConsole({ landOnDashboard: true });
     } catch (err) {
       twofaLoginError.textContent = err.message || 'Invalid OTP. Please try again.';
       twofaLoginError.style.display = 'block';

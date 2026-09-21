@@ -12,6 +12,7 @@ The HomeLab OS frontend is crafted in modern, lightweight Vanilla JavaScript (ES
 - **Zero Build Step Frontend**: Browser-native ES Modules (`import`/`export`) load directly without webpack or vite bundles, enabling instant UI updates.
 - **Strict CSS Custom Properties**: All styles, spacing tokens, and color gamuts are managed through standardized CSS variables in `style.css`.
 - **Reactive WebSocket Integration**: A singleton `WebSocketClient` maintains persistent event channels for live metrics, logs, jobs, and desktop streaming.
+- **Starting Page**: Opening the site, signing in, and finishing 2FA all land on the dashboard. Refreshing the page stays on the page you were on. The current page is kept in `sessionStorage` (per tab, cleared when the tab closes) and is only restored when the browser reports the navigation as a refresh, so a stale page can never carry over into a fresh visit. Older versions remembered the last page in `localStorage` across visits; that value is ignored and removed.
 - **Escape Before `innerHTML`**: Container names, service labels, job targets, settings values, and API error text are untrusted. Any such value interpolated into a template string that reaches `innerHTML` must pass through `escapeHtml()` from `utils/html.js`, or be assigned with `textContent` instead. Values are never spliced into inline event handlers (`onclick`, `onerror`); pass them through `data-*` attributes and read them back in a listener. Use `CSS.escape()` when building a selector from data.
 
 ```mermaid
@@ -49,7 +50,7 @@ Each primary navigation view is encapsulated in a dedicated component module und
 | `app-health.js` | `health` | Subsystem availability cards (database, docker, tunnel, scheduler) and latency measurements. |
 | `app-jobs.js` | `jobs` | Asynchronous task execution monitoring, live progress bars, log buffers, and cancellation triggers. |
 | `app-terminal.js` | `terminal` | High-fidelity terminal console with inline cursor focus, command history, and direct SSH execution. |
-| `app-desktop.js` | `desktop` | WebRTC video streamer canvas, direct mouse/keyboard capture, resolution scaling, and telemetry HUD. |
+| `app-desktop.js` | `desktop` | WebRTC video streamer canvas, direct mouse/keyboard capture, and resolution scaling. |
 | `app-settings.js` | `settings` | System preferences manager, 2FA setup, SMTP STARTTLS configuration, SSH keys, and backups. |
 | `header.js` | Global | Host status indicator, global search bar (`Ctrl+K`), quick stats summary, and user profile drawer. |
 | `sidebar.js` | Global | Collapsible navigation menu, view switcher, and active route highlights. |
