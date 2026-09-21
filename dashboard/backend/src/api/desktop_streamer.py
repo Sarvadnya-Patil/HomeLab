@@ -1370,7 +1370,9 @@ async def daemon_signaling_loop(daemon_token):
         return
 
     uri = f"ws://127.0.0.1:8081/ws/desktop/daemon?token={daemon_token}"
-    sys.stderr.write(f"[DesktopStreamer] Daemon active. Connecting: {uri}\n")
+    # The token is a credential, so log the address without it: anything that can read the system
+    # log could otherwise connect to the dashboard as the daemon.
+    sys.stderr.write(f"[DesktopStreamer] Daemon active. Connecting: {uri.split('?')[0]}\n")
     sys.stderr.flush()
 
     # No capture thread is started here. One is created when a viewer sends an offer, and stopped
