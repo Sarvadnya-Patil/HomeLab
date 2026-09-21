@@ -3,6 +3,11 @@ import { api } from '../core/api.js';
 import { Dialog } from '../utils/dialog.js';
 import { escapeHtml } from '../utils/html.js';
 
+// Tallest the job list and log panels grow. They fill the available space up to this height, then
+// scroll inside their own borders instead of stretching the page on a large screen. This has to be
+// max-height: the row is a flex item (flex: 1), and flex sizing overrides a plain height.
+const JOBS_PANEL_MAX_HEIGHT = '640px';
+
 export const AppJobs = {
   container: null,
   jobs: [],
@@ -57,7 +62,7 @@ export const AppJobs = {
           </div>
         </div>
 
-        <div style="display: flex; flex: 1; gap: 1.25rem; min-height: 400px; height: calc(100vh - 190px);">
+        <div style="display: flex; flex: 1; gap: 1.25rem; min-height: 400px; height: calc(100vh - 190px); max-height: ${JOBS_PANEL_MAX_HEIGHT};">
           <div class="jobs-list-panel" style="flex: 1; min-width: 280px; background: #0e0e11; border-radius: 0; border: 2px solid #ffffff; box-shadow: 4px 4px 0 #ffffff; padding: 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto;">
             <div id="jobs-cards-container" style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
               <div class="circular-loader-overlay" style="min-height: 180px;">
