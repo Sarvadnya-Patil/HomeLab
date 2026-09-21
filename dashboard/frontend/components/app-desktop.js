@@ -26,7 +26,7 @@
          </h3>
          
          <p style="font-size: 0.72rem; color: #a1a1aa; line-height: 1.5; margin-bottom: 1.5rem; background: #0e0e11; border: 1px dashed #33333e; padding: 0.75rem;">
-           <b>Virtual Display Isolation</b>: Safe sandbox environment streaming desktop pixels directly to the web client using WebRTC and secure WebSocket tunnels.
+           <b>Live Host Desktop</b>: Streams this host's real desktop to your browser using WebRTC, with a WebSocket fallback. Your keyboard and mouse control the actual session, so anything you do here happens on the host.
          </p>
  
          <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem;">

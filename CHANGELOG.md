@@ -47,6 +47,7 @@ Releases `1.0.0` through `2.0.0` were tagged without changelog entries. Everythi
 * Frame-ancestors input could smuggle a line break into the header.
 * `@fastify/static` 10 crashed on the first static request because header hooks now receive a reply.
 * WebSocket handlers now use the `(socket, request)` signature of `@fastify/websocket` 11.
+* The Remote Desktop page no longer describes the stream as a virtual sandbox. It shows the host's real desktop, and the text now says so.
 
 ### Security
 * Stored secrets no longer fall back to a publicly known key in production.
