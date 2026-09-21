@@ -213,6 +213,7 @@
        const ticket = await api.wsTicket();
        const wsUrl = `${wsProtocol}//${window.location.host}/ws/desktop?ticket=${encodeURIComponent(ticket)}`;
  
+       this.offerSent = false;
        this.ws = new WebSocket(wsUrl);
  
        this.ws.onopen = async () => {
@@ -281,6 +282,7 @@
            type: 'offer',
            sdp: this.pc.localDescription.sdp
          }));
+         this.offerSent = true;
  
          setTimeout(() => {
            const setupView = this.container?.querySelector('#desktop-setup-view');
@@ -299,7 +301,11 @@
            const rawText = (typeof Blob !== 'undefined' && evt.data instanceof Blob) ? await evt.data.text() : evt.data;
            const payload = typeof rawText === 'string' ? JSON.parse(rawText) : rawText;
            if (payload.type === 'answer') {
-             await this.pc.setRemoteDescription(new RTCSessionDescription(payload));
+             if (!this.pc || this.pc.signalingState !== 'have-local-offer') {
+               console.warn('[DesktopClient] Ignoring an answer that no offer is waiting for.');
+             } else {
+               await this.pc.setRemoteDescription(new RTCSessionDescription(payload));
+             }
            } else if (payload.type === 'frame') {
              const canvas = this.container.querySelector('#desktop-canvas');
              const video = this.container.querySelector('#desktop-video');
@@ -338,13 +344,19 @@
              this.updateDiagnosticsUI();
            } else if (payload.type === 'status') {
              if (payload.status === 'daemon_online') {
-               console.log('[DesktopClient] Host daemon online. Initiating WebRTC offer...');
-               const offer = await this.pc.createOffer();
-               await this.pc.setLocalDescription(offer);
-               this.ws.send(JSON.stringify({
-                 type: 'offer',
-                 sdp: this.pc.localDescription.sdp
-               }));
+               // The dashboard announces the daemon as soon as we connect, which is before the offer made when
+               // the socket opened has finished (it waits for ICE gathering). Creating a second offer here made
+               // the daemon treat it as a new connection and tear down the first, so the answer to the first
+               // ("Called in wrong state: stable") described a connection that no longer existed and the stream
+               // died. Only re-send the SAME offer, and only when it went out before the daemon was listening
+               // and is still unanswered.
+               if (this.pc && this.offerSent && this.pc.signalingState === 'have-local-offer' && this.pc.localDescription) {
+                 console.log('[DesktopClient] Host daemon came online. Re-sending the pending WebRTC offer...');
+                 this.ws.send(JSON.stringify({
+                   type: 'offer',
+                   sdp: this.pc.localDescription.sdp
+                 }));
+               }
              } else if (payload.status === 'daemon_offline') {
                this.clientStats.pipelineState = 'DAEMON OFFLINE';
                this.clientStats.pipelineDetail = 'Remote desktop capture service is currently offline on host OS.';
