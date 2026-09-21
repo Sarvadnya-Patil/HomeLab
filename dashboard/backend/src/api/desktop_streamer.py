@@ -421,40 +421,24 @@ class VAAPIH264Encoder(H264Encoder):
 
 def enable_vaapi_encoder_if_available():
     device = probe_vaapi_h264_encode()
-    if device:
-        telemetry.encoder_hardware = f"VAAPI ({device})"
-        sys.stderr.write(f"[VAAPI] Hardware H.264 encoding enabled via {device}.\n")
-    else:
+    if not device:
         sys.stderr.write("[VAAPI] No working hardware H.264 encoder found; using software libx264.\n")
+        sys.stderr.flush()
         telemetry.encoder_hardware = "SOFTWARE"
-    sys.stderr.flush()
+        return
 
-    # The hook is installed even without a hardware encoder, because it is also what reports the codec
-    # that was actually negotiated.
     import aiortc.rtcrtpsender
     original_get_encoder = aiortc.rtcrtpsender.get_encoder
 
     def patched_get_encoder(codec):
-        # aiortc picks the codec from the order the browser lists them in its offer, so a stream can
-        # end up on VP8 even though the hardware encoder only handles H.264. Say which it is, once per
-        # stream, instead of leaving the dashboard to assume H.264.
-        is_h264 = codec.mimeType.lower() == "video/h264"
-        telemetry.encoder_codec = codec.mimeType.split("/")[-1].upper()
-        if device and is_h264:
-            sys.stderr.write(f"[DesktopStreamer] Negotiated codec {codec.mimeType}; encoding in hardware via {device}.\n")
-            sys.stderr.flush()
+        if codec.mimeType.lower() == "video/h264":
             return VAAPIH264Encoder(device)
-        if device:
-            reason = "the hardware encoder handles H.264 only"
-        elif is_h264:
-            reason = "no hardware encoder is available (libx264)"
-        else:
-            reason = "no hardware encoder is available"
-        sys.stderr.write(f"[DesktopStreamer] Negotiated codec {codec.mimeType}; encoding in software because {reason}.\n")
-        sys.stderr.flush()
         return original_get_encoder(codec)
 
     aiortc.rtcrtpsender.get_encoder = patched_get_encoder
+    telemetry.encoder_hardware = f"VAAPI ({device})"
+    sys.stderr.write(f"[VAAPI] Hardware H.264 encoding enabled via {device}.\n")
+    sys.stderr.flush()
 
 
 try:
@@ -1386,9 +1370,7 @@ async def daemon_signaling_loop(daemon_token):
         return
 
     uri = f"ws://127.0.0.1:8081/ws/desktop/daemon?token={daemon_token}"
-    # The token is a credential, so log the address without it: anything that can read the system
-    # log could otherwise connect to the dashboard as the daemon.
-    sys.stderr.write(f"[DesktopStreamer] Daemon active. Connecting: {uri.split('?')[0]}\n")
+    sys.stderr.write(f"[DesktopStreamer] Daemon active. Connecting: {uri}\n")
     sys.stderr.flush()
 
     # No capture thread is started here. One is created when a viewer sends an offer, and stopped
