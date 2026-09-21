@@ -305,7 +305,7 @@ export default function (fastify: any, engine: CoreEngine): void {
       openapi: '3.0.0',
       info: {
         title: 'HomeLab OS API Spec',
-        version: '5.0.0',
+        version: '3.0.0',
         description: 'Modular v1 OpenAPI specs for the HomeLab OS central control plane.'
       }
     };

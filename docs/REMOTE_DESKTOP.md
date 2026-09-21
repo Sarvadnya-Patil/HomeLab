@@ -50,6 +50,19 @@ graph TD
     CAP --> ENC
 ```
 
+### 1.1 Supported Environments
+
+The stream is **not Wayland-only**. It works with Wayland, X11 and Xwayland sessions. The main capture path (`libdrmtap`) reads the display straight from the kernel and input is injected through `/dev/uinput`, so neither depends on which display server is running.
+
+| Requirement | Detail |
+| :--- | :--- |
+| Host OS | Linux only. The daemon needs systemd, `/dev/uinput` and DRM/KMS. Windows and macOS hosts are not supported. |
+| Display server | Wayland (including GNOME) or X11. The compositor-based fallbacks are per server: `grim` needs a wlroots compositor (Sway, Wayfire, River) and does not work on GNOME, `mss` needs an X11 or Xwayland display. |
+| Display output | A powered, connected display. With the monitor off or unplugged the kernel has nothing to scan out. A headless server needs a display attached or an HDMI/DisplayPort dummy plug. |
+| Browser | Any modern browser with WebRTC. Video is VP8 or H.264, whichever the browser offers first; hardware encoding only applies to H.264 (see section 3.2). |
+
+Release testing covered an Ubuntu host on the `libdrmtap` path. The X11 (`mss`) fallback and a working `grim` session were not verified in that testing.
+
 ---
 
 ## 2. Multi-Tier Display Capture Hierarchy
@@ -132,27 +145,26 @@ On initialization, the daemon registers two virtual input devices with the kerne
 
 ### 4.2 Coordinate Normalization & Event Synthesis
 Client input coordinates are transmitted as normalized floating-point numbers between `0.0` and `1.0`:
-- **Absolute Coordinate Translation**:
+- **Absolute Coordinate Translation**: the virtual mouse is an absolute device with a 0 to 65535 range on each axis, so the position does not depend on the host's resolution:
   ```python
-  abs_x = int(data["x"] * 1920)
-  abs_y = int(data["y"] * 1080)
+  abs_x = int(max(0.0, min(1.0, float(data["x"]))) * 65535)
+  abs_y = int(max(0.0, min(1.0, float(data["y"]))) * 65535)
   ui_mouse.write(e.EV_ABS, e.ABS_X, abs_x)
   ui_mouse.write(e.EV_ABS, e.ABS_Y, abs_y)
   ui_mouse.syn()
   ```
 - **Button Click Synthesis**:
   ```python
-  btn_code = e.BTN_LEFT if btn_name == "left" else (e.BTN_RIGHT if btn_name == "right" else e.BTN_MIDDLE)
-  ui_mouse.write(e.EV_KEY, btn_code, 1 if action in ["mousedown", "click"] else 0)
+  # left, right, middle, back and forward map to BTN_LEFT, BTN_RIGHT, BTN_MIDDLE, BTN_SIDE and BTN_EXTRA
+  ui_mouse.write(e.EV_KEY, btn_code, 1)   # mousedown, and the first half of a click
   ui_mouse.syn()
-  if action == "click":
-      ui_mouse.write(e.EV_KEY, btn_code, 0)
-      ui_mouse.syn()
+  ui_mouse.write(e.EV_KEY, btn_code, 0)   # mouseup, and the second half of a click
+  ui_mouse.syn()
   ```
 - **Wheel Scrolling**:
   ```python
   steps = -1 if dy > 0 else 1
-  ui_mouse.write(e.EV_REL, e.REL_WHEEL, steps)
+  ui_mouse.write(e.EV_REL, e.REL_WHEEL, steps)   # vertical; dx drives REL_HWHEEL the same way
   ui_mouse.syn()
   ```
 
@@ -219,8 +231,8 @@ After=network.target display-manager.service
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/homelab/dashboard/backend/src/api
-ExecStart=/usr/bin/python3 desktop_streamer.py --daemon-mode --daemon-token daemon_default_secret
+WorkingDirectory=/opt/homelab
+ExecStart=/usr/bin/python3 /opt/homelab/desktop_streamer.py --daemon-mode --daemon-token <daemon-token>
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
@@ -228,6 +240,8 @@ Environment=PYTHONUNBUFFERED=1
 [Install]
 WantedBy=multi-user.target
 ```
+
+`<daemon-token>` is the secret generated when the daemon was installed (Settings, Remote Desktop, Install Host Daemon). The dashboard refuses a daemon that does not present it; there is no default token. The installer writes this unit for you, so edit it by hand only for a manual install.
 
 Enable and start the service:
 ```bash

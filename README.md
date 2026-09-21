@@ -36,6 +36,7 @@ A modular, self-hosted infrastructure control plane and management console devel
 HomeLab OS incorporates a browser-based remote desktop streamer:
 - **Low-Latency Video Pipeline:** Real-time H.264 video streaming over WebRTC (`aiortc`) with presentation timestamp synchronization and adaptive JPEG fallbacks.
 - **Hardware Kernel Input (`/dev/uinput`):** Direct hardware-level mouse positioning and keyboard scancode injection via the Linux kernel `uinput` module, bypassing display server permissions.
+- **Works on Wayland and X11:** capture and input happen at the kernel level, so the stream is not tied to one display server. It needs a Linux host and a powered display output (see [docs/REMOTE_DESKTOP.md](docs/REMOTE_DESKTOP.md#11-supported-environments)).
 - **Multi-Tier Frame Capture:** Automated capture hierarchy: direct DRM/KMS scanout (`libdrmtap`), Wayland `grim` (wlroots compositors), MIT-SHM shared memory (`mss`), and Linux linear framebuffers (`/dev/fb0`).
 
 ### 3.2 Dynamic Container Topologies & Visual Designer
